@@ -1,0 +1,52 @@
+/* ============================================
+   frontend/src/pages/Musicas.css
+   LAUDA - Banco de Músicas
+   ============================================ */
+
+/* Grid responsivo de cards */
+.musicas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+/* Bloco de informações dentro do card */
+.musica-info {
+  margin-bottom: 0.75rem;
+}
+
+.musica-info h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 0.25rem;
+}
+
+.musica-info .text-muted {
+  margin: 0;
+}
+
+/* Rodapé do card com metadados */
+.musica-meta {
+  display: flex;
+  gap: 1rem;
+  border-top: 1px solid var(--gray-100);
+  padding-top: 0.75rem;
+  margin-top: 0;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+}
+
+.musica-meta strong {
+  color: var(--gray-700);
+}
+
+/* Estado vazio */
+.musicas-grid:empty::after {
+  content: 'Nenhuma música cadastrada ainda.';
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--gray-400);
+  font-size: 0.875rem;
+}

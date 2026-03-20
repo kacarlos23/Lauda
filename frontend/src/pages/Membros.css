@@ -1,0 +1,15 @@
+/* ============================================
+   frontend/src/pages/Membros.css
+   LAUDA - Equipe / Membros
+   
+   Reutiliza as mesmas classes de Musicas.css:
+   .musicas-grid, .musica-info, .musica-meta
+   
+   Aqui ficam apenas estilos específicos de Membros,
+   caso necessário no futuro.
+   ============================================ */
+
+/* Estado vazio específico */
+.musicas-grid:empty::after {
+  content: 'Nenhum membro cadastrado ainda.';
+}

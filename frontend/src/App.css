@@ -1,0 +1,183 @@
+/* ============================================
+   frontend/src/App.css
+   LAUDA - Layout Principal (Sidebar + Header + Content)
+   ============================================ */
+
+/* ============================================
+   1. WRAPPER GERAL
+   ============================================ */
+.lauda-wrapper {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background-color: var(--gray-50);
+}
+
+/* ============================================
+   2. SIDEBAR (Barra Lateral)
+   ============================================ */
+.lauda-sidebar {
+  width: 240px;
+  min-width: 240px;
+  background-color: var(--white);
+  border-right: 1px solid var(--gray-200);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.lauda-logo {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+}
+
+.lauda-logo span {
+  font-size: 1.5rem;
+}
+
+.lauda-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lauda-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius-md);
+  color: var(--gray-600);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all var(--transition-fast);
+}
+
+.lauda-nav-item:hover {
+  background-color: var(--primary-lightest);
+  color: var(--primary-dark);
+}
+
+.lauda-nav-item.active {
+  background-color: var(--primary-lightest);
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.lauda-nav-item span {
+  font-size: 1.125rem;
+  width: 1.5rem;
+  text-align: center;
+}
+
+/* ============================================
+   3. ZONA PRINCIPAL (Header + Content)
+   ============================================ */
+.lauda-main-zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+  min-width: 0; /* evita overflow horizontal */
+}
+
+/* ============================================
+   4. HEADER SUPERIOR
+   ============================================ */
+.lauda-header {
+  height: 60px;
+  min-height: 60px;
+  background-color: var(--white);
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.lauda-header h1 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-800);
+  margin: 0;
+}
+
+.lauda-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ============================================
+   5. CONTAINER DO CONTEÚDO
+   ============================================ */
+.lauda-content {
+  padding: 2rem;
+  flex: 1;
+  max-width: 1200px;
+  width: 100%;
+}
+
+/* ============================================
+   6. PAGE HEADER (Título + Botão de cada módulo)
+      Usado em Músicas, Cultos, Membros, etc.
+   ============================================ */
+.lauda-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.lauda-page-header h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.lauda-page-header p {
+  margin: 0;
+}
+
+/* ============================================
+   7. RESPONSIVIDADE
+   ============================================ */
+@media (max-width: 768px) {
+  .lauda-sidebar {
+    display: none;
+  }
+
+  .lauda-header {
+    padding: 0 1rem;
+  }
+
+  .lauda-content {
+    padding: 1rem;
+  }
+
+  .lauda-page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lauda-page-header .lauda-btn {
+    align-self: flex-start;
+  }
+}

@@ -1,0 +1,51 @@
+/* ============================================
+   frontend/src/pages/Login.css
+   LAUDA - Tela de Login
+   ============================================ */
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: var(--gray-50);
+  padding: 1rem;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+}
+
+/* Dentro do card, remove o hover de elevação */
+.login-card.lauda-card:hover {
+  transform: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.login-header .lauda-logo {
+  justify-content: center;
+  margin-bottom: 0.5rem;
+  font-size: 1.75rem;
+}
+
+.login-header .text-muted {
+  margin: 0;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.login-form .lauda-btn {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+}
