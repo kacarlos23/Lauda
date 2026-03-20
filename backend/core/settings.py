@@ -69,27 +69,12 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        # Dizemos ao Django para usar o motor do PostgreSQL
-        'ENGINE': 'django.db.backends.postgresql',
-        
-        # O nome do banco que você acabou de criar no Passo 1
-        'NAME': 'lauda_db',
-        
-        # O usuário padrão do Postgres costuma ser 'postgres'
-        'USER': 'postgres',
-        
-        # ATENÇÃO: Coloque aqui a senha que você usa para entrar no seu Postgres!
-        'PASSWORD': 'Kak@1415926535',
-        
-        # Como está na sua própria máquina, o host é localhost
-        'HOST': 'localhost',
-        
-        # A porta padrão do PostgreSQL é sempre 5432
-        'PORT': '5432',
-    }
+    'default': dj_database_url.config(
+        default=config('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
