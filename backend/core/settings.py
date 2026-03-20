@@ -118,7 +118,9 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 AUTH_USER_MODEL = 'api.Usuario'
 
-CORS_ALLOW_ALL_ORIGINS = config(
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS', 
     default='http://localhost:3000,http://127.0.0.1:3000', 
     cast=Csv()
