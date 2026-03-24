@@ -12,11 +12,14 @@ export default function Login({ setToken }) {
     setErro("");
 
     try {
-      const resposta = await fetch("https://lauda-rust.vercel.app", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+      const resposta = await fetch(
+        "https://lauda-4de8.onrender.com/api/token/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        },
+      );
 
       if (resposta.ok) {
         const dados = await resposta.json();
