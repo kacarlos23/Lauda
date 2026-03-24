@@ -1,30 +1,30 @@
 // frontend/src/pages/Cultos.jsx
-import { useState, useEffect } from 'react';
-import './Cultos.css';
+import { useState, useEffect } from "react";
+import "./Cultos.css";
 
 export default function Cultos() {
   const [cultos, setCultos] = useState([]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
 
-    fetch('http://127.0.0.1:8000/api/cultos/', {
-      method: 'GET',
+    fetch("https://lauda-4de8.onrender.com/api/token/", {
+      method: "GET",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
     })
-      .then(res => {
+      .then((res) => {
         if (res.status === 401) {
-          localStorage.removeItem('token');
-          window.location.href = '/';
-          throw new Error('Sessão expirada');
+          localStorage.removeItem("token");
+          window.location.href = "/";
+          throw new Error("Sessão expirada");
         }
         return res.json();
       })
-      .then(dados => setCultos(dados))
-      .catch(erro => console.error("Erro na busca:", erro));
+      .then((dados) => setCultos(dados))
+      .catch((erro) => console.error("Erro na busca:", erro));
   }, []);
 
   return (
@@ -34,21 +34,32 @@ export default function Cultos() {
           <h2 className="text-primary">Agenda de Cultos</h2>
           <p className="text-muted">Gerencie os eventos e escalas</p>
         </div>
-        <button className="lauda-btn lauda-btn-primary" onClick={() => alert('Abriremos o formulário de Culto na próxima etapa!')}>
+        <button
+          className="lauda-btn lauda-btn-primary"
+          onClick={() =>
+            alert("Abriremos o formulário de Culto na próxima etapa!")
+          }
+        >
           + Novo Culto
         </button>
       </div>
 
       <div className="musicas-grid">
-        {cultos.map(culto => (
+        {cultos.map((culto) => (
           <div key={culto.id} className="lauda-card">
             <div className="musica-info">
               <h3>{culto.nome}</h3>
-              <p className="text-muted">📅 {culto.data} às {culto.horario_inicio}</p>
+              <p className="text-muted">
+                📅 {culto.data} às {culto.horario_inicio}
+              </p>
             </div>
             <div className="musica-meta text-muted">
-              <span><strong>Local:</strong> {culto.local}</span>
-              <span><strong>Status:</strong> {culto.status}</span>
+              <span>
+                <strong>Local:</strong> {culto.local}
+              </span>
+              <span>
+                <strong>Status:</strong> {culto.status}
+              </span>
             </div>
           </div>
         ))}
