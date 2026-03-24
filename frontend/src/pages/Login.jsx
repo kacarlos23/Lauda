@@ -1,32 +1,32 @@
 // frontend/src/pages/Login.jsx
-import { useState } from 'react';
-import './Login.css';
+import { useState } from "react";
+import "./Login.css";
 
 export default function Login({ setToken }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [erro, setErro] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [erro, setErro] = useState("");
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setErro('');
+    setErro("");
 
     try {
-      const resposta = await fetch('http://127.0.0.1:8000/api/token/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+      const resposta = await fetch("https://lauda-rust.vercel.app/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
       });
 
       if (resposta.ok) {
         const dados = await resposta.json();
-        localStorage.setItem('token', dados.access);
+        localStorage.setItem("token", dados.access);
         setToken(dados.access);
       } else {
-        setErro('Usuário ou senha incorretos.');
+        setErro("Usuário ou senha incorretos.");
       }
     } catch (error) {
-      setErro('Erro ao conectar com o servidor.');
+      setErro("Erro ao conectar com o servidor.");
     }
   };
 
@@ -35,7 +35,9 @@ export default function Login({ setToken }) {
     <div className="login-container">
       <div className="lauda-card login-card">
         <div className="login-header">
-          <h1 className="lauda-logo"><span>🎶</span> Lauda</h1>
+          <h1 className="lauda-logo">
+            <span>🎶</span> Lauda
+          </h1>
           <p className="text-muted">Faça login para acessar o sistema</p>
         </div>
 
