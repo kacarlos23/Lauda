@@ -12,7 +12,7 @@ export default function Login({ setToken }) {
     setErro("");
 
     try {
-      const resposta = await fetch("https://lauda-rust.vercel.app/", {
+      const resposta = await fetch("https://lauda-rust.vercel.app", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
