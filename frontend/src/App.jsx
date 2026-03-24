@@ -1,26 +1,29 @@
-import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import './App.css';
+import { useState } from "react";
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import "./App.css";
 
-import Musicas from './pages/Musicas';
-import Cultos from './pages/Cultos';
-import Membros from './pages/Membros';
-import Login from './pages/Login';
+import Musicas from "./pages/Musicas";
+import Cultos from "./pages/Cultos";
+import Membros from "./pages/Membros";
+import Login from "./pages/Login";
 
 function DashboardResumo() {
   return (
     <div>
       <h2 className="text-primary">Bem-vindo ao Lauda!</h2>
-      <p className="text-muted">Selecione uma opção no menu lateral para começar.</p>
+      <p className="text-muted">
+        Selecione uma opção no menu lateral para começar.
+      </p>
     </div>
   );
 }
 
 function App() {
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
     setToken(null);
   };
 
@@ -33,22 +36,48 @@ function App() {
   return (
     <BrowserRouter>
       <div className="lauda-wrapper">
-        <aside className="lauda-sidebar">
-          <div className="lauda-logo"><span>🎶</span> Lauda</div>
+        {/* NOVO: Fundo escuro que aparece no mobile. Se clicar nele, fecha o menu. */}
+        <div
+          className={`sidebar-overlay ${isMobileMenuOpen ? "open" : ""}`}
+          onClick={closeMenu}
+        ></div>
+
+        <aside className={`lauda-sidebar ${isMobileMenuOpen ? "open" : ""}`}>
+          <div className="lauda-logo">
+            <span>🎶</span> Lauda
+          </div>
           <nav className="lauda-nav">
-            <Link to="/" className="lauda-nav-item"><span>🏠</span> Dashboard</Link>
-            <Link to="/musicas" className="lauda-nav-item"><span>🎵</span> Músicas</Link>
-            <Link to="/cultos" className="lauda-nav-item"><span>📅</span> Cultos</Link>
-            <Link to="/membros" className="lauda-nav-item"><span>👥</span> Membros</Link>
+            <Link to="/" className="lauda-nav-item" onClick={closeMenu}>
+              <span>🏠</span> Dashboard
+            </Link>
+            <Link to="/musicas" className="lauda-nav-item" onClick={closeMenu}>
+              <span>🎵</span> Músicas
+            </Link>
+            <Link to="/cultos" className="lauda-nav-item" onClick={closeMenu}>
+              <span>📅</span> Cultos
+            </Link>
+            <Link to="/membros" className="lauda-nav-item" onClick={closeMenu}>
+              <span>👥</span> Membros
+            </Link>
           </nav>
         </aside>
 
         <main className="lauda-main-zone">
           <header className="lauda-header">
-            <h1>Ministério de Louvor</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+              {/* NOVO: Botão Hamburguer */}
+              <button className="menu-toggle-btn" onClick={toggleMenu}>
+                ☰
+              </button>
+              <h1>Ministério de Louvor</h1>
+            </div>
+
             <div className="lauda-user-profile">
-              {/* ALTERAÇÃO: removido style inline, agora usa classes CSS */}
-              <button onClick={handleLogout} className="lauda-btn lauda-btn-secondary">
+              <button
+                onClick={handleLogout}
+                className="lauda-btn lauda-btn-secondary"
+                style={{ padding: "5px 10px", fontSize: "0.8rem" }}
+              >
                 Sair
               </button>
             </div>
