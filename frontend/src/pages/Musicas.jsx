@@ -17,7 +17,7 @@ export default function Musicas() {
 
   const buscarMusicas = () => {
     const token = localStorage.getItem("token");
-    fetch("https://lauda-4de8.onrender.com/api/token/", {
+    fetch("https://lauda-4de8.onrender.com/api/musicas/", {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -70,7 +70,7 @@ export default function Musicas() {
 
     const token = localStorage.getItem("token");
 
-    fetch(`http://127.0.0.1:8000/api/musicas/${id}/`, {
+    fetch(`https://lauda-4de8.onrender.com/api/musicas/${id}/`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -88,8 +88,8 @@ export default function Musicas() {
 
     // Se tem editingId, usamos PUT na URL específica. Se não, usamos POST na URL geral.
     const url = editingId
-      ? `http://127.0.0.1:8000/api/musicas/${editingId}/`
-      : "http://127.0.0.1:8000/api/musicas/";
+      ? `https://lauda-4de8.onrender.com/api/musicas/${editingId}/`
+      : "https://lauda-4de8.onrender.com/api/musicas/";
 
     const metodo = editingId ? "PUT" : "POST";
 

@@ -8,7 +8,7 @@ export default function Membros() {
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    fetch("https://lauda-4de8.onrender.com/api/token/", {
+    fetch("https://lauda-4de8.onrender.com/api/membros/", {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
