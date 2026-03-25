@@ -20,9 +20,12 @@ export default function Musicas() {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState(ESTADO_INICIAL_FORM);
 
+  const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  const urlLimpa = baseUrl.replace(/\/$/, "");
+
   const buscarMusicas = () => {
     const token = localStorage.getItem("token");
-    fetch("https://lauda-4de8.onrender.com/api/musicas/", {
+    fetch(`${urlLimpa}/api/musicas/`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -96,8 +99,8 @@ export default function Musicas() {
     e.preventDefault();
     const token = localStorage.getItem("token");
     const url = editingId
-      ? `${import.meta.env.VITE_API_URL}/api/musicas/${editingId}/`
-      : `${import.meta.env.VITE_API_URL}/api/musicas/`;
+      ? `${urlLimpa}/api/musicas/${editingId}/`
+      : `${urlLimpa}/api/musicas/`;
     const metodo = editingId ? "PUT" : "POST";
 
     // Se o BPM estiver vazio, transformamos em null para não quebrar o banco do Django (que espera um número)
@@ -127,7 +130,7 @@ export default function Musicas() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="lauda-page-header">
         <div>
           <h2 className="text-primary">Banco de Músicas</h2>
           <p className="text-muted">
@@ -150,11 +153,8 @@ export default function Musicas() {
               <p className="text-muted">{musica.artista}</p>
             </div>
 
-            <div
-              className="musica-meta text-muted"
-              style={{ flexDirection: "column", gap: "5px" }}
-            >
-              <div style={{ display: "flex", gap: "15px" }}>
+            <div className="musica-meta musica-meta-column text-muted">
+              <div className="musica-meta-row">
                 <span>
                   <strong>Tom:</strong> {musica.tom_original}
                 </span>
@@ -172,13 +172,9 @@ export default function Musicas() {
 
               {/* Mostra as Tags e Link se existirem */}
               {musica.tags && (
-                <div style={{ marginTop: "5px" }}>
+                <div className="musica-tags">
                   {musica.tags.split(",").map((tag) => (
-                    <span
-                      key={tag}
-                      className="badge badge-gray"
-                      style={{ marginRight: "5px" }}
-                    >
+                    <span key={tag} className="badge badge-gray">
                       {tag.trim()}
                     </span>
                   ))}
@@ -189,43 +185,22 @@ export default function Musicas() {
                   href={musica.link_referencia}
                   target="_blank"
                   rel="noreferrer"
-                  style={{
-                    fontSize: "0.85rem",
-                    marginTop: "5px",
-                    display: "inline-block",
-                  }}
+                  className="musica-link"
                 >
                   🔗 Ouvir Referência
                 </a>
               )}
             </div>
 
-            <div
-              style={{
-                marginTop: "15px",
-                display: "flex",
-                gap: "10px",
-                justifyContent: "flex-end",
-                borderTop: "1px solid var(--gray-200)",
-                paddingTop: "15px",
-              }}
-            >
+            <div className="musica-actions">
               <button
-                className="lauda-btn lauda-btn-secondary"
-                style={{ padding: "5px 10px", fontSize: "0.85rem" }}
+                className="lauda-btn lauda-btn-secondary musica-action-btn"
                 onClick={() => handleEditarClick(musica)}
               >
                 Editar
               </button>
               <button
-                className="lauda-btn lauda-btn-danger"
-                style={{
-                  padding: "5px 10px",
-                  fontSize: "0.85rem",
-                  backgroundColor: "var(--error-dark)",
-                  color: "white",
-                  border: "none",
-                }}
+                className="lauda-btn lauda-btn-danger musica-action-btn"
                 onClick={() => handleDelete(musica.id)}
               >
                 Deletar
@@ -237,10 +212,7 @@ export default function Musicas() {
 
       {isModalOpen && (
         <div className="modal-overlay">
-          <div
-            className="modal"
-            style={{ display: "block", maxWidth: "600px" }}
-          >
+          <div className="modal modal-wide">
             <div className="modal-header">
               <h3 className="modal-title">
                 {editingId ? "Editar Música" : "Cadastrar Nova Música"}
@@ -254,17 +226,10 @@ export default function Musicas() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div
-                className="modal-body"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "15px",
-                }}
-              >
+              <div className="modal-body modal-form">
                 {/* Linha 1: Título e Artista */}
-                <div style={{ display: "flex", gap: "15px", flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: "200px" }}>
+                <div className="form-row-wrap">
+                  <div className="form-field-grow">
                     <label className="input-label">Título da Música *</label>
                     <input
                       type="text"
@@ -275,7 +240,7 @@ export default function Musicas() {
                       required
                     />
                   </div>
-                  <div style={{ flex: 1, minWidth: "200px" }}>
+                  <div className="form-field-grow">
                     <label className="input-label">
                       Artista/Banda Original *
                     </label>
@@ -291,8 +256,8 @@ export default function Musicas() {
                 </div>
 
                 {/* Linha 2: Tom, BPM e Compasso */}
-                <div style={{ display: "flex", gap: "15px", flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: "100px" }}>
+                <div className="form-row-wrap">
+                  <div className="form-field-small">
                     <label className="input-label">Tom Original *</label>
                     <input
                       type="text"
@@ -304,7 +269,7 @@ export default function Musicas() {
                       required
                     />
                   </div>
-                  <div style={{ flex: 1, minWidth: "100px" }}>
+                  <div className="form-field-small">
                     <label className="input-label">BPM</label>
                     <input
                       type="number"
@@ -315,7 +280,7 @@ export default function Musicas() {
                       onChange={handleChange}
                     />
                   </div>
-                  <div style={{ flex: 1, minWidth: "100px" }}>
+                  <div className="form-field-small">
                     <label className="input-label">Compasso</label>
                     <input
                       type="text"
@@ -329,8 +294,8 @@ export default function Musicas() {
                 </div>
 
                 {/* Linha 3: Link e Tags */}
-                <div style={{ display: "flex", gap: "15px", flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: "200px" }}>
+                <div className="form-row-wrap">
+                  <div className="form-field-grow">
                     <label className="input-label">
                       Link de Referência (YouTube/Spotify)
                     </label>
@@ -343,7 +308,7 @@ export default function Musicas() {
                       onChange={handleChange}
                     />
                   </div>
-                  <div style={{ flex: 1, minWidth: "200px" }}>
+                  <div className="form-field-grow">
                     <label className="input-label">
                       Tags (separadas por vírgula)
                     </label>

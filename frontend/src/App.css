@@ -1,4 +1,4 @@
-/* ============================================
+﻿/* ============================================
    frontend/src/App.css
    LAUDA - Layout Principal (Sidebar + Header + Content)
    ============================================ */
@@ -29,6 +29,11 @@
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
+  transition:
+    width var(--transition-base),
+    min-width var(--transition-base),
+    padding var(--transition-base);
 }
 
 .lauda-logo {
@@ -43,8 +48,9 @@
   padding: 0 0.5rem;
 }
 
-.lauda-logo span {
+.lauda-logo .nav-icon {
   font-size: 1.5rem;
+  flex-shrink: 0;
 }
 
 .lauda-nav {
@@ -58,6 +64,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.625rem 0.875rem;
+  white-space: nowrap;
   border-radius: var(--radius-md);
   color: var(--gray-600);
   text-decoration: none;
@@ -77,10 +84,39 @@
   font-weight: 600;
 }
 
-.lauda-nav-item span {
+.lauda-nav-item .nav-icon {
   font-size: 1.125rem;
   width: 1.5rem;
+  flex-shrink: 0;
   text-align: center;
+}
+
+/* ============================================
+   NOVO: SIDEBAR RECOLHIDA (DESKTOP)
+   ============================================ */
+.lauda-sidebar.collapsed {
+  width: 80px;
+  min-width: 80px;
+  padding: 1.5rem 0.5rem;
+}
+
+.lauda-sidebar.collapsed .lauda-logo {
+  justify-content: center;
+  padding: 0;
+}
+
+.lauda-sidebar.collapsed .logo-text,
+.lauda-sidebar.collapsed .nav-text {
+  display: none;
+}
+
+.lauda-sidebar.collapsed .lauda-nav-item {
+  justify-content: center;
+  padding: 0.75rem 0;
+}
+
+.lauda-sidebar.collapsed .lauda-nav-item .nav-icon {
+  width: auto;
 }
 
 /* ============================================
@@ -92,7 +128,7 @@
   flex-direction: column;
   height: 100vh;
   overflow-y: auto;
-  min-width: 0; /* evita overflow horizontal */
+  min-width: 0;
 }
 
 /* ============================================
@@ -112,9 +148,15 @@
   z-index: 10;
 }
 
+.lauda-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.9375rem;
+}
+
 .lauda-header h1 {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--gray-800);
   margin: 0;
 }
@@ -125,14 +167,31 @@
   gap: 0.75rem;
 }
 
+.theme-toggle-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--gray-700);
+  line-height: 1;
+}
+
+.logout-btn {
+  padding: 0.3125rem 0.625rem;
+  font-size: 0.8rem;
+}
+
 /* ============================================
    5. CONTAINER DO CONTEÚDO
    ============================================ */
 .lauda-content {
   padding: 2rem;
   flex: 1;
-  max-width: 1200px;
   width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ============================================
@@ -157,11 +216,54 @@
 }
 
 /* ============================================
-   7. RESPONSIVIDADE
+   7. MENU MOBILE
+   ============================================ */
+.menu-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--gray-100);
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: var(--gray-800);
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast);
+}
+
+.menu-toggle-btn:hover {
+  background-color: var(--gray-200);
+}
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+}
+
+/* ============================================
+   8. RESPONSIVIDADE
    ============================================ */
 @media (max-width: 768px) {
   .lauda-sidebar {
-    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    box-shadow: var(--shadow-2xl);
+  }
+
+  .lauda-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay.open {
+    display: block;
   }
 
   .lauda-header {
@@ -182,55 +284,61 @@
   }
 }
 
-/* Botão de abrir menu */
-.menu-toggle-btn {
-  display: none;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
+/* ============================================
+   9. DASHBOARD
+   ============================================ */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.stat-card {
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.stat-card h3 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 0.25rem;
+}
+
+.stat-card p {
+  font-weight: 500;
+  color: var(--gray-600);
+  margin: 0;
+}
+
+.agenda-section {
+  margin-top: 2rem;
+}
+
+.agenda-section h2 {
+  margin-bottom: 1rem;
+}
+
+.agenda-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.agenda-item:last-child {
+  border-bottom: none;
+}
+
+.agenda-item span {
+  font-size: 0.875rem;
+  color: var(--gray-500);
+  font-weight: 500;
+}
+
+.agenda-item strong {
+  font-weight: 600;
   color: var(--gray-800);
-  padding: 5px;
-}
-
-/* Fundo escuro quando o menu mobile está aberto */
-.sidebar-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 99;
-}
-
-.menu-toggle-btn {
-  display: block; /* Mostra o botão hamburguer no mobile */
-}
-
-.lauda-sidebar {
-  position: fixed;
-  z-index: 100;
-  /* Esconde o menu jogando ele 100% para a esquerda fora da tela */
-  transform: translateX(-100%);
-  transition: transform 0.3s ease-in-out;
-  box-shadow: var(--shadow-2xl);
-}
-
-/* Quando o React adicionar a classe 'open', ele volta pra posição 0 */
-.lauda-sidebar.open {
-  transform: translateX(0);
-}
-
-.sidebar-overlay.open {
-  display: block;
-}
-
-/* Ajustes para a tela não ficar apertada */
-.lauda-header {
-  padding: 0 1rem;
-}
-.lauda-content {
-  padding: 1rem;
 }

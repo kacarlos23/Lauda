@@ -1,15 +1,34 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
 from .models import Usuario, Musica, Culto, Escala, ItemSetlist
 
 # Configuração para a exibição de Usuários
 @admin.register(Usuario)
-class UsuarioAdmin(admin.ModelAdmin):
-    # Quais colunas aparecerão na lista
-    list_display = ('username', 'first_name', 'funcao_principal', 'nivel_acesso', 'is_active')
-    # Adiciona um filtro lateral
-    list_filter = ('nivel_acesso', 'is_active', 'funcao_principal')
-    # Permite buscar pelo nome
-    search_fields = ('first_name', 'last_name', 'username')
+class UsuarioAdmin(UserAdmin):
+    list_display = (
+        "username",
+        "first_name",
+        "funcao_principal",
+        "nivel_acesso",
+        "is_active",
+        "is_staff",
+    )
+    list_filter = ("nivel_acesso", "is_active", "is_staff", "funcao_principal")
+    search_fields = ("first_name", "last_name", "username", "email")
+
+    fieldsets = UserAdmin.fieldsets + (
+        (
+            "Informações do Lauda",
+            {"fields": ("telefone", "foto_perfil", "funcao_principal", "funcoes_secundarias", "nivel_acesso")},
+        ),
+    )
+
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        (
+            "Informações do Lauda",
+            {"fields": ("first_name", "last_name", "email", "telefone", "funcao_principal", "funcoes_secundarias", "nivel_acesso")},
+        ),
+    )
 
 # Configuração para a exibição de Músicas
 @admin.register(Musica)

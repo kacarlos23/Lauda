@@ -1,16 +1,13 @@
-/* ============================================
-   frontend/src/pages/Musicas.css
-   LAUDA - Banco de Músicas
-   ============================================ */
+﻿﻿/* frontend/src/pages/Musicas.css */
 
 /* Grid responsivo de cards */
 .musicas-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.5rem;
 }
 
-/* Bloco de informações dentro do card */
+/* Bloco de informacoes dentro do card */
 .musica-info {
   margin-bottom: 0.75rem;
 }
@@ -26,11 +23,11 @@
   margin: 0;
 }
 
-/* Rodapé do card com metadados */
+/* Rodape do card com metadados */
 .musica-meta {
   display: flex;
   gap: 1rem;
-  border-top: 1px solid var(--gray-100);
+  border-top: 1px solid var(--gray-200);
   padding-top: 0.75rem;
   margin-top: 0;
   flex-wrap: wrap;
@@ -41,9 +38,73 @@
   color: var(--gray-700);
 }
 
+.musica-meta-column {
+  flex-direction: column;
+  gap: 0.3125rem;
+}
+
+.musica-meta-row {
+  display: flex;
+  gap: 0.9375rem;
+  flex-wrap: wrap;
+}
+
+.musica-tags {
+  margin-top: 0.3125rem;
+  display: flex;
+  gap: 0.3125rem;
+  flex-wrap: wrap;
+}
+
+.musica-link {
+  font-size: 0.85rem;
+  margin-top: 0.3125rem;
+  display: inline-block;
+}
+
+.musica-actions {
+  margin-top: 1.25rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  border-top: 1px solid var(--gray-200);
+  padding-top: 1rem;
+}
+
+.musica-action-btn {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.85rem;
+}
+
+.modal-wide {
+  max-width: 600px;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9375rem;
+}
+
+.form-row-wrap {
+  display: flex;
+  gap: 0.9375rem;
+  flex-wrap: wrap;
+}
+
+.form-field-grow {
+  flex: 1;
+  min-width: 200px;
+}
+
+.form-field-small {
+  flex: 1;
+  min-width: 100px;
+}
+
 /* Estado vazio */
 .musicas-grid:empty::after {
-  content: 'Nenhuma música cadastrada ainda.';
+  content: "Nenhuma musica cadastrada ainda.";
   grid-column: 1 / -1;
   text-align: center;
   padding: 3rem 1rem;

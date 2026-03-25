@@ -1,15 +1,61 @@
-/* ============================================
-   frontend/src/pages/Membros.css
-   LAUDA - Equipe / Membros
-   
-   Reutiliza as mesmas classes de Musicas.css:
-   .musicas-grid, .musica-info, .musica-meta
-   
-   Aqui ficam apenas estilos específicos de Membros,
-   caso necessário no futuro.
-   ============================================ */
+﻿﻿/* frontend/src/pages/Membros.css */
 
-/* Estado vazio específico */
-.musicas-grid:empty::after {
-  content: 'Nenhum membro cadastrado ainda.';
+.membros-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.membro-nome {
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.membro-contato,
+.membro-funcao {
+  color: var(--gray-600);
+}
+
+.membro-telefone {
+  font-size: 0.8rem;
+}
+
+.membro-actions {
+  text-align: right;
+}
+
+.membro-badge-admin {
+  background-color: var(--primary-dark);
+  color: var(--white);
+}
+
+.membro-empty {
+  text-align: center;
+  color: var(--gray-500);
+}
+
+/* Estilos do Modal de Edição (reaproveitados de Musicas.css) */
+.modal-wide {
+  max-width: 600px;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9375rem;
+}
+
+.form-row-wrap {
+  display: flex;
+  gap: 0.9375rem;
+  flex-wrap: wrap;
+}
+
+.form-field-grow {
+  flex: 1;
+  min-width: 200px;
+}
+
+.form-field-small {
+  flex: 1;
+  min-width: 100px;
 }
