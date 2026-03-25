@@ -8,7 +8,7 @@ export default function Cultos() {
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    fetch("https://lauda-4de8.onrender.com/api/cultos/", {
+    fetch(`${import.meta.env.VITE_API_URL}/api/cultos/`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,

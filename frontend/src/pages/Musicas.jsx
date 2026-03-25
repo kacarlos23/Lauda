@@ -81,7 +81,7 @@ export default function Musicas() {
     if (!confirmacao) return;
 
     const token = localStorage.getItem("token");
-    fetch(`https://lauda-4de8.onrender.com/api/musicas/${id}/`, {
+    fetch(`${import.meta.env.VITE_API_URL}/api/musicas/`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -96,8 +96,8 @@ export default function Musicas() {
     e.preventDefault();
     const token = localStorage.getItem("token");
     const url = editingId
-      ? `https://lauda-4de8.onrender.com/api/musicas/${editingId}/`
-      : "https://lauda-4de8.onrender.com/api/musicas/";
+      ? `${import.meta.env.VITE_API_URL}/api/musicas/${editingId}/`
+      : `${import.meta.env.VITE_API_URL}/api/musicas/`;
     const metodo = editingId ? "PUT" : "POST";
 
     // Se o BPM estiver vazio, transformamos em null para não quebrar o banco do Django (que espera um número)

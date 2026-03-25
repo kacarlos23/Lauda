@@ -20,7 +20,9 @@ function DashboardResumo() {
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+  const closeMenu = () => setIsMenuOpen(false);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -36,13 +38,12 @@ function App() {
   return (
     <BrowserRouter>
       <div className="lauda-wrapper">
-        {/* NOVO: Fundo escuro que aparece no mobile. Se clicar nele, fecha o menu. */}
         <div
-          className={`sidebar-overlay ${isMobileMenuOpen ? "open" : ""}`}
+          className={`sidebar-overlay ${isMenuOpen ? "open" : ""}`}
           onClick={closeMenu}
         ></div>
 
-        <aside className={`lauda-sidebar ${isMobileMenuOpen ? "open" : ""}`}>
+        <aside className={`lauda-sidebar ${isMenuOpen ? "open" : ""}`}>
           <div className="lauda-logo">
             <span>🎶</span> Lauda
           </div>

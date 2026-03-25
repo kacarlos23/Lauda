@@ -13,7 +13,7 @@ export default function Login({ setToken }) {
 
     try {
       const resposta = await fetch(
-        "https://lauda-4de8.onrender.com/api/token/",
+        `${import.meta.env.VITE_API_URL}/api/token/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
