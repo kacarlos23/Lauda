@@ -1,4 +1,15 @@
 ﻿import { useState, useEffect } from "react";
+// Importando os ícones do Lucide React
+import {
+  Calendar,
+  MapPin,
+  Tag,
+  Users,
+  Music,
+  Edit2,
+  Trash2,
+  Plus,
+} from "lucide-react";
 import "./Cultos.css";
 
 const ESTADO_INICIAL_CULTO = {
@@ -15,13 +26,11 @@ export default function Cultos() {
   const [membros, setMembros] = useState([]);
   const [escalas, setEscalas] = useState([]);
 
-  // === ESTADOS PARA A SETLIST ===
   const [musicasGlobais, setMusicasGlobais] = useState([]);
   const [itensSetlist, setItensSetlist] = useState([]);
   const [isSetlistModalOpen, setIsSetlistModalOpen] = useState(false);
   const [draggedItem, setDraggedItem] = useState(null);
 
-  // === CONTROLES GERAIS DE MODAIS ===
   const [isEscalaModalOpen, setIsEscalaModalOpen] = useState(false);
   const [cultoSelecionado, setCultoSelecionado] = useState(null);
   const [novoMembroId, setNovoMembroId] = useState("");
@@ -67,9 +76,6 @@ export default function Cultos() {
     carregarDados();
   }, []);
 
-  // ==========================================
-  // FUNÇÕES DE CULTOS (CRUD)
-  // ==========================================
   const formatarDataBR = (dataString) => {
     if (!dataString) return "";
     const [ano, mes, dia] = dataString.split("-");
@@ -145,9 +151,6 @@ export default function Cultos() {
     });
   };
 
-  // ==========================================
-  // FUNÇÕES DE ESCALAS
-  // ==========================================
   const abrirModalEscala = (culto) => {
     setCultoSelecionado(culto);
     setIsEscalaModalOpen(true);
@@ -191,9 +194,6 @@ export default function Cultos() {
     });
   };
 
-  // ==========================================
-  // FUNÇÕES DA SETLIST (DRAG AND DROP E ATUALIZAÇÃO)
-  // ==========================================
   const abrirModalSetlist = (culto) => {
     setCultoSelecionado(culto);
     setIsSetlistModalOpen(true);
@@ -255,14 +255,12 @@ export default function Cultos() {
     setDraggedItem(null);
   };
 
-  // 1. Atualiza apenas o estado local (Instantâneo para o usuário)
   const handleChangeItemSetlistLocal = (itemId, campo, valor) => {
     setItensSetlist((prev) =>
       prev.map((i) => (i.id === itemId ? { ...i, [campo]: valor } : i)),
     );
   };
 
-  // 2. Atualiza o banco de dados (Somente quando terminar de editar via onBlur)
   const handleAtualizarItemSetlistBanco = (itemId, campo, valor) => {
     if (!itemId) return;
     const token = localStorage.getItem("token");
@@ -276,9 +274,6 @@ export default function Cultos() {
     }).catch((err) => console.error("Erro ao atualizar setlist:", err));
   };
 
-  // ==========================================
-  // FILTROS DE RENDERIZAÇÃO
-  // ==========================================
   const escalasDoCulto = cultoSelecionado
     ? escalas.filter((e) => e.culto === cultoSelecionado.id)
     : [];
@@ -306,7 +301,7 @@ export default function Cultos() {
           className="lauda-btn lauda-btn-primary"
           onClick={handleNovoCulto}
         >
-          + Novo Culto
+          <Plus size={18} /> Novo Culto
         </button>
       </div>
 
@@ -324,27 +319,23 @@ export default function Cultos() {
             <div>
               <div className="culto-info">
                 <h3>{culto.nome}</h3>
-                <p className="culto-data">
-                  📅 {formatarDataBR(culto.data)} das{" "}
-                  {/* NULL SAFETY: Se não tiver horário, mostra --:-- */}
+                <div className="culto-data">
+                  <Calendar size={16} /> {formatarDataBR(culto.data)} das{" "}
                   {culto.horario_inicio?.substring(0, 5) || "--:--"}
-                </p>
+                </div>
               </div>
-              <div
-                className="culto-meta text-muted"
-                style={{ marginBottom: "15px" }}
-              >
-                <span>
-                  📍 <strong>Local:</strong> {culto.local}
-                </span>
-                <span>
-                  🏷️ <strong>Status:</strong>{" "}
+              <div className="culto-meta text-muted">
+                <div className="culto-meta-item">
+                  <MapPin size={16} /> <strong>Local:</strong> {culto.local}
+                </div>
+                <div className="culto-meta-item">
+                  <Tag size={16} /> <strong>Status:</strong>
                   <span
                     className={`badge ${culto.status === "AGENDADO" ? "badge-primary" : "badge-gray"}`}
                   >
                     {culto.status}
                   </span>
-                </span>
+                </div>
               </div>
             </div>
 
@@ -355,6 +346,7 @@ export default function Cultos() {
                 display: "flex",
                 flexDirection: "column",
                 gap: "8px",
+                marginTop: "15px",
               }}
             >
               <div style={{ display: "flex", gap: "8px" }}>
@@ -363,14 +355,14 @@ export default function Cultos() {
                   style={{ flex: 1, padding: "5px", fontSize: "0.85rem" }}
                   onClick={() => abrirModalEscala(culto)}
                 >
-                  👥 Escala
+                  <Users size={16} /> Escala
                 </button>
                 <button
                   className="lauda-btn lauda-btn-primary"
                   style={{ flex: 1, padding: "5px", fontSize: "0.85rem" }}
                   onClick={() => abrirModalSetlist(culto)}
                 >
-                  🎵 Setlist
+                  <Music size={16} /> Setlist
                 </button>
               </div>
 
@@ -386,7 +378,7 @@ export default function Cultos() {
                   }}
                   onClick={() => handleEditarCulto(culto)}
                 >
-                  ✏️ Editar Dados
+                  <Edit2 size={16} /> Editar
                 </button>
                 <button
                   className="lauda-btn lauda-btn-secondary"
@@ -400,24 +392,12 @@ export default function Cultos() {
                   }}
                   onClick={() => handleExcluirCulto(culto.id)}
                 >
-                  🗑️ Excluir
+                  <Trash2 size={16} /> Excluir
                 </button>
               </div>
             </div>
           </div>
         ))}
-        {cultos.length === 0 && (
-          <div
-            style={{
-              gridColumn: "1 / -1",
-              textAlign: "center",
-              padding: "40px",
-              color: "var(--gray-500)",
-            }}
-          >
-            Nenhum evento agendado. Clique em "+ Novo Culto" para começar.
-          </div>
-        )}
       </div>
 
       {/* =========================================
@@ -740,7 +720,6 @@ export default function Cultos() {
               </p>
 
               <div className="dnd-container">
-                {/* COLUNA 1: REPERTÓRIO */}
                 <div
                   className="dnd-column"
                   onDragOver={handleDragOver}
@@ -773,7 +752,6 @@ export default function Cultos() {
                   )}
                 </div>
 
-                {/* COLUNA 2: SETLIST DO CULTO */}
                 <div
                   className="dnd-column"
                   style={{
@@ -825,7 +803,6 @@ export default function Cultos() {
                             </div>
                           </div>
 
-                          {/* SEPARAÇÃO: onChange local e onBlur pro banco! */}
                           <div
                             style={{
                               display: "flex",

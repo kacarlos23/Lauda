@@ -1,6 +1,6 @@
 ﻿﻿/* frontend/src/pages/Membros.css */
 
-.membros-table-card {
+.membros-card-container {
   padding: 0;
   overflow: hidden;
 }
@@ -17,44 +17,45 @@
 
 .membro-telefone {
   font-size: 0.8rem;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
-.membro-actions {
+.membro-acoes {
   text-align: right;
 }
 
-.membro-badge-admin {
-  background-color: var(--primary-dark);
-  color: var(--white);
+.btn-editar-membro {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8rem;
 }
 
-.membro-empty {
+.tabela-vazia {
+  padding: 2rem;
   text-align: center;
   color: var(--gray-500);
 }
 
-/* Estilos do Modal de Edição (reaproveitados de Musicas.css) */
+/* Estilos do Modal de Edição */
 .modal-wide {
   max-width: 600px;
 }
-
 .modal-form {
   display: flex;
   flex-direction: column;
   gap: 0.9375rem;
 }
-
 .form-row-wrap {
   display: flex;
   gap: 0.9375rem;
   flex-wrap: wrap;
 }
-
 .form-field-grow {
   flex: 1;
   min-width: 200px;
 }
-
 .form-field-small {
   flex: 1;
   min-width: 100px;

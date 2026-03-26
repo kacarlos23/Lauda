@@ -28,7 +28,6 @@
   color: var(--gray-500);
 }
 
-/* O destaque visual para o TOM da música */
 .musica-tom-badge {
   background-color: var(--primary-lightest);
   color: var(--primary-dark);
@@ -43,14 +42,46 @@
   min-width: 45px;
 }
 
-.musica-meta {
+/* ==========================================
+   NOVAS CLASSES: ESTRUTURA E MODAL (Refatoração)
+   ========================================== */
+
+/* Layout do Modal de Músicas */
+.modal-wide {
+  max-width: 600px;
+}
+
+.form-row-wrap {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.form-field-grow {
+  flex: 1 1 200px;
+}
+
+.form-field-small {
+  flex: 1 1 80px;
+}
+
+/* Ajustes nos Cards de Música */
+.musica-meta-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   border-top: 1px solid var(--gray-200);
   padding-top: 1rem;
   margin-top: 1rem;
   font-size: 0.85rem;
   color: var(--gray-600);
+}
+
+.musica-meta-row {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .musica-meta-item {
@@ -59,10 +90,10 @@
 }
 
 .musica-tags {
-  margin-top: 1rem;
   display: flex;
-  flex-wrap: wrap;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
 }
 
 .musica-tag {
@@ -73,9 +104,24 @@
   border-radius: var(--radius-full);
 }
 
+/* Botões de Ação do Card */
+.musica-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--gray-200);
+  padding-top: 1rem;
+}
+
+.musica-action-btn {
+  flex: 1;
+  padding: 0.4rem;
+  font-size: 0.85rem;
+}
+
 /* Ajustes Dark Mode */
 body.dark-mode .musica-tom-badge {
-  background-color: rgba(0, 40, 104, 0.1);
+  background-color: rgba(59, 130, 246, 0.1);
 }
 body.dark-mode .musica-tag {
   background-color: var(--gray-200);

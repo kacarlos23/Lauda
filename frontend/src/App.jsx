@@ -1,5 +1,17 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+// NOVO: Importando os ícones do Lucide React
+import {
+  Music,
+  Home,
+  Music2,
+  Calendar,
+  Users,
+  Menu,
+  Sun,
+  Moon,
+  LogOut,
+} from "lucide-react";
 import "./App.css";
 
 import Musicas from "./pages/Musicas";
@@ -92,7 +104,12 @@ function DashboardResumo() {
       </div>
 
       <div className="agenda-section">
-        <h2 className="text-primary">Agenda de Cultos</h2>
+        <h2
+          className="text-primary"
+          style={{ display: "flex", alignItems: "center", gap: "8px" }}
+        >
+          <Calendar size={24} /> Agenda de Cultos
+        </h2>
         <div className="lauda-card">
           {proximosCultos.length > 0 ? (
             proximosCultos.map((culto) => (
@@ -122,10 +139,9 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // === ESTADOS PARA O GESTO DE SWIPE (ARRASTAR) ===
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
-  const minSwipeDistance = 50; // O dedo precisa arrastar no mínimo 50px
+  const minSwipeDistance = 50;
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem("theme") === "dark";
@@ -152,35 +168,25 @@ function App() {
     setToken(null);
   };
 
-  // === FUNÇÕES DE SWIPE (TOQUE NA TELA) ===
   const onTouchStart = (e) => {
     setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX); // Grava onde o dedo encostou (Eixo X)
+    setTouchStart(e.targetTouches[0].clientX);
   };
 
   const onTouchMove = (e) => {
-    setTouchEnd(e.targetTouches[0].clientX); // Atualiza por onde o dedo está passando
+    setTouchEnd(e.targetTouches[0].clientX);
   };
 
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
-
-    // Se a tela for maior que 768px (PC), ignoramos os gestos
     if (window.innerWidth > 768) return;
 
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
 
-    // Arrastou para a DIREITA e começou bem no cantinho esquerdo da tela (primeiros 50px)
-    if (isRightSwipe && touchStart < 50) {
-      setIsMenuOpen(true);
-    }
-
-    // Arrastou para a ESQUERDA e o menu estava aberto
-    if (isLeftSwipe && isMenuOpen) {
-      setIsMenuOpen(false);
-    }
+    if (isRightSwipe && touchStart < 50) setIsMenuOpen(true);
+    if (isLeftSwipe && isMenuOpen) setIsMenuOpen(false);
   };
 
   if (!token) {
@@ -189,7 +195,6 @@ function App() {
 
   return (
     <BrowserRouter>
-      {/* ADICIONAMOS OS EVENTOS DE TOQUE NO WRAPPER PRINCIPAL */}
       <div
         className="lauda-wrapper"
         onTouchStart={onTouchStart}
@@ -205,12 +210,28 @@ function App() {
           className={`lauda-sidebar ${isMenuOpen ? "open" : ""} ${isSidebarCollapsed ? "collapsed" : ""}`}
         >
           <div className="lauda-logo">
-            <span className="nav-icon">🎶</span>
+            {/* ÍCONE LUCIDE: Logo */}
+            <span
+              className="nav-icon"
+              style={{ display: "flex", alignItems: "center" }}
+            >
+              <Music size={28} />
+            </span>
             <span className="logo-text">Lauda</span>
           </div>
           <nav className="lauda-nav">
             <NavLink to="/" className="lauda-nav-item" onClick={closeMenu} end>
-              <span className="nav-icon">🏠</span>{" "}
+              {/* ÍCONE LUCIDE: Home */}
+              <span
+                className="nav-icon"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Home size={20} />
+              </span>
               <span className="nav-text">Dashboard</span>
             </NavLink>
             <NavLink
@@ -218,7 +239,17 @@ function App() {
               className="lauda-nav-item"
               onClick={closeMenu}
             >
-              <span className="nav-icon">🎵</span>{" "}
+              {/* ÍCONE LUCIDE: Músicas */}
+              <span
+                className="nav-icon"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Music2 size={20} />
+              </span>
               <span className="nav-text">Músicas</span>
             </NavLink>
             <NavLink
@@ -226,7 +257,17 @@ function App() {
               className="lauda-nav-item"
               onClick={closeMenu}
             >
-              <span className="nav-icon">📅</span>{" "}
+              {/* ÍCONE LUCIDE: Cultos */}
+              <span
+                className="nav-icon"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Calendar size={20} />
+              </span>
               <span className="nav-text">Cultos</span>
             </NavLink>
             <NavLink
@@ -234,7 +275,17 @@ function App() {
               className="lauda-nav-item"
               onClick={closeMenu}
             >
-              <span className="nav-icon">👥</span>{" "}
+              {/* ÍCONE LUCIDE: Membros */}
+              <span
+                className="nav-icon"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Users size={20} />
+              </span>
               <span className="nav-text">Membros</span>
             </NavLink>
           </nav>
@@ -248,7 +299,8 @@ function App() {
                 onClick={toggleMenu}
                 title="Alternar Menu"
               >
-                ☰
+                {/* ÍCONE LUCIDE: Menu Hamburguer */}
+                <Menu size={22} />
               </button>
               <h1>Ministério de Louvor</h1>
             </div>
@@ -258,15 +310,18 @@ function App() {
                 onClick={() => setIsDarkMode(!isDarkMode)}
                 className="theme-toggle-btn"
                 title="Alternar Modo Escuro"
+                style={{ display: "flex", alignItems: "center" }}
               >
-                {isDarkMode ? "☀️" : "🌙"}
+                {/* ÍCONE LUCIDE: Sol e Lua */}
+                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
 
               <button
                 onClick={handleLogout}
                 className="lauda-btn lauda-btn-secondary logout-btn"
               >
-                Sair
+                {/* ÍCONE LUCIDE: Sair */}
+                <LogOut size={16} /> Sair
               </button>
             </div>
           </header>

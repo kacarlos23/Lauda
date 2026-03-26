@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import "./Membros.css";
+import { Phone } from "lucide-react";
 
 // Adicionamos username e password, exigidos pelo AbstractUser do Django
 const ESTADO_INICIAL_FORM = {
@@ -171,40 +172,41 @@ export default function Membros() {
               </tr>
             </thead>
             <tbody>
-              {membros.map((membro) => {
-                const nomeCompleto =
-                  `${membro.first_name || ""} ${membro.last_name || ""}`.trim();
-                return (
-                  <tr key={membro.id}>
-                    <td className="membro-nome">
-                      {nomeCompleto || membro.username}
-                    </td>
-                    <td className="membro-contato">
-                      <div>{membro.email || "Sem email"}</div>
-                      {membro.telefone && (
-                        <div className="membro-telefone">
-                          📱 {membro.telefone}
-                        </div>
-                      )}
-                    </td>
-                    <td className="membro-funcao">
-                      {membro.funcao_principal || "-"}
-                    </td>
-                    <td>{renderBadgeNivel(membro.nivel_acesso)}</td>
-                    <td className="membro-actions">
-                      <button
-                        className="lauda-btn lauda-btn-secondary"
-                        onClick={() => handleEditClick(membro)}
-                      >
-                        Editar
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {membros.map((membro) => (
+                <tr key={membro.id}>
+                  <td className="membro-nome">
+                    {/* Renderização mais segura do nome sugerida no doc */}
+                    {membro.first_name
+                      ? `${membro.first_name} ${membro.last_name || ""}`.trim()
+                      : membro.username}
+                  </td>
+                  <td className="membro-contato">
+                    <div>{membro.email || "Sem email"}</div>
+                    {membro.telefone && (
+                      <div className="membro-telefone">
+                        {/* NOVO ÍCONE DO LUCIDE AQUI */}
+                        <Phone size={14} /> {membro.telefone}
+                      </div>
+                    )}
+                  </td>
+                  <td className="membro-funcao">
+                    {membro.funcao_principal || "-"}
+                  </td>
+                  <td>{renderBadgeNivel(membro.nivel_acesso)}</td>
+                  <td className="membro-acoes">
+                    <button
+                      className="lauda-btn lauda-btn-secondary btn-editar-membro"
+                      onClick={() => handleEditClick(membro)}
+                    >
+                      Editar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
               {membros.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="membro-empty">
+                  <td colSpan="5" className="tabela-vazia">
                     Nenhum membro encontrado.
                   </td>
                 </tr>

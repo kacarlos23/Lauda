@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+// Importando os ícones do Lucide React
+import { Headphones, Edit2, Trash2 } from "lucide-react";
 import "./Musicas.css";
 
 const ESTADO_INICIAL_MUSICA = {
@@ -95,7 +97,6 @@ export default function Musicas() {
       : `${urlLimpa}/api/musicas/`;
     const method = editingId ? "PUT" : "POST";
 
-    // Tratamento para não enviar BPM vazio como string (o Django espera número ou nulo)
     const dadosEnvio = { ...formData };
     if (dadosEnvio.bpm === "") dadosEnvio.bpm = null;
 
@@ -144,7 +145,7 @@ export default function Musicas() {
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
-              marginBottom: "1.5rem",
+              marginBottom: "20px",
             }}
           >
             <div>
@@ -153,7 +154,6 @@ export default function Musicas() {
                   <h3 className="musica-titulo">{musica.titulo}</h3>
                   <div className="musica-artista">{musica.artista}</div>
                 </div>
-                {/* Destaque para o Tom */}
                 <div className="musica-tom-badge">{musica.tom_original}</div>
               </div>
 
@@ -167,60 +167,46 @@ export default function Musicas() {
                 </div>
               )}
 
-              <div className="musica-meta">
-                <div className="musica-meta-item">
-                  <strong>BPM</strong>
-                  <span>{musica.bpm || "-"}</span>
-                </div>
-                <div className="musica-meta-item">
-                  <strong>Compasso</strong>
-                  <span>{musica.compasso || "-"}</span>
+              <div className="musica-meta-column">
+                <div className="musica-meta-row">
+                  <div className="musica-meta-item">
+                    <strong>BPM</strong>
+                    <span>{musica.bpm || "-"}</span>
+                  </div>
+                  <div className="musica-meta-item">
+                    <strong>Compasso</strong>
+                    <span>{musica.compasso || "-"}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: "10px",
-                marginTop: "15px",
-                paddingTop: "15px",
-                borderTop: "1px solid var(--gray-200)",
-              }}
-            >
+            {/* Ações refatoradas usando as novas classes e os ícones Lucide */}
+            <div className="musica-actions">
               {musica.link_referencia && (
                 <a
                   href={musica.link_referencia}
                   target="_blank"
                   rel="noreferrer"
-                  className="lauda-btn lauda-btn-secondary"
-                  style={{
-                    flex: 1,
-                    textAlign: "center",
-                    padding: "5px",
-                    fontSize: "0.85rem",
-                  }}
+                  className="lauda-btn lauda-btn-secondary musica-action-btn"
                 >
-                  🎧 Ouvir
+                  <Headphones size={16} /> Ouvir
                 </a>
               )}
               <button
-                className="lauda-btn lauda-btn-secondary"
-                style={{ flex: 1, padding: "5px", fontSize: "0.85rem" }}
+                className="lauda-btn lauda-btn-secondary musica-action-btn"
                 onClick={() => handleEditarMusica(musica)}
+                title="Editar"
               >
-                Editar
+                <Edit2 size={16} />
               </button>
               <button
-                className="lauda-btn lauda-btn-secondary"
-                style={{
-                  padding: "5px",
-                  fontSize: "0.85rem",
-                  color: "var(--error-dark)",
-                }}
+                className="lauda-btn lauda-btn-secondary musica-action-btn"
+                style={{ color: "var(--error-dark)", maxWidth: "50px" }}
                 onClick={() => handleExcluirMusica(musica.id)}
+                title="Excluir"
               >
-                X
+                <Trash2 size={16} />
               </button>
             </div>
           </div>
@@ -240,166 +226,135 @@ export default function Musicas() {
       </div>
 
       {/* =========================================
-          MODAL DE CRIAR / EDITAR MÚSICA
+          MODAL DE CRIAR / EDITAR MÚSICA REFATORADO
           ========================================= */}
       {isModalOpen && (
-        <div
-          className="modal-overlay"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            className="lauda-card"
-            style={{
-              width: "100%",
-              maxWidth: "600px",
-              maxHeight: "90vh",
-              overflowY: "auto",
-              margin: "20px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "20px",
-              }}
-            >
-              <h3 className="text-primary">
+        <div className="modal-overlay">
+          <div className="modal modal-wide">
+            <div className="modal-header">
+              <h3 className="modal-title">
                 {editingId ? "Editar Música" : "Cadastrar Nova Música"}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "1.5rem",
-                  cursor: "pointer",
-                }}
+                className="modal-close"
               >
                 ×
               </button>
             </div>
 
-            <form
-              onSubmit={handleSalvarMusica}
-              style={{ display: "flex", flexDirection: "column", gap: "15px" }}
-            >
-              <div style={{ display: "flex", gap: "15px", flexWrap: "wrap" }}>
-                <div style={{ flex: 2, minWidth: "200px" }}>
-                  <label className="input-label">Título da Música *</label>
+            <form onSubmit={handleSalvarMusica}>
+              <div className="modal-body modal-form">
+                {/* Usando o form-row-wrap para estruturar o formulário limpo */}
+                <div className="form-row-wrap">
+                  <div className="form-field-grow">
+                    <label className="input-label">Título da Música *</label>
+                    <input
+                      type="text"
+                      name="titulo"
+                      className="input-field"
+                      value={formData.titulo}
+                      onChange={handleChange}
+                      required
+                      placeholder="Ex: Oceanos"
+                    />
+                  </div>
+                  <div className="form-field-grow">
+                    <label className="input-label">Artista / Banda *</label>
+                    <input
+                      type="text"
+                      name="artista"
+                      className="input-field"
+                      value={formData.artista}
+                      onChange={handleChange}
+                      required
+                      placeholder="Ex: Hillsong"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row-wrap">
+                  <div className="form-field-small">
+                    <label className="input-label">Tom *</label>
+                    <input
+                      type="text"
+                      name="tom_original"
+                      className="input-field"
+                      value={formData.tom_original}
+                      onChange={handleChange}
+                      required
+                      placeholder="Ex: C, G#"
+                    />
+                  </div>
+                  <div className="form-field-small">
+                    <label className="input-label">BPM</label>
+                    <input
+                      type="number"
+                      name="bpm"
+                      className="input-field"
+                      value={formData.bpm}
+                      onChange={handleChange}
+                      placeholder="Ex: 72"
+                    />
+                  </div>
+                  <div className="form-field-small">
+                    <label className="input-label">Compasso</label>
+                    <input
+                      type="text"
+                      name="compasso"
+                      className="input-field"
+                      value={formData.compasso}
+                      onChange={handleChange}
+                      placeholder="Ex: 4/4"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="input-label">
+                    Link de Referência (YouTube/Spotify)
+                  </label>
+                  <input
+                    type="url"
+                    name="link_referencia"
+                    className="input-field"
+                    value={formData.link_referencia}
+                    onChange={handleChange}
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div>
+                  <label className="input-label">
+                    Tags (Separe por vírgula)
+                  </label>
                   <input
                     type="text"
-                    name="titulo"
+                    name="tags"
                     className="input-field"
-                    value={formData.titulo}
+                    value={formData.tags}
                     onChange={handleChange}
-                    required
-                    placeholder="Ex: Oceanos"
+                    placeholder="Adoração, Ceia, Animada"
                   />
                 </div>
-                <div style={{ flex: 2, minWidth: "200px" }}>
-                  <label className="input-label">Artista / Banda *</label>
-                  <input
-                    type="text"
-                    name="artista"
-                    className="input-field"
-                    value={formData.artista}
-                    onChange={handleChange}
-                    required
-                    placeholder="Ex: Hillsong"
-                  />
-                </div>
-              </div>
 
-              <div style={{ display: "flex", gap: "15px", flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: "80px" }}>
-                  <label className="input-label">Tom *</label>
-                  <input
-                    type="text"
-                    name="tom_original"
+                <div>
+                  <label className="input-label">
+                    Cifra (Cole o texto aqui)
+                  </label>
+                  <textarea
+                    name="cifra_texto"
                     className="input-field"
-                    value={formData.tom_original}
+                    rows="4"
+                    value={formData.cifra_texto}
                     onChange={handleChange}
-                    required
-                    placeholder="Ex: C, G#"
-                  />
-                </div>
-                <div style={{ flex: 1, minWidth: "80px" }}>
-                  <label className="input-label">BPM</label>
-                  <input
-                    type="number"
-                    name="bpm"
-                    className="input-field"
-                    value={formData.bpm}
-                    onChange={handleChange}
-                    placeholder="Ex: 72"
-                  />
-                </div>
-                <div style={{ flex: 1, minWidth: "80px" }}>
-                  <label className="input-label">Compasso</label>
-                  <input
-                    type="text"
-                    name="compasso"
-                    className="input-field"
-                    value={formData.compasso}
-                    onChange={handleChange}
-                    placeholder="Ex: 4/4"
-                  />
+                    placeholder="[C]  [G]  [Am]  [F]..."
+                    style={{ fontFamily: "monospace" }}
+                  ></textarea>
                 </div>
               </div>
 
-              <div>
-                <label className="input-label">
-                  Link de Referência (YouTube/Spotify)
-                </label>
-                <input
-                  type="url"
-                  name="link_referencia"
-                  className="input-field"
-                  value={formData.link_referencia}
-                  onChange={handleChange}
-                  placeholder="https://..."
-                />
-              </div>
-
-              <div>
-                <label className="input-label">Tags (Separe por vírgula)</label>
-                <input
-                  type="text"
-                  name="tags"
-                  className="input-field"
-                  value={formData.tags}
-                  onChange={handleChange}
-                  placeholder="Adoração, Ceia, Animada"
-                />
-              </div>
-
-              <div>
-                <label className="input-label">Cifra (Cole o texto aqui)</label>
-                <textarea
-                  name="cifra_texto"
-                  className="input-field"
-                  rows="4"
-                  value={formData.cifra_texto}
-                  onChange={handleChange}
-                  placeholder="[C]  [G]  [Am]  [F]..."
-                  style={{ fontFamily: "monospace" }}
-                ></textarea>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "10px",
-                  marginTop: "10px",
-                }}
-              >
+              <div className="modal-footer">
                 <button
                   type="button"
                   className="lauda-btn lauda-btn-secondary"

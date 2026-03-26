@@ -545,3 +545,27 @@ body.dark-mode .badge-gray {
 *::-webkit-scrollbar-thumb:hover {
   background: var(--gray-500);
 }
+
+/* ==========================================
+   AJUSTES FINOS DO MODO ESCURO (DARK MODE)
+   ========================================== */
+body.dark-mode .musica-meta,
+body.dark-mode .musica-actions,
+body.dark-mode .culto-meta {
+  border-top-color: var(--gray-200);
+}
+
+body.dark-mode .badge-gray {
+  background-color: var(--gray-100);
+  color: var(--gray-800);
+}
+
+body.dark-mode .badge-primary {
+  background-color: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+}
+
+body.dark-mode .badge-secondary {
+  background-color: rgba(124, 58, 237, 0.2);
+  color: #c4b5fd;
+}

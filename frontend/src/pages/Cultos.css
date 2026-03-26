@@ -5,8 +5,16 @@
 
 .cultos-grid {
   display: grid;
+  /* Reduzido para 280px para não quebrar em celulares menores, conforme documento */
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.25rem;
+}
+
+.culto-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
 }
 
 .culto-info {
@@ -23,23 +31,32 @@
 
 .culto-data {
   font-size: 0.95rem;
+  font-weight: 600;
   color: var(--primary-dark);
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-weight: 500;
+  margin-top: 0.25rem;
 }
 
+/* Meta-informações organizadas em coluna com espaçamento em rem */
 .culto-meta {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   border-top: 1px solid var(--gray-200);
-  padding-top: 0.75rem;
-  font-size: 0.85rem;
+  padding-top: 1rem;
+  font-size: 0.875rem;
 }
 
-.culto-meta strong {
+.culto-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--gray-600);
+}
+
+.culto-meta-item strong {
   color: var(--gray-700);
 }
 
@@ -57,7 +74,7 @@
    ========================================== */
 .dnd-container {
   display: flex;
-  gap: 20px;
+  gap: 1.25rem; /* Substituindo 20px por rem */
   height: 60vh;
   min-height: 400px;
 }
@@ -66,7 +83,7 @@
   flex: 1;
   background-color: var(--gray-50);
   border-radius: var(--radius-md);
-  padding: 15px;
+  padding: 1rem; /* Substituindo 15px por rem */
   display: flex;
   flex-direction: column;
   border: 2px dashed transparent;
@@ -74,7 +91,6 @@
   overflow-y: auto;
 }
 
-/* Quando uma música é arrastada por cima da coluna */
 .dnd-column.drag-over {
   background-color: var(--primary-lightest);
   border-color: var(--primary);
@@ -83,8 +99,8 @@
 .dnd-item {
   background-color: var(--white);
   border: 1px solid var(--gray-200);
-  padding: 10px 15px;
-  margin-bottom: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
   border-radius: var(--radius-sm);
   cursor: grab;
   box-shadow: var(--shadow-sm);
@@ -107,24 +123,20 @@
 }
 
 /* ==========================================
-   RESPONSIVIDADE (Mobile)
+   RESPONSIVIDADE E DARK MODE
    ========================================== */
 @media (max-width: 768px) {
   .dnd-container {
     flex-direction: column;
-    height: auto; /* Remove altura fixa para evitar scroll duplo/cortar tela */
+    height: auto;
     min-height: auto;
   }
-
   .dnd-column {
-    width: 100%; /* Garante que ocupem a largura total */
-    max-height: 50vh; /* Limita altura individual para não ocupar a tela toda */
+    width: 100%;
+    max-height: 50vh;
   }
 }
 
-/* ==========================================
-   MODO ESCURO (Dark Mode)
-   ========================================== */
 body.dark-mode .dnd-column {
   background-color: var(--gray-900);
 }
