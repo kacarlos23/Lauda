@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Usuario, Musica, Culto
+from .models import Usuario, Musica, Culto, Escala
 
 class UsuarioSerializer(serializers.ModelSerializer):
     """
@@ -55,4 +55,9 @@ class CultoSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Culto
+        fields = '__all__'
+
+class EscalaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Escala
         fields = '__all__'
