@@ -7,13 +7,12 @@ import Cultos from "./pages/Cultos";
 import Membros from "./pages/Membros";
 import Login from "./pages/Login";
 
-// Componente do Dashboard
 function DashboardResumo() {
   const [stats, setStats] = useState({
     musicas: 0,
     membros: 0,
     cultos: 0,
-    minhasEscalas: 0, // Adicionado para o futuro
+    minhasEscalas: 0,
   });
   const [proximosCultos, setProximosCultos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +27,6 @@ function DashboardResumo() {
       "Content-Type": "application/json",
     };
 
-    // Usamos Promise.all para buscar todos os dados em paralelo
     Promise.all([
       fetch(`${urlLimpa}/api/musicas/`, { headers }),
       fetch(`${urlLimpa}/api/usuarios/`, { headers }),
@@ -36,7 +34,6 @@ function DashboardResumo() {
     ])
       .then(async (responses) => {
         const [musicasRes, membrosRes, cultosRes] = responses;
-        // Checa se algum token expirou
         if (
           [musicasRes, membrosRes, cultosRes].some((res) => res.status === 401)
         ) {
@@ -51,23 +48,26 @@ function DashboardResumo() {
           musicas: musicas.length,
           membros: membros.length,
           cultos: cultos.length,
-          minhasEscalas: 0, // Lógica a ser implementada
+          minhasEscalas: 0,
         });
 
-        // Filtra e ordena os próximos cultos
         const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0); // Zera a hora para comparar apenas a data
+        hoje.setHours(0, 0, 0, 0);
         const futuros = cultos
           .filter((culto) => new Date(culto.data) >= hoje)
           .sort((a, b) => new Date(a.data) - new Date(b.data));
-        setProximosCultos(futuros.slice(0, 5)); // Pega os próximos 5
+        setProximosCultos(futuros.slice(0, 5));
       })
       .catch((error) => console.error("Erro ao carregar dashboard:", error))
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
-    return <div>Carregando...</div>;
+    return (
+      <div style={{ padding: "2rem", textAlign: "center" }}>
+        Carregando painel...
+      </div>
+    );
   }
 
   return (
@@ -120,20 +120,21 @@ function DashboardResumo() {
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  // NOVO: Controle da barra lateral reduzida (desktop)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // === NOVO: ESTADO DO MODO ESCURO ===
-  // Inicia lendo o localStorage para ver se o usuário já preferia o modo escuro
+  // === ESTADOS PARA O GESTO DE SWIPE (ARRASTAR) ===
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const minSwipeDistance = 50; // O dedo precisa arrastar no mínimo 50px
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem("theme") === "dark";
   });
 
-  // Toda vez que isDarkMode mudar, aplicamos a classe no <body> da página
   useEffect(() => {
     if (isDarkMode) {
       document.body.classList.add("dark-mode");
-      localStorage.setItem("theme", "dark"); // Salva a preferência
+      localStorage.setItem("theme", "dark");
     } else {
       document.body.classList.remove("dark-mode");
       localStorage.setItem("theme", "light");
@@ -141,8 +142,6 @@ function App() {
   }, [isDarkMode]);
 
   const toggleMenu = () => {
-    // Alterna ambos os estados simultaneamente.
-    // O CSS vai decidir se abre em sobreposição (mobile) ou encolhe (desktop).
     setIsMenuOpen(!isMenuOpen);
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
@@ -153,15 +152,50 @@ function App() {
     setToken(null);
   };
 
-  // Se não tem token, mostra APENAS a tela de login
+  // === FUNÇÕES DE SWIPE (TOQUE NA TELA) ===
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX); // Grava onde o dedo encostou (Eixo X)
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX); // Atualiza por onde o dedo está passando
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    // Se a tela for maior que 768px (PC), ignoramos os gestos
+    if (window.innerWidth > 768) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    // Arrastou para a DIREITA e começou bem no cantinho esquerdo da tela (primeiros 50px)
+    if (isRightSwipe && touchStart < 50) {
+      setIsMenuOpen(true);
+    }
+
+    // Arrastou para a ESQUERDA e o menu estava aberto
+    if (isLeftSwipe && isMenuOpen) {
+      setIsMenuOpen(false);
+    }
+  };
+
   if (!token) {
     return <Login setToken={setToken} />;
   }
 
-  // Se tem token, mostra o sistema normal
   return (
     <BrowserRouter>
-      <div className="lauda-wrapper">
+      {/* ADICIONAMOS OS EVENTOS DE TOQUE NO WRAPPER PRINCIPAL */}
+      <div
+        className="lauda-wrapper"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         <div
           className={`sidebar-overlay ${isMenuOpen ? "open" : ""}`}
           onClick={closeMenu}
@@ -209,15 +243,17 @@ function App() {
         <main className="lauda-main-zone">
           <header className="lauda-header">
             <div className="lauda-header-left">
-              {/* NOVO: Botão Hamburguer */}
-              <button className="menu-toggle-btn" onClick={toggleMenu}>
+              <button
+                className="menu-toggle-btn"
+                onClick={toggleMenu}
+                title="Alternar Menu"
+              >
                 ☰
               </button>
               <h1>Ministério de Louvor</h1>
             </div>
 
             <div className="lauda-user-profile">
-              {/* NOVO: Botão de alternar tema (Sol/Lua) */}
               <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
                 className="theme-toggle-btn"

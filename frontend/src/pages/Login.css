@@ -1,51 +1,196 @@
-/* ============================================
-   frontend/src/pages/Login.css
-   LAUDA - Tela de Login
-   ============================================ */
+﻿/* frontend/src/pages/Login.css */
 
-.login-container {
+/* ==========================================
+   1. O FUNDO DA PÁGINA (Com Padding e Cor Escura)
+   ========================================== */
+.login-page-container {
+  min-height: 100vh; /* Ocupa a altura toda da tela */
+  width: 100%;
+
+  /* Cor de fundo escura do Design System */
+  background-color: var(--gray-900);
+
+  /* PADDING GERAL (Para criar o efeito de "cartão flutuante") */
+  padding: 3rem;
+
+  /* CENTRALIZAÇÃO MÁGICA: Prende o cartão flutuante no centro */
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  background-color: var(--gray-50);
-  padding: 1rem;
+
+  box-sizing: border-box;
 }
 
-.login-card {
+/* ==========================================
+   2. O CARTÃO FLUTUANTE (A Caixa com Sombra)
+   ========================================== */
+.login-floating-box {
+  display: flex; /* Divide em duas colunas (info e form) */
   width: 100%;
-  max-width: 400px;
+  max-width: 1100px; /* Limita a largura para não esticar demais */
+
+  /* Cor de fundo do cartão (se adapta no dark mode) */
+  background-color: var(--white);
+
+  /* Bordas arredondadas grandonas */
+  border-radius: var(--radius-lg);
+
+  /* O SOMBREAMENTO PESADO (2XL do Design System) */
+  box-shadow: var(--shadow-2xl);
+
+  /* Garante que o degradê da esquerda respeite a borda arredondada */
+  overflow: hidden;
+
+  /* Animação suave de entrada */
+  animation: slideInUp 0.5s ease-out;
 }
 
-/* Dentro do card, remove o hover de elevação */
-.login-card.lauda-card:hover {
-  transform: none;
-  box-shadow: var(--shadow-sm);
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================
+   ÁREA ESQUERDA - INFORMAÇÕES (Lauda)
+   ========================================== */
+.login-info-section {
+  flex: 1.2; /* Um pouco mais larga */
+  background: linear-gradient(
+    135deg,
+    var(--primary) 0%,
+    var(--primary-dark) 100%
+  );
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 4rem; /* Padding interno generoso */
+  color: var(--white);
+  text-align: center;
+}
+
+/* Ajustes finos nos textos da esquerda */
+.lauda-logo-large {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 3.5rem;
+  color: var(--primary-lightest);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.login-info-section h2 {
+  font-family: var(--font-display);
+  color: var(--white);
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
+}
+
+.login-info-section p {
+  font-family: var(--font-body);
+  color: var(--primary-lightest);
+  font-size: 1.1rem;
+  max-width: 450px;
+  line-height: 1.6;
+}
+
+/* ==========================================
+   ÁREA DIREITA - FORMULÁRIO (Login)
+   ========================================== */
+.login-form-section {
+  flex: 1; /* Área mais enxuta */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem;
+  background-color: var(--white); /* Fundo limpo interno */
+}
+
+/* Container do formulário em si (limita largura interna) */
+.login-form-content {
+  width: 100%;
+  max-width: 380px;
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 1.75rem;
+  margin-bottom: 2rem;
 }
 
-.login-header .lauda-logo {
-  justify-content: center;
-  margin-bottom: 0.5rem;
-  font-size: 1.75rem;
-}
-
-.login-header .text-muted {
-  margin: 0;
-}
-
-.login-form {
+.form-column {
   display: flex;
   flex-direction: column;
-  gap: 1.125rem;
+  gap: 1.25rem;
 }
 
-.login-form .lauda-btn {
-  width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.75rem;
+/* ==========================================
+   RESPONSIVIDADE (Mobile)
+   ========================================== */
+/* Breackpoint alterado para 768px (tablets e celulares) */
+@media (max-width: 768px) {
+  .login-page-container {
+    padding: 1rem; /* Reduz padding geral para o cartão usar mais espaço da tela */
+  }
+
+  /* ==========================================
+     MUDANÇA SOLICITADA: ESCONDER INFO NO MOBILE
+     ========================================== */
+  .login-info-section {
+    display: none !important; /* Esconde completamente a parte esquerda com o degradê */
+  }
+
+  .login-floating-box {
+    flex-direction: column; /* Comportamento de empilhamento (embora info esteja oculta) */
+
+    /* No mobile, o cartão flutuante pode ter uma largura máxima menor e usar bordas mais sutis */
+    max-width: 480px;
+    border-radius: var(--radius-md);
+  }
+
+  .login-form-section {
+    /* O form naturalmente ocupará todo o espaço da 'login-floating-box' */
+    padding: 2.5rem 1.5rem; /* Reduz padding interno para telas menores */
+  }
+
+  .login-header h3 {
+    font-size: 1.5rem; /* Ajusta tamanho do título no mobile */
+  }
+}
+
+/* ==========================================
+   CORREÇÃO DO PREENCHIMENTO AUTOMÁTICO (AUTOFILL)
+   ========================================== */
+
+/* 1. Para o Modo Claro (Padrão) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  /* Força o fundo branco usando uma sombra interna gigante */
+  -webkit-box-shadow: 0 0 0 1000px var(--white) inset !important;
+  /* Força a cor do texto */
+  -webkit-text-fill-color: var(--gray-800) !important;
+  /* Suaviza a transição caso o navegador tente piscar a cor */
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* 2. Para o Modo Escuro */
+body.dark-mode input:-webkit-autofill,
+body.dark-mode input:-webkit-autofill:hover,
+body.dark-mode input:-webkit-autofill:focus,
+body.dark-mode input:-webkit-autofill:active {
+  /* Força o fundo escuro que definimos no tema */
+  -webkit-box-shadow: 0 0 0 1000px #0f172a inset !important;
+  /* Força o texto claro */
+  -webkit-text-fill-color: #f8fafc !important;
+  transition: background-color 5000s ease-in-out 0s;
 }

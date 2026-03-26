@@ -1,6 +1,6 @@
 ﻿/* ============================================
    frontend/src/App.css
-   LAUDA - Layout Principal (Sidebar + Header + Content)
+   LAUDA - Layout Principal (Header Flutuante + Sidebar Direita)
    ============================================ */
 
 /* ============================================
@@ -15,19 +15,164 @@
 }
 
 /* ============================================
-   2. SIDEBAR (Barra Lateral)
+   2. ZONA PRINCIPAL (Fica na esquerda agora)
+   ============================================ */
+.lauda-main-zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+/* ============================================
+   3. HEADER SUPERIOR (Flutuante e Arredondado)
+   ============================================ */
+.lauda-header {
+  height: 65px;
+  min-height: 65px;
+  background-color: var(--white);
+
+  /* Efeito Flutuante */
+  margin: 1.5rem 0 0 1.5rem; /* Margem no topo e esquerda */
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-md);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+
+  /* Mantém ele colado no topo (respeitando a margem) ao rolar */
+  position: sticky;
+  top: 1.5rem;
+  z-index: 10;
+}
+
+.lauda-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.9375rem;
+}
+
+.lauda-header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin: 0;
+}
+
+.lauda-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.theme-toggle-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--gray-700);
+  line-height: 1;
+  transition: transform var(--transition-fast);
+}
+
+.theme-toggle-btn:hover {
+  transform: scale(1.1);
+}
+
+.logout-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* ============================================
+   4. O NOVO BOTÃO HAMBURGUER (Bolinha Elegante)
+   ============================================ */
+.menu-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Cores invertidas pra dar destaque */
+  background-color: var(--primary-lightest);
+  color: var(--primary-dark);
+  border: 1px solid transparent;
+
+  font-size: 1.1rem;
+  cursor: pointer;
+
+  /* Formato Circular */
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+
+  transition: all var(--transition-fast);
+}
+
+.menu-toggle-btn:hover {
+  background-color: var(--primary);
+  color: var(--white);
+  transform: scale(1.05);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============================================
+   5. CONTAINER DO CONTEÚDO
+   ============================================ */
+.lauda-content {
+  padding: 2rem 1.5rem;
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.lauda-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.lauda-page-header h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.lauda-page-header p {
+  margin: 0;
+}
+
+/* ============================================
+   6. SIDEBAR (Agora na Direita)
    ============================================ */
 .lauda-sidebar {
   width: 240px;
   min-width: 240px;
   background-color: var(--white);
-  border-right: 1px solid var(--gray-200);
+
+  /* Efeito Flutuante */
+  margin: 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-md);
+
   display: flex;
   flex-direction: column;
   padding: 1.5rem 1rem;
   position: sticky;
-  top: 0;
-  height: 100vh;
+
+  /* Acompanha a margem */
+  top: 1.5rem;
+  height: calc(100vh - 3rem);
+
   overflow-y: auto;
   overflow-x: hidden;
   transition:
@@ -92,150 +237,39 @@
 }
 
 /* ============================================
-   NOVO: SIDEBAR RECOLHIDA (DESKTOP)
+   SIDEBAR RECOLHIDA (APENAS DESKTOP)
    ============================================ */
-.lauda-sidebar.collapsed {
-  width: 80px;
-  min-width: 80px;
-  padding: 1.5rem 0.5rem;
-}
+@media (min-width: 769px) {
+  .lauda-sidebar.collapsed {
+    width: 80px;
+    min-width: 80px;
+    padding: 1.5rem 0.5rem;
+  }
 
-.lauda-sidebar.collapsed .lauda-logo {
-  justify-content: center;
-  padding: 0;
-}
+  .lauda-sidebar.collapsed .lauda-logo {
+    justify-content: center;
+    padding: 0;
+  }
 
-.lauda-sidebar.collapsed .logo-text,
-.lauda-sidebar.collapsed .nav-text {
-  display: none;
-}
+  /* É aqui que escondíamos os textos! Agora só esconde no PC */
+  .lauda-sidebar.collapsed .logo-text,
+  .lauda-sidebar.collapsed .nav-text {
+    display: none;
+  }
 
-.lauda-sidebar.collapsed .lauda-nav-item {
-  justify-content: center;
-  padding: 0.75rem 0;
-}
+  .lauda-sidebar.collapsed .lauda-nav-item {
+    justify-content: center;
+    padding: 0.75rem 0;
+  }
 
-.lauda-sidebar.collapsed .lauda-nav-item .nav-icon {
-  width: auto;
+  .lauda-sidebar.collapsed .lauda-nav-item .nav-icon {
+    width: auto;
+  }
 }
 
 /* ============================================
-   3. ZONA PRINCIPAL (Header + Content)
+   7. RESPONSIVIDADE (MOBILE)
    ============================================ */
-.lauda-main-zone {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow-y: auto;
-  min-width: 0;
-}
-
-/* ============================================
-   4. HEADER SUPERIOR
-   ============================================ */
-.lauda-header {
-  height: 60px;
-  min-height: 60px;
-  background-color: var(--white);
-  border-bottom: 1px solid var(--gray-200);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2rem;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.lauda-header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.9375rem;
-}
-
-.lauda-header h1 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--gray-800);
-  margin: 0;
-}
-
-.lauda-user-profile {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.theme-toggle-btn {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  color: var(--gray-700);
-  line-height: 1;
-}
-
-.logout-btn {
-  padding: 0.3125rem 0.625rem;
-  font-size: 0.8rem;
-}
-
-/* ============================================
-   5. CONTAINER DO CONTEÚDO
-   ============================================ */
-.lauda-content {
-  padding: 2rem;
-  flex: 1;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-}
-
-/* ============================================
-   6. PAGE HEADER (Título + Botão de cada módulo)
-      Usado em Músicas, Cultos, Membros, etc.
-   ============================================ */
-.lauda-page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.5rem;
-  gap: 1rem;
-}
-
-.lauda-page-header h2 {
-  font-size: 1.5rem;
-  margin-bottom: 0.25rem;
-}
-
-.lauda-page-header p {
-  margin: 0;
-}
-
-/* ============================================
-   7. MENU MOBILE
-   ============================================ */
-.menu-toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--gray-100);
-  border: none;
-  font-size: 1.25rem;
-  cursor: pointer;
-  color: var(--gray-800);
-  padding: 0.4rem 0.6rem;
-  border-radius: var(--radius-sm);
-  transition: background-color var(--transition-fast);
-}
-
-.menu-toggle-btn:hover {
-  background-color: var(--gray-200);
-}
-
 .sidebar-overlay {
   display: none;
   position: fixed;
@@ -244,22 +278,25 @@
   z-index: 99;
 }
 
-/* ============================================
-   8. RESPONSIVIDADE
-   ============================================ */
 @media (max-width: 768px) {
   .lauda-sidebar {
     position: fixed;
-    top: 0;
-    left: 0;
+    /* AGORA FICA NA DIREITA DO CELULAR! */
+    top: 1rem;
+    right: auto;
+    left: 1rem; /* Anula o left antigo */
+    margin: 0;
+    height: calc(100vh - 2rem);
     z-index: 100;
-    transform: translateX(-100%);
+
+    /* Esconde puxando pra fora da tela pela ESQUERDA */
+    transform: translateX(calc(-100% - 2rem));
     transition: transform 0.3s ease-in-out;
     box-shadow: var(--shadow-2xl);
   }
 
   .lauda-sidebar.open {
-    transform: translateX(0);
+    transform: translateX(0); /* Volta pra tela perfeitamente */
   }
 
   .sidebar-overlay.open {
@@ -267,11 +304,13 @@
   }
 
   .lauda-header {
+    margin: 1rem 1rem 0 1rem; /* Ajuste no mobile pra não ficar tão longe */
+    top: 1rem;
     padding: 0 1rem;
   }
 
   .lauda-content {
-    padding: 1rem;
+    padding: 1.5rem 1rem;
   }
 
   .lauda-page-header {
@@ -285,7 +324,7 @@
 }
 
 /* ============================================
-   9. DASHBOARD
+   8. DASHBOARD
    ============================================ */
 .dashboard-grid {
   display: grid;
@@ -315,11 +354,9 @@
 .agenda-section {
   margin-top: 2rem;
 }
-
 .agenda-section h2 {
   margin-bottom: 1rem;
 }
-
 .agenda-item {
   display: flex;
   align-items: center;
@@ -327,17 +364,14 @@
   padding: 0.75rem 0;
   border-bottom: 1px solid var(--gray-200);
 }
-
 .agenda-item:last-child {
   border-bottom: none;
 }
-
 .agenda-item span {
   font-size: 0.875rem;
   color: var(--gray-500);
   font-weight: 500;
 }
-
 .agenda-item strong {
   font-weight: 600;
   color: var(--gray-800);
