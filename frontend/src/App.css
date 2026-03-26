@@ -35,7 +35,7 @@
   background-color: var(--white);
 
   /* Efeito Flutuante */
-  margin: 1.5rem 0 0 1.5rem; /* Margem no topo e esquerda */
+  margin: 1.5rem 1.5rem 0 0; /* Margem no topo e esquerda */
   border-radius: var(--radius-lg);
   border: 1px solid var(--gray-200);
   box-shadow: var(--shadow-md);

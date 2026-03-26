@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import "./Musicas.css";
 
-// Criamos uma constante com todos os campos limpos para facilitar o "reset" do formulário
-const ESTADO_INICIAL_FORM = {
+const ESTADO_INICIAL_MUSICA = {
   titulo: "",
   artista: "",
-  tom_original: "",
+  tom_original: "C",
   bpm: "",
   compasso: "",
   link_referencia: "",
@@ -18,34 +17,30 @@ export default function Musicas() {
   const [musicas, setMusicas] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState(ESTADO_INICIAL_FORM);
+  const [formData, setFormData] = useState(ESTADO_INICIAL_MUSICA);
 
   const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
   const urlLimpa = baseUrl.replace(/\/$/, "");
 
-  const buscarMusicas = () => {
+  const carregarMusicas = () => {
     const token = localStorage.getItem("token");
     fetch(`${urlLimpa}/api/musicas/`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
-        if (res.status === 401) {
-          localStorage.removeItem("token");
-          window.location.href = "/";
-          throw new Error("Sessão expirada");
-        }
+        if (res.status === 401) throw new Error("Não autorizado");
         return res.json();
       })
       .then((dados) => setMusicas(dados))
-      .catch((erro) => console.error("Erro na busca:", erro));
+      .catch((erro) => {
+        console.error(erro);
+        localStorage.removeItem("token");
+        window.location.href = "/";
+      });
   };
 
   useEffect(() => {
-    buscarMusicas();
+    carregarMusicas();
   }, []);
 
   const handleChange = (e) => {
@@ -53,20 +48,17 @@ export default function Musicas() {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleNovoClick = () => {
+  const handleNovaMusica = () => {
+    setFormData(ESTADO_INICIAL_MUSICA);
     setEditingId(null);
-    setFormData(ESTADO_INICIAL_FORM);
     setIsModalOpen(true);
   };
 
-  const handleEditarClick = (musica) => {
-    setEditingId(musica.id);
-    // Populando TODOS os campos com os dados que vêm do banco.
-    // Usamos || '' para evitar que o React reclame se o valor for null no banco.
+  const handleEditarMusica = (musica) => {
     setFormData({
       titulo: musica.titulo || "",
       artista: musica.artista || "",
-      tom_original: musica.tom_original || "",
+      tom_original: musica.tom_original || "C",
       bpm: musica.bpm || "",
       compasso: musica.compasso || "",
       link_referencia: musica.link_referencia || "",
@@ -74,72 +66,70 @@ export default function Musicas() {
       observacoes: musica.observacoes || "",
       tags: musica.tags || "",
     });
+    setEditingId(musica.id);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    const confirmacao = window.confirm(
-      "Tem certeza que deseja deletar esta música?",
-    );
-    if (!confirmacao) return;
-
+  const handleExcluirMusica = (id) => {
+    if (
+      !window.confirm(
+        "Tem certeza que deseja remover esta música do repertório?",
+      )
+    )
+      return;
     const token = localStorage.getItem("token");
-    fetch(`${import.meta.env.VITE_API_URL}/api/musicas/`, {
+
+    fetch(`${urlLimpa}/api/musicas/${id}/`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (res.ok) buscarMusicas();
-        else alert("Erro ao deletar a música.");
-      })
-      .catch((erro) => console.error("Erro ao deletar:", erro));
+    }).then((res) => {
+      if (res.ok) carregarMusicas();
+    });
   };
 
-  const handleSubmit = (e) => {
+  const handleSalvarMusica = (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
     const url = editingId
       ? `${urlLimpa}/api/musicas/${editingId}/`
       : `${urlLimpa}/api/musicas/`;
-    const metodo = editingId ? "PUT" : "POST";
+    const method = editingId ? "PUT" : "POST";
 
-    // Se o BPM estiver vazio, transformamos em null para não quebrar o banco do Django (que espera um número)
-    const dadosParaEnviar = { ...formData };
-    if (dadosParaEnviar.bpm === "") dadosParaEnviar.bpm = null;
+    // Tratamento para não enviar BPM vazio como string (o Django espera número ou nulo)
+    const dadosEnvio = { ...formData };
+    if (dadosEnvio.bpm === "") dadosEnvio.bpm = null;
 
     fetch(url, {
-      method: metodo,
+      method,
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(dadosParaEnviar),
-    })
-      .then((res) => {
-        if (res.ok) {
-          setIsModalOpen(false);
-          setEditingId(null);
-          setFormData(ESTADO_INICIAL_FORM);
-          buscarMusicas();
-        } else {
-          alert("Erro ao salvar a música. Verifique se o link é válido.");
-        }
-      })
-      .catch((erro) => console.error("Erro ao salvar:", erro));
+      body: JSON.stringify(dadosEnvio),
+    }).then((res) => {
+      if (res.ok) {
+        setIsModalOpen(false);
+        carregarMusicas();
+      } else {
+        alert(
+          "Erro ao salvar música. Verifique se preencheu título, artista e tom.",
+        );
+      }
+    });
   };
 
   return (
     <div>
       <div className="lauda-page-header">
         <div>
-          <h2 className="text-primary">Banco de Músicas</h2>
+          <h2 className="text-primary">Repertório de Músicas</h2>
           <p className="text-muted">
-            Gerencie o repertório global do ministério
+            Gerencie as canções, tons e cifras do ministério
           </p>
         </div>
         <button
           className="lauda-btn lauda-btn-primary"
-          onClick={handleNovoClick}
+          onClick={handleNovaMusica}
         >
           + Nova Música
         </button>
@@ -147,207 +137,269 @@ export default function Musicas() {
 
       <div className="musicas-grid">
         {musicas.map((musica) => (
-          <div key={musica.id} className="lauda-card">
-            <div className="musica-info">
-              <h3>{musica.titulo}</h3>
-              <p className="text-muted">{musica.artista}</p>
-            </div>
-
-            <div className="musica-meta musica-meta-column text-muted">
-              <div className="musica-meta-row">
-                <span>
-                  <strong>Tom:</strong> {musica.tom_original}
-                </span>
-                {musica.bpm && (
-                  <span>
-                    <strong>BPM:</strong> {musica.bpm}
-                  </span>
-                )}
-                {musica.compasso && (
-                  <span>
-                    <strong>Compasso:</strong> {musica.compasso}
-                  </span>
-                )}
+          <div
+            key={musica.id}
+            className="lauda-card"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              marginBottom: "1.5rem",
+            }}
+          >
+            <div>
+              <div className="musica-card-header">
+                <div>
+                  <h3 className="musica-titulo">{musica.titulo}</h3>
+                  <div className="musica-artista">{musica.artista}</div>
+                </div>
+                {/* Destaque para o Tom */}
+                <div className="musica-tom-badge">{musica.tom_original}</div>
               </div>
 
-              {/* Mostra as Tags e Link se existirem */}
               {musica.tags && (
                 <div className="musica-tags">
-                  {musica.tags.split(",").map((tag) => (
-                    <span key={tag} className="badge badge-gray">
+                  {musica.tags.split(",").map((tag, index) => (
+                    <span key={index} className="musica-tag">
                       {tag.trim()}
                     </span>
                   ))}
                 </div>
               )}
+
+              <div className="musica-meta">
+                <div className="musica-meta-item">
+                  <strong>BPM</strong>
+                  <span>{musica.bpm || "-"}</span>
+                </div>
+                <div className="musica-meta-item">
+                  <strong>Compasso</strong>
+                  <span>{musica.compasso || "-"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                marginTop: "15px",
+                paddingTop: "15px",
+                borderTop: "1px solid var(--gray-200)",
+              }}
+            >
               {musica.link_referencia && (
                 <a
                   href={musica.link_referencia}
                   target="_blank"
                   rel="noreferrer"
-                  className="musica-link"
+                  className="lauda-btn lauda-btn-secondary"
+                  style={{
+                    flex: 1,
+                    textAlign: "center",
+                    padding: "5px",
+                    fontSize: "0.85rem",
+                  }}
                 >
-                  🔗 Ouvir Referência
+                  🎧 Ouvir
                 </a>
               )}
-            </div>
-
-            <div className="musica-actions">
               <button
-                className="lauda-btn lauda-btn-secondary musica-action-btn"
-                onClick={() => handleEditarClick(musica)}
+                className="lauda-btn lauda-btn-secondary"
+                style={{ flex: 1, padding: "5px", fontSize: "0.85rem" }}
+                onClick={() => handleEditarMusica(musica)}
               >
                 Editar
               </button>
               <button
-                className="lauda-btn lauda-btn-danger musica-action-btn"
-                onClick={() => handleDelete(musica.id)}
+                className="lauda-btn lauda-btn-secondary"
+                style={{
+                  padding: "5px",
+                  fontSize: "0.85rem",
+                  color: "var(--error-dark)",
+                }}
+                onClick={() => handleExcluirMusica(musica.id)}
               >
-                Deletar
+                X
               </button>
             </div>
           </div>
         ))}
+        {musicas.length === 0 && (
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              textAlign: "center",
+              padding: "40px",
+              color: "var(--gray-500)",
+            }}
+          >
+            Seu repertório está vazio. Adicione a primeira música!
+          </div>
+        )}
       </div>
 
+      {/* =========================================
+          MODAL DE CRIAR / EDITAR MÚSICA
+          ========================================= */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal modal-wide">
-            <div className="modal-header">
-              <h3 className="modal-title">
+        <div
+          className="modal-overlay"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            className="lauda-card"
+            style={{
+              width: "100%",
+              maxWidth: "600px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              margin: "20px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
+              <h3 className="text-primary">
                 {editingId ? "Editar Música" : "Cadastrar Nova Música"}
               </h3>
               <button
-                className="modal-close"
                 onClick={() => setIsModalOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "1.5rem",
+                  cursor: "pointer",
+                }}
               >
                 ×
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body modal-form">
-                {/* Linha 1: Título e Artista */}
-                <div className="form-row-wrap">
-                  <div className="form-field-grow">
-                    <label className="input-label">Título da Música *</label>
-                    <input
-                      type="text"
-                      name="titulo"
-                      className="input-field"
-                      value={formData.titulo}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div className="form-field-grow">
-                    <label className="input-label">
-                      Artista/Banda Original *
-                    </label>
-                    <input
-                      type="text"
-                      name="artista"
-                      className="input-field"
-                      value={formData.artista}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Linha 2: Tom, BPM e Compasso */}
-                <div className="form-row-wrap">
-                  <div className="form-field-small">
-                    <label className="input-label">Tom Original *</label>
-                    <input
-                      type="text"
-                      name="tom_original"
-                      className="input-field"
-                      placeholder="Ex: C, Dm"
-                      value={formData.tom_original}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div className="form-field-small">
-                    <label className="input-label">BPM</label>
-                    <input
-                      type="number"
-                      name="bpm"
-                      className="input-field"
-                      placeholder="Ex: 120"
-                      value={formData.bpm}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className="form-field-small">
-                    <label className="input-label">Compasso</label>
-                    <input
-                      type="text"
-                      name="compasso"
-                      className="input-field"
-                      placeholder="Ex: 4/4, 6/8"
-                      value={formData.compasso}
-                      onChange={handleChange}
-                    />
-                  </div>
-                </div>
-
-                {/* Linha 3: Link e Tags */}
-                <div className="form-row-wrap">
-                  <div className="form-field-grow">
-                    <label className="input-label">
-                      Link de Referência (YouTube/Spotify)
-                    </label>
-                    <input
-                      type="url"
-                      name="link_referencia"
-                      className="input-field"
-                      placeholder="https://..."
-                      value={formData.link_referencia}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className="form-field-grow">
-                    <label className="input-label">
-                      Tags (separadas por vírgula)
-                    </label>
-                    <input
-                      type="text"
-                      name="tags"
-                      className="input-field"
-                      placeholder="Ex: Adoração, Ceia, Animada"
-                      value={formData.tags}
-                      onChange={handleChange}
-                    />
-                  </div>
-                </div>
-
-                {/* Linha 4: Cifra e Observações */}
-                <div>
-                  <label className="input-label">Cifra (Texto)</label>
-                  <textarea
-                    name="cifra_texto"
-                    className="input-field"
-                    rows="4"
-                    placeholder="Cole a cifra aqui..."
-                    value={formData.cifra_texto}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div>
-                  <label className="input-label">Observações Gerais</label>
+            <form
+              onSubmit={handleSalvarMusica}
+              style={{ display: "flex", flexDirection: "column", gap: "15px" }}
+            >
+              <div style={{ display: "flex", gap: "15px", flexWrap: "wrap" }}>
+                <div style={{ flex: 2, minWidth: "200px" }}>
+                  <label className="input-label">Título da Música *</label>
                   <input
                     type="text"
-                    name="observacoes"
+                    name="titulo"
                     className="input-field"
-                    placeholder="Ex: Introdução apenas no violão"
-                    value={formData.observacoes}
+                    value={formData.titulo}
                     onChange={handleChange}
+                    required
+                    placeholder="Ex: Oceanos"
+                  />
+                </div>
+                <div style={{ flex: 2, minWidth: "200px" }}>
+                  <label className="input-label">Artista / Banda *</label>
+                  <input
+                    type="text"
+                    name="artista"
+                    className="input-field"
+                    value={formData.artista}
+                    onChange={handleChange}
+                    required
+                    placeholder="Ex: Hillsong"
                   />
                 </div>
               </div>
-              <div className="modal-footer">
+
+              <div style={{ display: "flex", gap: "15px", flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: "80px" }}>
+                  <label className="input-label">Tom *</label>
+                  <input
+                    type="text"
+                    name="tom_original"
+                    className="input-field"
+                    value={formData.tom_original}
+                    onChange={handleChange}
+                    required
+                    placeholder="Ex: C, G#"
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: "80px" }}>
+                  <label className="input-label">BPM</label>
+                  <input
+                    type="number"
+                    name="bpm"
+                    className="input-field"
+                    value={formData.bpm}
+                    onChange={handleChange}
+                    placeholder="Ex: 72"
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: "80px" }}>
+                  <label className="input-label">Compasso</label>
+                  <input
+                    type="text"
+                    name="compasso"
+                    className="input-field"
+                    value={formData.compasso}
+                    onChange={handleChange}
+                    placeholder="Ex: 4/4"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="input-label">
+                  Link de Referência (YouTube/Spotify)
+                </label>
+                <input
+                  type="url"
+                  name="link_referencia"
+                  className="input-field"
+                  value={formData.link_referencia}
+                  onChange={handleChange}
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div>
+                <label className="input-label">Tags (Separe por vírgula)</label>
+                <input
+                  type="text"
+                  name="tags"
+                  className="input-field"
+                  value={formData.tags}
+                  onChange={handleChange}
+                  placeholder="Adoração, Ceia, Animada"
+                />
+              </div>
+
+              <div>
+                <label className="input-label">Cifra (Cole o texto aqui)</label>
+                <textarea
+                  name="cifra_texto"
+                  className="input-field"
+                  rows="4"
+                  value={formData.cifra_texto}
+                  onChange={handleChange}
+                  placeholder="[C]  [G]  [Am]  [F]..."
+                  style={{ fontFamily: "monospace" }}
+                ></textarea>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  marginTop: "10px",
+                }}
+              >
                 <button
                   type="button"
                   className="lauda-btn lauda-btn-secondary"
@@ -356,7 +408,7 @@ export default function Musicas() {
                   Cancelar
                 </button>
                 <button type="submit" className="lauda-btn lauda-btn-primary">
-                  {editingId ? "Salvar Alterações" : "Salvar Música"}
+                  Salvar Música
                 </button>
               </div>
             </form>

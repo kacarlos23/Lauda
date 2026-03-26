@@ -15,12 +15,16 @@ export default function Cultos() {
   const [membros, setMembros] = useState([]);
   const [escalas, setEscalas] = useState([]);
 
-  // === CONTROLES DO MODAL DE ESCALAS ===
+  // === ESTADOS PARA A SETLIST ===
+  const [musicasGlobais, setMusicasGlobais] = useState([]);
+  const [itensSetlist, setItensSetlist] = useState([]);
+  const [isSetlistModalOpen, setIsSetlistModalOpen] = useState(false);
+  const [draggedItem, setDraggedItem] = useState(null);
+
+  // === CONTROLES GERAIS DE MODAIS ===
   const [isEscalaModalOpen, setIsEscalaModalOpen] = useState(false);
   const [cultoSelecionado, setCultoSelecionado] = useState(null);
   const [novoMembroId, setNovoMembroId] = useState("");
-
-  // === CONTROLES DO MODAL DE CRIAR/EDITAR CULTO ===
   const [isCultoModalOpen, setIsCultoModalOpen] = useState(false);
   const [editingCultoId, setEditingCultoId] = useState(null);
   const [formData, setFormData] = useState(ESTADO_INICIAL_CULTO);
@@ -36,16 +40,22 @@ export default function Cultos() {
     };
 
     Promise.all([
-      fetch(`${urlLimpa}/api/cultos/`, { headers }).then((res) => res.json()),
-      fetch(`${urlLimpa}/api/usuarios/`, { headers }).then((res) => res.json()),
-      fetch(`${urlLimpa}/api/escalas/`, { headers }).then((res) => res.json()),
+      fetch(`${urlLimpa}/api/cultos/`, { headers }).then((r) => r.json()),
+      fetch(`${urlLimpa}/api/usuarios/`, { headers }).then((r) => r.json()),
+      fetch(`${urlLimpa}/api/escalas/`, { headers }).then((r) => r.json()),
+      fetch(`${urlLimpa}/api/musicas/`, { headers }).then((r) => r.json()),
+      fetch(`${urlLimpa}/api/setlists/`, { headers }).then((r) => r.json()),
     ])
-      .then(([cultosData, membrosData, escalasData]) => {
-        if (cultosData.detail) throw new Error("Não autorizado");
-        setCultos(cultosData);
-        setMembros(membrosData);
-        setEscalas(escalasData);
-      })
+      .then(
+        ([cultosData, membrosData, escalasData, musicasData, setlistsData]) => {
+          if (cultosData.detail) throw new Error("Não autorizado");
+          setCultos(cultosData);
+          setMembros(membrosData);
+          setEscalas(escalasData);
+          setMusicasGlobais(musicasData);
+          setItensSetlist(setlistsData);
+        },
+      )
       .catch((erro) => {
         console.error("Erro na busca:", erro);
         localStorage.removeItem("token");
@@ -58,8 +68,14 @@ export default function Cultos() {
   }, []);
 
   // ==========================================
-  // LÓGICA DE GESTÃO DE CULTOS (NOVO!)
+  // FUNÇÕES DE CULTOS (CRUD)
   // ==========================================
+  const formatarDataBR = (dataString) => {
+    if (!dataString) return "";
+    const [ano, mes, dia] = dataString.split("-");
+    return `${dia}/${mes}/${ano}`;
+  };
+
   const handleChangeCulto = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -75,7 +91,6 @@ export default function Cultos() {
     setFormData({
       nome: culto.nome || "",
       data: culto.data || "",
-      // O Django manda horas assim "19:00:00", o React precisa de "19:00"
       horario_inicio: culto.horario_inicio
         ? culto.horario_inicio.substring(0, 5)
         : "",
@@ -107,7 +122,7 @@ export default function Cultos() {
     }).then((res) => {
       if (res.ok) {
         setIsCultoModalOpen(false);
-        carregarDados(); // Recarrega os cultos na tela
+        carregarDados();
       } else {
         alert("Erro ao salvar o culto. Verifique os dados.");
       }
@@ -117,7 +132,7 @@ export default function Cultos() {
   const handleExcluirCulto = (id) => {
     if (
       !window.confirm(
-        "Tem certeza que deseja excluir este culto? Todas as escalas serão apagadas!",
+        "Certeza que deseja excluir este culto? Escalas e setlists serão perdidas!",
       )
     )
       return;
@@ -131,13 +146,12 @@ export default function Cultos() {
   };
 
   // ==========================================
-  // LÓGICA DA ESCALA DA EQUIPE
+  // FUNÇÕES DE ESCALAS
   // ==========================================
   const abrirModalEscala = (culto) => {
     setCultoSelecionado(culto);
     setIsEscalaModalOpen(true);
   };
-
   const fecharModalEscala = () => {
     setIsEscalaModalOpen(false);
     setCultoSelecionado(null);
@@ -177,13 +191,94 @@ export default function Cultos() {
     });
   };
 
-  // Filtros
-  const formatarDataBR = (dataString) => {
-    if (!dataString) return "";
-    const [ano, mes, dia] = dataString.split("-");
-    return `${dia}/${mes}/${ano}`;
+  // ==========================================
+  // FUNÇÕES DA SETLIST (DRAG AND DROP E ATUALIZAÇÃO)
+  // ==========================================
+  const abrirModalSetlist = (culto) => {
+    setCultoSelecionado(culto);
+    setIsSetlistModalOpen(true);
   };
 
+  const handleDragStart = (e, item, source) => {
+    setDraggedItem({ item, source });
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.add("drag-over");
+  };
+  const handleDragLeave = (e) => {
+    e.currentTarget.classList.remove("drag-over");
+  };
+
+  const handleDropToSetlist = (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove("drag-over");
+    if (draggedItem && draggedItem.source === "repertorio") {
+      const musica = draggedItem.item;
+      const token = localStorage.getItem("token");
+      fetch(`${urlLimpa}/api/setlists/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          culto: cultoSelecionado.id,
+          musica: musica.id,
+          ordem:
+            itensSetlist.filter((i) => i.culto === cultoSelecionado.id).length +
+            1,
+          tom_execucao: musica.tom_original,
+          observacoes: "Louvor",
+        }),
+      }).then((res) => {
+        if (res.ok) carregarDados();
+      });
+    }
+    setDraggedItem(null);
+  };
+
+  const handleDropToRepertorio = (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove("drag-over");
+    if (draggedItem && draggedItem.source === "setlist") {
+      const token = localStorage.getItem("token");
+      fetch(`${urlLimpa}/api/setlists/${draggedItem.item.id}/`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((res) => {
+        if (res.ok) carregarDados();
+      });
+    }
+    setDraggedItem(null);
+  };
+
+  // 1. Atualiza apenas o estado local (Instantâneo para o usuário)
+  const handleChangeItemSetlistLocal = (itemId, campo, valor) => {
+    setItensSetlist((prev) =>
+      prev.map((i) => (i.id === itemId ? { ...i, [campo]: valor } : i)),
+    );
+  };
+
+  // 2. Atualiza o banco de dados (Somente quando terminar de editar via onBlur)
+  const handleAtualizarItemSetlistBanco = (itemId, campo, valor) => {
+    if (!itemId) return;
+    const token = localStorage.getItem("token");
+    fetch(`${urlLimpa}/api/setlists/${itemId}/`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ [campo]: valor }),
+    }).catch((err) => console.error("Erro ao atualizar setlist:", err));
+  };
+
+  // ==========================================
+  // FILTROS DE RENDERIZAÇÃO
+  // ==========================================
   const escalasDoCulto = cultoSelecionado
     ? escalas.filter((e) => e.culto === cultoSelecionado.id)
     : [];
@@ -191,12 +286,21 @@ export default function Cultos() {
     (membro) => !escalasDoCulto.some((escala) => escala.membro === membro.id),
   );
 
+  const setlistAtual = cultoSelecionado
+    ? itensSetlist
+        .filter((i) => i.culto === cultoSelecionado.id)
+        .sort((a, b) => a.ordem - b.ordem)
+    : [];
+  const repertorioDisponivel = musicasGlobais.filter(
+    (m) => !setlistAtual.some((item) => item.musica === m.id),
+  );
+
   return (
     <div>
       <div className="lauda-page-header">
         <div>
           <h2 className="text-primary">Agenda de Cultos</h2>
-          <p className="text-muted">Gerencie os eventos e escalas</p>
+          <p className="text-muted">Gerencie eventos, escalas e setlists</p>
         </div>
         <button
           className="lauda-btn lauda-btn-primary"
@@ -222,8 +326,8 @@ export default function Cultos() {
                 <h3>{culto.nome}</h3>
                 <p className="culto-data">
                   📅 {formatarDataBR(culto.data)} das{" "}
-                  {culto.horario_inicio.substring(0, 5)} às{" "}
-                  {culto.horario_termino.substring(0, 5)}
+                  {/* NULL SAFETY: Se não tiver horário, mostra --:-- */}
+                  {culto.horario_inicio?.substring(0, 5) || "--:--"}
                 </p>
               </div>
               <div
@@ -250,24 +354,39 @@ export default function Cultos() {
                 paddingTop: "15px",
                 display: "flex",
                 flexDirection: "column",
-                gap: "10px",
+                gap: "8px",
               }}
             >
-              <button
-                className="lauda-btn lauda-btn-primary"
-                style={{ width: "100%", justifyContent: "center" }}
-                onClick={() => abrirModalEscala(culto)}
-              >
-                👥 Gerenciar Escala
-              </button>
-
-              <div style={{ display: "flex", gap: "10px" }}>
+              <div style={{ display: "flex", gap: "8px" }}>
                 <button
                   className="lauda-btn lauda-btn-secondary"
                   style={{ flex: 1, padding: "5px", fontSize: "0.85rem" }}
+                  onClick={() => abrirModalEscala(culto)}
+                >
+                  👥 Escala
+                </button>
+                <button
+                  className="lauda-btn lauda-btn-primary"
+                  style={{ flex: 1, padding: "5px", fontSize: "0.85rem" }}
+                  onClick={() => abrirModalSetlist(culto)}
+                >
+                  🎵 Setlist
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  className="lauda-btn lauda-btn-secondary"
+                  style={{
+                    flex: 1,
+                    padding: "5px",
+                    fontSize: "0.85rem",
+                    border: "none",
+                    backgroundColor: "transparent",
+                  }}
                   onClick={() => handleEditarCulto(culto)}
                 >
-                  Editar
+                  ✏️ Editar Dados
                 </button>
                 <button
                   className="lauda-btn lauda-btn-secondary"
@@ -275,11 +394,13 @@ export default function Cultos() {
                     flex: 1,
                     padding: "5px",
                     fontSize: "0.85rem",
+                    border: "none",
+                    backgroundColor: "transparent",
                     color: "var(--error-dark)",
                   }}
                   onClick={() => handleExcluirCulto(culto.id)}
                 >
-                  Excluir
+                  🗑️ Excluir
                 </button>
               </div>
             </div>
@@ -447,7 +568,7 @@ export default function Cultos() {
       )}
 
       {/* =========================================
-          MODAL DE ESCALAS
+          MODAL DE ESCALAS DA EQUIPE
           ========================================= */}
       {isEscalaModalOpen && cultoSelecionado && (
         <div
@@ -591,6 +712,198 @@ export default function Cultos() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================
+          MODAL DA SETLIST (DRAG AND DROP)
+          ========================================= */}
+      {isSetlistModalOpen && cultoSelecionado && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: "1000px", width: "95%" }}>
+            <div className="modal-header">
+              <h3 className="modal-title">Setlist: {cultoSelecionado.nome}</h3>
+              <button
+                onClick={() => setIsSetlistModalOpen(false)}
+                className="modal-close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p className="text-muted" style={{ marginBottom: "10px" }}>
+                Arraste as músicas do repertório (esquerda) para a setlist do
+                culto (direita). Arraste de volta para remover.
+              </p>
+
+              <div className="dnd-container">
+                {/* COLUNA 1: REPERTÓRIO */}
+                <div
+                  className="dnd-column"
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDropToRepertorio}
+                >
+                  <h4
+                    style={{ marginBottom: "15px", color: "var(--gray-700)" }}
+                  >
+                    📚 Repertório Disponível
+                  </h4>
+
+                  {repertorioDisponivel.map((musica) => (
+                    <div
+                      key={musica.id}
+                      className="dnd-item"
+                      draggable
+                      onDragStart={(e) =>
+                        handleDragStart(e, musica, "repertorio")
+                      }
+                    >
+                      <div className="dnd-item-title">{musica.titulo}</div>
+                      <div className="dnd-item-subtitle">
+                        {musica.artista} • Tom: {musica.tom_original}
+                      </div>
+                    </div>
+                  ))}
+                  {repertorioDisponivel.length === 0 && (
+                    <p className="text-muted">Nenhuma música disponível.</p>
+                  )}
+                </div>
+
+                {/* COLUNA 2: SETLIST DO CULTO */}
+                <div
+                  className="dnd-column"
+                  style={{
+                    backgroundColor: "var(--primary-lightest)",
+                    border: "1px solid var(--primary-light)",
+                  }}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDropToSetlist}
+                >
+                  <h4
+                    style={{
+                      marginBottom: "15px",
+                      color: "var(--primary-dark)",
+                    }}
+                  >
+                    🎵 Músicas do Culto
+                  </h4>
+
+                  {setlistAtual.map((item, index) => {
+                    const musica = musicasGlobais.find(
+                      (m) => m.id === item.musica,
+                    );
+                    if (!musica) return null;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="dnd-item"
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, item, "setlist")}
+                        style={{ borderLeft: "4px solid var(--primary)" }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            flexWrap: "wrap",
+                            gap: "10px",
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: "150px" }}>
+                            <div className="dnd-item-title">
+                              {index + 1}. {musica.titulo}
+                            </div>
+                            <div className="dnd-item-subtitle">
+                              {musica.artista}
+                            </div>
+                          </div>
+
+                          {/* SEPARAÇÃO: onChange local e onBlur pro banco! */}
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: "5px",
+                              alignItems: "center",
+                            }}
+                          >
+                            <input
+                              type="text"
+                              value={item.tom_execucao || ""}
+                              onChange={(e) =>
+                                handleChangeItemSetlistLocal(
+                                  item.id,
+                                  "tom_execucao",
+                                  e.target.value,
+                                )
+                              }
+                              onBlur={(e) =>
+                                handleAtualizarItemSetlistBanco(
+                                  item.id,
+                                  "tom_execucao",
+                                  e.target.value,
+                                )
+                              }
+                              style={{
+                                width: "45px",
+                                padding: "4px",
+                                textAlign: "center",
+                                border: "1px solid var(--gray-300)",
+                                borderRadius: "4px",
+                                fontWeight: "bold",
+                              }}
+                              title="Tom de Execução"
+                            />
+                            <input
+                              type="text"
+                              value={item.observacoes || ""}
+                              onChange={(e) =>
+                                handleChangeItemSetlistLocal(
+                                  item.id,
+                                  "observacoes",
+                                  e.target.value,
+                                )
+                              }
+                              onBlur={(e) =>
+                                handleAtualizarItemSetlistBanco(
+                                  item.id,
+                                  "observacoes",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="Momento"
+                              style={{
+                                width: "120px",
+                                padding: "4px",
+                                border: "1px solid var(--gray-300)",
+                                borderRadius: "4px",
+                                fontSize: "0.8rem",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {setlistAtual.length === 0 && (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        marginTop: "40px",
+                        color: "var(--primary)",
+                      }}
+                    >
+                      Arraste as músicas para cá! 👇
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

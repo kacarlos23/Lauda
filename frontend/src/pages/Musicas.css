@@ -1,113 +1,82 @@
-﻿﻿/* frontend/src/pages/Musicas.css */
+﻿﻿@charset "UTF-8";
 
-/* Grid responsivo de cards */
+/* frontend/src/pages/Musicas.css */
+
 .musicas-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 2.5rem;
 }
 
-/* Bloco de informacoes dentro do card */
-.musica-info {
-  margin-bottom: 0.75rem;
+.musica-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
 }
 
-.musica-info h3 {
-  font-size: 1rem;
-  font-weight: 600;
+.musica-titulo {
+  font-size: 1.1rem;
+  font-weight: 700;
   color: var(--gray-900);
   margin-bottom: 0.25rem;
+  line-height: 1.2;
 }
 
-.musica-info .text-muted {
-  margin: 0;
+.musica-artista {
+  font-size: 0.9rem;
+  color: var(--gray-500);
 }
 
-/* Rodape do card com metadados */
+/* O destaque visual para o TOM da música */
+.musica-tom-badge {
+  background-color: var(--primary-lightest);
+  color: var(--primary-dark);
+  font-weight: 800;
+  font-size: 1.1rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 45px;
+}
+
 .musica-meta {
   display: flex;
   gap: 1rem;
   border-top: 1px solid var(--gray-200);
-  padding-top: 0.75rem;
-  margin-top: 0;
-  flex-wrap: wrap;
-  font-size: 0.8125rem;
+  padding-top: 1rem;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: var(--gray-600);
 }
 
-.musica-meta strong {
-  color: var(--gray-700);
-}
-
-.musica-meta-column {
-  flex-direction: column;
-  gap: 0.3125rem;
-}
-
-.musica-meta-row {
+.musica-meta-item {
   display: flex;
-  gap: 0.9375rem;
-  flex-wrap: wrap;
+  flex-direction: column;
 }
 
 .musica-tags {
-  margin-top: 0.3125rem;
+  margin-top: 1rem;
   display: flex;
-  gap: 0.3125rem;
   flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
-.musica-link {
-  font-size: 0.85rem;
-  margin-top: 0.3125rem;
-  display: inline-block;
+.musica-tag {
+  background-color: var(--gray-100);
+  color: var(--gray-700);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-full);
 }
 
-.musica-actions {
-  margin-top: 1.25rem;
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-  border-top: 1px solid var(--gray-200);
-  padding-top: 1rem;
+/* Ajustes Dark Mode */
+body.dark-mode .musica-tom-badge {
+  background-color: rgba(0, 40, 104, 0.1);
 }
-
-.musica-action-btn {
-  padding: 0.5rem 0.875rem;
-  font-size: 0.85rem;
-}
-
-.modal-wide {
-  max-width: 600px;
-}
-
-.modal-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9375rem;
-}
-
-.form-row-wrap {
-  display: flex;
-  gap: 0.9375rem;
-  flex-wrap: wrap;
-}
-
-.form-field-grow {
-  flex: 1;
-  min-width: 200px;
-}
-
-.form-field-small {
-  flex: 1;
-  min-width: 100px;
-}
-
-/* Estado vazio */
-.musicas-grid:empty::after {
-  content: "Nenhuma musica cadastrada ainda.";
-  grid-column: 1 / -1;
-  text-align: center;
-  padding: 3rem 1rem;
-  color: var(--gray-400);
-  font-size: 0.875rem;
+body.dark-mode .musica-tag {
+  background-color: var(--gray-200);
 }

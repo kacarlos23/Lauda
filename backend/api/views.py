@@ -1,6 +1,6 @@
 from rest_framework import viewsets
-from .models import Usuario, Musica, Culto, Escala
-from .serializers import UsuarioSerializer, MusicaSerializer, CultoSerializer, EscalaSerializer
+from .models import Usuario, Musica, Culto, Escala, ItemSetlist
+from .serializers import UsuarioSerializer, MusicaSerializer, CultoSerializer, EscalaSerializer, ItemSetlistSerializer
 
 # O ModelViewSet é uma mágica do Django REST Framework. 
 # Ele cria automaticamente as ações de Listar, Criar, Atualizar e Deletar (CRUD).
@@ -20,3 +20,7 @@ class CultoViewSet(viewsets.ModelViewSet):
 class EscalaViewSet(viewsets.ModelViewSet):
     queryset = Escala.objects.all()
     serializer_class = EscalaSerializer
+
+class ItemSetlistViewSet(viewsets.ModelViewSet):
+    queryset = ItemSetlist.objects.all()
+    serializer_class = ItemSetlistSerializer

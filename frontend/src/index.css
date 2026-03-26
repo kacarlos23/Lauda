@@ -239,11 +239,6 @@ a:hover {
     transform var(--transition-base);
 }
 
-.lauda-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
 /* ============================================
 5. FORMULÁRIOS & INPUTS
 ============================================ */
