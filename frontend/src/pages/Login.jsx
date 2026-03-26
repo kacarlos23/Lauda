@@ -1,6 +1,7 @@
 ﻿// frontend/src/pages/Login.jsx
 import { useState } from "react";
 import "./Login.css";
+import { Music } from "lucide-react";
 
 export default function Login({ setToken }) {
   const [formData, setFormData] = useState({ username: "", password: "" });
@@ -47,7 +48,7 @@ export default function Login({ setToken }) {
         {/* 1. ÁREA ESQUERDA - INFORMAÇÕES (Mantida classe) */}
         <div className="login-info-section">
           <div className="lauda-logo-large">
-            <span>🎶</span>
+            <Music size={60} />
             Lauda
           </div>
           <h2>Sua plataforma de gerenciamento ministerial.</h2>
