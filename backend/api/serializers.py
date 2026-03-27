@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Usuario, Musica, Culto, Escala, ItemSetlist
+from .models import Usuario, Musica, Culto, Escala, ItemSetlist, RegistroLogin
 
 class UsuarioSerializer(serializers.ModelSerializer):
     """
@@ -66,3 +66,12 @@ class ItemSetlistSerializer(serializers.ModelSerializer):
     class Meta:
         model = ItemSetlist
         fields = '__all__'
+
+class RegistroLoginSerializer(serializers.ModelSerializer):
+    # Vamos adicionar o nome do usuário na resposta para facilitar pro React
+    usuario_nome = serializers.CharField(source='usuario.username', read_only=True)
+    first_name = serializers.CharField(source='usuario.first_name', read_only=True)
+
+    class Meta:
+        model = RegistroLogin
+        fields = ['id', 'usuario', 'usuario_nome', 'first_name', 'data_hora', 'ip_address']

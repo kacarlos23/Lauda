@@ -48,16 +48,26 @@ export default function Cultos() {
       "Content-Type": "application/json",
     };
 
+    // Correção: r.ok verifica se o status é 200 (Sucesso). Se for 403 (Bloqueado), ele devolve um array vazio [] para não quebrar a tela.
     Promise.all([
-      fetch(`${urlLimpa}/api/cultos/`, { headers }).then((r) => r.json()),
-      fetch(`${urlLimpa}/api/usuarios/`, { headers }).then((r) => r.json()),
-      fetch(`${urlLimpa}/api/escalas/`, { headers }).then((r) => r.json()),
-      fetch(`${urlLimpa}/api/musicas/`, { headers }).then((r) => r.json()),
-      fetch(`${urlLimpa}/api/setlists/`, { headers }).then((r) => r.json()),
+      fetch(`${urlLimpa}/api/cultos/`, { headers }).then((r) =>
+        r.ok ? r.json() : [],
+      ),
+      fetch(`${urlLimpa}/api/usuarios/`, { headers }).then((r) =>
+        r.ok ? r.json() : [],
+      ),
+      fetch(`${urlLimpa}/api/escalas/`, { headers }).then((r) =>
+        r.ok ? r.json() : [],
+      ),
+      fetch(`${urlLimpa}/api/musicas/`, { headers }).then((r) =>
+        r.ok ? r.json() : [],
+      ),
+      fetch(`${urlLimpa}/api/setlists/`, { headers }).then((r) =>
+        r.ok ? r.json() : [],
+      ),
     ])
       .then(
         ([cultosData, membrosData, escalasData, musicasData, setlistsData]) => {
-          if (cultosData.detail) throw new Error("Não autorizado");
           setCultos(cultosData);
           setMembros(membrosData);
           setEscalas(escalasData);
@@ -67,8 +77,7 @@ export default function Cultos() {
       )
       .catch((erro) => {
         console.error("Erro na busca:", erro);
-        localStorage.removeItem("token");
-        window.location.href = "/";
+        // Removemos o redirecionamento bruto aqui para evitar loops de login
       });
   };
 
@@ -727,7 +736,7 @@ export default function Cultos() {
                   onDrop={handleDropToRepertorio}
                 >
                   <h4
-                    style={{ marginBottom: "15px", color: "var(--gray-700)" }}
+                    style={{ marginBottom: "15px", color: "var(--gray-200)" }}
                   >
                     📚 Repertório Disponível
                   </h4>
@@ -741,8 +750,16 @@ export default function Cultos() {
                         handleDragStart(e, musica, "repertorio")
                       }
                     >
-                      <div className="dnd-item-title">{musica.titulo}</div>
-                      <div className="dnd-item-subtitle">
+                      <div
+                        className="dnd-item-title"
+                        style={{ color: "var(--gray-200)" }}
+                      >
+                        {musica.titulo}
+                      </div>
+                      <div
+                        className="dnd-item-subtitle"
+                        style={{ color: "var(--gray-200)" }}
+                      >
                         {musica.artista} • Tom: {musica.tom_original}
                       </div>
                     </div>
@@ -766,9 +783,13 @@ export default function Cultos() {
                     style={{
                       marginBottom: "15px",
                       color: "var(--primary-dark)",
+                      display: "flex", // Adicionado para alinhar ícone e texto
+                      alignItems: "center", // Centraliza verticalmente
+                      gap: "8px", // Espaçamento entre o ícone e o texto
                     }}
                   >
-                    🎵 Músicas do Culto
+                    <Music size={18} />
+                    Músicas do Culto
                   </h4>
 
                   {setlistAtual.map((item, index) => {
@@ -795,10 +816,17 @@ export default function Cultos() {
                           }}
                         >
                           <div style={{ flex: 1, minWidth: "150px" }}>
-                            <div className="dnd-item-title">
+                            {/* Corrigido a cor do texto igual você fez na esquerda */}
+                            <div
+                              className="dnd-item-title"
+                              style={{ color: "var(--gray-200)" }}
+                            >
                               {index + 1}. {musica.titulo}
                             </div>
-                            <div className="dnd-item-subtitle">
+                            <div
+                              className="dnd-item-subtitle"
+                              style={{ color: "var(--gray-200)" }}
+                            >
                               {musica.artista}
                             </div>
                           </div>
@@ -834,6 +862,7 @@ export default function Cultos() {
                                 border: "1px solid var(--gray-300)",
                                 borderRadius: "4px",
                                 fontWeight: "bold",
+                                color: "var(--gray-800)", // Garante que a letra do input fique escura
                               }}
                               title="Tom de Execução"
                             />
@@ -861,6 +890,7 @@ export default function Cultos() {
                                 border: "1px solid var(--gray-300)",
                                 borderRadius: "4px",
                                 fontSize: "0.8rem",
+                                color: "var(--gray-800)", // Garante que a letra do input fique escura
                               }}
                             />
                           </div>
@@ -873,7 +903,7 @@ export default function Cultos() {
                       style={{
                         textAlign: "center",
                         marginTop: "40px",
-                        color: "var(--primary)",
+                        color: "var(--primary-dark)",
                       }}
                     >
                       Arraste as músicas para cá! 👇

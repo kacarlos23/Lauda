@@ -11,6 +11,7 @@ import {
   Sun,
   Moon,
   LogOut,
+  Shield,
 } from "lucide-react";
 import "./App.css";
 
@@ -18,6 +19,7 @@ import Musicas from "./pages/Musicas";
 import Cultos from "./pages/Cultos";
 import Membros from "./pages/Membros";
 import Login from "./pages/Login";
+import Auditoria from "./pages/Auditoria";
 
 function DashboardResumo() {
   const [stats, setStats] = useState({
@@ -39,27 +41,26 @@ function DashboardResumo() {
       "Content-Type": "application/json",
     };
 
+    // Dentro de DashboardResumo, substitua o Promise.all por isso:
     Promise.all([
       fetch(`${urlLimpa}/api/musicas/`, { headers }),
       fetch(`${urlLimpa}/api/usuarios/`, { headers }),
       fetch(`${urlLimpa}/api/cultos/`, { headers }),
     ])
       .then(async (responses) => {
-        const [musicasRes, membrosRes, cultosRes] = responses;
-        if (
-          [musicasRes, membrosRes, cultosRes].some((res) => res.status === 401)
-        ) {
+        if (responses[0].status === 401) {
           localStorage.removeItem("token");
           window.location.href = "/";
           throw new Error("Sessão expirada");
         }
-        return Promise.all(responses.map((res) => res.json()));
+        // Usamos o r.ok para garantir que rotas bloqueadas (403) retornem uma lista vazia e não quebrem o dashboard
+        return Promise.all(responses.map((res) => (res.ok ? res.json() : [])));
       })
       .then(([musicas, membros, cultos]) => {
         setStats({
-          musicas: musicas.length,
-          membros: membros.length,
-          cultos: cultos.length,
+          musicas: musicas.length || 0,
+          membros: membros.length || 0,
+          cultos: cultos.length || 0,
           minhasEscalas: 0,
         });
 
@@ -138,10 +139,23 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
+  const [isAdmin, setIsAdmin] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const minSwipeDistance = 50;
+
+  useEffect(() => {
+    if (!token) return;
+    const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+    const urlLimpa = baseUrl.replace(/\/$/, "");
+
+    // Tenta acessar a rota restrita. Se der 200 (ok), é Admin! Se der 403, não é.
+    fetch(`${urlLimpa}/api/usuarios/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => setIsAdmin(res.ok))
+      .catch(() => setIsAdmin(false));
+  }, [token]);
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem("theme") === "dark";
@@ -219,9 +233,9 @@ function App() {
             </span>
             <span className="logo-text">Lauda</span>
           </div>
+
           <nav className="lauda-nav">
             <NavLink to="/" className="lauda-nav-item" onClick={closeMenu} end>
-              {/* ÍCONE LUCIDE: Home */}
               <span
                 className="nav-icon"
                 style={{
@@ -239,7 +253,6 @@ function App() {
               className="lauda-nav-item"
               onClick={closeMenu}
             >
-              {/* ÍCONE LUCIDE: Músicas */}
               <span
                 className="nav-icon"
                 style={{
@@ -257,7 +270,6 @@ function App() {
               className="lauda-nav-item"
               onClick={closeMenu}
             >
-              {/* ÍCONE LUCIDE: Cultos */}
               <span
                 className="nav-icon"
                 style={{
@@ -270,24 +282,48 @@ function App() {
               </span>
               <span className="nav-text">Cultos</span>
             </NavLink>
-            <NavLink
-              to="/membros"
-              className="lauda-nav-item"
-              onClick={closeMenu}
-            >
-              {/* ÍCONE LUCIDE: Membros */}
-              <span
-                className="nav-icon"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Users size={20} />
-              </span>
-              <span className="nav-text">Membros</span>
-            </NavLink>
+
+            {/* ---> NOVO: O botão de Membros só existe se isAdmin for true! */}
+            {isAdmin && (
+              <>
+                <NavLink
+                  to="/membros"
+                  className="lauda-nav-item"
+                  onClick={closeMenu}
+                >
+                  <span
+                    className="nav-icon"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Users size={20} />
+                  </span>
+                  <span className="nav-text">Membros</span>
+                </NavLink>
+
+                {/* ---> NOVO: O botão da Auditoria! */}
+                <NavLink
+                  to="/auditoria"
+                  className="lauda-nav-item"
+                  onClick={closeMenu}
+                >
+                  <span
+                    className="nav-icon"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Shield size={20} />
+                  </span>
+                  <span className="nav-text">Auditoria</span>
+                </NavLink>
+              </>
+            )}
           </nav>
         </aside>
 
@@ -332,6 +368,7 @@ function App() {
               <Route path="/musicas" element={<Musicas />} />
               <Route path="/cultos" element={<Cultos />} />
               <Route path="/membros" element={<Membros />} />
+              <Route path="/auditoria" element={<Auditoria />} />
             </Routes>
           </div>
         </main>

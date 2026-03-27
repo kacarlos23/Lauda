@@ -57,7 +57,6 @@ class Musica(models.Model):
     def __str__(self):
         return f"{self.titulo} - {self.artista}"
 
-
 class Culto(models.Model):
     """
     RF-04: Gestão de Eventos/Cultos
@@ -78,7 +77,6 @@ class Culto(models.Model):
     def __str__(self):
         return f"{self.nome} - {self.data.strftime('%d/%m/%Y')}"
 
-
 class Escala(models.Model):
     """
     RF-06: Confirmação de Presença na Escala
@@ -97,7 +95,6 @@ class Escala(models.Model):
     def __str__(self):
         return f"{self.membro.first_name} em {self.culto.nome}"
 
-
 class ItemSetlist(models.Model):
     """
     RF-05: Montagem de Setlist (Repertório do Dia)
@@ -115,3 +112,16 @@ class ItemSetlist(models.Model):
 
     def __str__(self):
         return f"{self.ordem} - {self.musica.titulo} ({self.tom_execucao})"
+
+class RegistroLogin(models.Model):
+    """
+    Trilha de auditoria para registrar acessos ao sistema.
+    """
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='historico_logins')
+    data_hora = models.DateTimeField(auto_now_add=True) # Salva a hora exata automaticamente
+    ip_address = models.GenericIPAddressField(blank=True, null=True) # Opcional: Salvar o IP
+    
+    # Pode adicionar 'user_agent' se quiser saber se foi pelo celular ou PC
+
+    def __str__(self):
+        return f"{self.usuario.username} logou em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
