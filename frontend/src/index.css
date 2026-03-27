@@ -358,20 +358,26 @@ body.dark-mode .badge-gray {
 }
 
 /* ============================================
-7. MODAIS (Janelas Flutuantes)
-============================================ */
+   7. MODAIS (Janelas Flutuantes - Efeito Vidro)
+   ============================================ */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.45);
+
+  /* ---> O Segredo do Vidro Embaçado <--- */
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   animation: overlayFadeIn var(--transition-fast);
+  padding: 1.5rem; /* Evita que o modal cole nas bordas do celular */
 }
 
 @keyframes overlayFadeIn {
@@ -384,14 +390,18 @@ body.dark-mode .badge-gray {
 }
 
 .modal {
+  /* ---> Preenchendo mais a tela <--- */
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+
   background-color: var(--white);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-2xl);
-  max-width: 480px;
-  width: 90%;
-  max-height: 85vh;
   overflow-y: auto;
   animation: modalSlideIn var(--transition-base);
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes modalSlideIn {
@@ -426,7 +436,9 @@ body.dark-mode .badge-gray {
   font-size: 1.375rem;
   cursor: pointer;
   color: var(--gray-400);
-  transition: color var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
   line-height: 1;
   padding: 0.25rem;
   border-radius: var(--radius-xs);
@@ -460,6 +472,26 @@ body.dark-mode .badge-gray {
 
 .modal-body .form-row > div {
   flex: 1;
+}
+
+/* ---> Ajustes finos no Dark Mode para o efeito espelhado <--- */
+body.dark-mode .modal-overlay {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .modal {
+  background-color: rgba(30, 41, 59, 0.85); /* Fundo com leve transparência */
+  border: 1px solid rgba(255, 255, 255, 0.1); /* Borda clara bem suave */
+}
+
+body.dark-mode .modal-header,
+body.dark-mode .modal-footer {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--white);
 }
 
 /* ============================================

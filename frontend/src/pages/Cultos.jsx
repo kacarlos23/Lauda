@@ -296,7 +296,9 @@ export default function Cultos() {
         .sort((a, b) => a.ordem - b.ordem)
     : [];
   const repertorioDisponivel = musicasGlobais.filter(
-    (m) => !setlistAtual.some((item) => item.musica === m.id),
+    (m) =>
+      m.is_active !== false &&
+      !setlistAtual.some((item) => item.musica === m.id),
   );
 
   return (
@@ -816,12 +818,34 @@ export default function Cultos() {
                           }}
                         >
                           <div style={{ flex: 1, minWidth: "150px" }}>
-                            {/* Corrigido a cor do texto igual você fez na esquerda */}
                             <div
                               className="dnd-item-title"
-                              style={{ color: "var(--gray-200)" }}
+                              style={{
+                                color: "var(--gray-200)",
+                                display: "flex",
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                gap: "8px",
+                              }}
                             >
-                              {index + 1}. {musica.titulo}
+                              <span>
+                                {index + 1}. {musica.titulo}
+                              </span>
+
+                              {musica.is_active === false && (
+                                <span
+                                  style={{
+                                    fontSize: "0.65rem",
+                                    backgroundColor: "var(--error-light)",
+                                    color: "var(--error-dark)",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    fontWeight: "bold",
+                                  }}
+                                >
+                                  Excluída do Repertório
+                                </span>
+                              )}
                             </div>
                             <div
                               className="dnd-item-subtitle"

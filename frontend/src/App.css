@@ -157,8 +157,6 @@
   width: 240px;
   min-width: 240px;
   background-color: var(--white);
-
-  /* Efeito Flutuante */
   margin: 1.5rem;
   border-radius: var(--radius-lg);
   border: 1px solid var(--gray-200);
@@ -168,8 +166,6 @@
   flex-direction: column;
   padding: 1.5rem 1rem;
   position: sticky;
-
-  /* Acompanha a margem */
   top: 1.5rem;
   height: calc(100vh - 3rem);
 
@@ -179,6 +175,25 @@
     width var(--transition-base),
     min-width var(--transition-base),
     padding var(--transition-base);
+}
+
+.lauda-sidebar-top {
+  flex: 1; /* Faz essa parte empurrar a parte de baixo pro final */
+  display: flex;
+  flex-direction: column;
+}
+
+.lauda-sidebar-bottom {
+  border-top: 1px solid var(--gray-200);
+  padding-top: 1rem;
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+body.dark-mode .lauda-sidebar-bottom {
+  border-top-color: var(--gray-200);
 }
 
 .lauda-logo {

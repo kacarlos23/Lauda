@@ -12,6 +12,8 @@ import {
   Moon,
   LogOut,
   Shield,
+  Settings,
+  User,
 } from "lucide-react";
 import "./App.css";
 
@@ -20,6 +22,7 @@ import Cultos from "./pages/Cultos";
 import Membros from "./pages/Membros";
 import Login from "./pages/Login";
 import Auditoria from "./pages/Auditoria";
+import Perfil from "./pages/Perfil";
 
 function DashboardResumo() {
   const [stats, setStats] = useState({
@@ -140,26 +143,29 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // ---> NOVO: Estado para abrir/fechar as Configurações
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const minSwipeDistance = 50;
+
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem("theme") === "dark";
+  });
 
   useEffect(() => {
     if (!token) return;
     const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
     const urlLimpa = baseUrl.replace(/\/$/, "");
 
-    // Tenta acessar a rota restrita. Se der 200 (ok), é Admin! Se der 403, não é.
     fetch(`${urlLimpa}/api/usuarios/`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => setIsAdmin(res.ok))
       .catch(() => setIsAdmin(false));
   }, [token]);
-
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    return localStorage.getItem("theme") === "dark";
-  });
 
   useEffect(() => {
     if (isDarkMode) {
@@ -186,21 +192,14 @@ function App() {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
   };
-
   const onTouchMove = (e) => {
     setTouchEnd(e.targetTouches[0].clientX);
   };
-
   const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    if (window.innerWidth > 768) return;
-
+    if (!touchStart || !touchEnd || window.innerWidth > 768) return;
     const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isRightSwipe && touchStart < 50) setIsMenuOpen(true);
-    if (isLeftSwipe && isMenuOpen) setIsMenuOpen(false);
+    if (distance < -minSwipeDistance && touchStart < 50) setIsMenuOpen(true);
+    if (distance > minSwipeDistance && isMenuOpen) setIsMenuOpen(false);
   };
 
   if (!token) {
@@ -223,33 +222,117 @@ function App() {
         <aside
           className={`lauda-sidebar ${isMenuOpen ? "open" : ""} ${isSidebarCollapsed ? "collapsed" : ""}`}
         >
-          <div className="lauda-logo">
-            {/* ÍCONE LUCIDE: Logo */}
-            <span
-              className="nav-icon"
-              style={{ display: "flex", alignItems: "center" }}
-            >
-              <Music size={28} />
-            </span>
-            <span className="logo-text">Lauda</span>
+          {/* DIVISÃO 1: O TOPO DO MENU */}
+          <div className="lauda-sidebar-top">
+            <div className="lauda-logo">
+              <span
+                className="nav-icon"
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <Music size={28} />
+              </span>
+              <span className="logo-text">Lauda</span>
+            </div>
+
+            <nav className="lauda-nav">
+              <NavLink
+                to="/"
+                className="lauda-nav-item"
+                onClick={closeMenu}
+                end
+              >
+                <span
+                  className="nav-icon"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Home size={20} />
+                </span>
+                <span className="nav-text">Dashboard</span>
+              </NavLink>
+              <NavLink
+                to="/musicas"
+                className="lauda-nav-item"
+                onClick={closeMenu}
+              >
+                <span
+                  className="nav-icon"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Music2 size={20} />
+                </span>
+                <span className="nav-text">Músicas</span>
+              </NavLink>
+              <NavLink
+                to="/cultos"
+                className="lauda-nav-item"
+                onClick={closeMenu}
+              >
+                <span
+                  className="nav-icon"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Calendar size={20} />
+                </span>
+                <span className="nav-text">Cultos</span>
+              </NavLink>
+
+              {isAdmin && (
+                <>
+                  <NavLink
+                    to="/membros"
+                    className="lauda-nav-item"
+                    onClick={closeMenu}
+                  >
+                    <span
+                      className="nav-icon"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Users size={20} />
+                    </span>
+                    <span className="nav-text">Membros</span>
+                  </NavLink>
+                  <NavLink
+                    to="/auditoria"
+                    className="lauda-nav-item"
+                    onClick={closeMenu}
+                  >
+                    <span
+                      className="nav-icon"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Shield size={20} />
+                    </span>
+                    <span className="nav-text">Auditoria</span>
+                  </NavLink>
+                </>
+              )}
+            </nav>
           </div>
 
-          <nav className="lauda-nav">
-            <NavLink to="/" className="lauda-nav-item" onClick={closeMenu} end>
-              <span
-                className="nav-icon"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Home size={20} />
-              </span>
-              <span className="nav-text">Dashboard</span>
-            </NavLink>
+          {/* DIVISÃO 2: A BASE DO MENU (Perfil e Configurações) */}
+          <div className="lauda-sidebar-bottom">
             <NavLink
-              to="/musicas"
+              to="/perfil"
               className="lauda-nav-item"
               onClick={closeMenu}
             >
@@ -261,14 +344,26 @@ function App() {
                   justifyContent: "center",
                 }}
               >
-                <Music2 size={20} />
+                <User size={20} />
               </span>
-              <span className="nav-text">Músicas</span>
+              <span className="nav-text">Meu Perfil</span>
             </NavLink>
-            <NavLink
-              to="/cultos"
+
+            {/* O botão de Configurações não é um link, ele abre o Modal! */}
+            <button
               className="lauda-nav-item"
-              onClick={closeMenu}
+              onClick={() => {
+                setIsSettingsOpen(true);
+                closeMenu();
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                width: "100%",
+                textAlign: "left",
+                cursor: "pointer",
+                fontFamily: "var(--font-body)",
+              }}
             >
               <span
                 className="nav-icon"
@@ -278,53 +373,11 @@ function App() {
                   justifyContent: "center",
                 }}
               >
-                <Calendar size={20} />
+                <Settings size={20} />
               </span>
-              <span className="nav-text">Cultos</span>
-            </NavLink>
-
-            {/* ---> NOVO: O botão de Membros só existe se isAdmin for true! */}
-            {isAdmin && (
-              <>
-                <NavLink
-                  to="/membros"
-                  className="lauda-nav-item"
-                  onClick={closeMenu}
-                >
-                  <span
-                    className="nav-icon"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Users size={20} />
-                  </span>
-                  <span className="nav-text">Membros</span>
-                </NavLink>
-
-                {/* ---> NOVO: O botão da Auditoria! */}
-                <NavLink
-                  to="/auditoria"
-                  className="lauda-nav-item"
-                  onClick={closeMenu}
-                >
-                  <span
-                    className="nav-icon"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Shield size={20} />
-                  </span>
-                  <span className="nav-text">Auditoria</span>
-                </NavLink>
-              </>
-            )}
-          </nav>
+              <span className="nav-text">Configurações</span>
+            </button>
+          </div>
         </aside>
 
         <main className="lauda-main-zone">
@@ -335,7 +388,6 @@ function App() {
                 onClick={toggleMenu}
                 title="Alternar Menu"
               >
-                {/* ÍCONE LUCIDE: Menu Hamburguer */}
                 <Menu size={22} />
               </button>
               <h1>Ministério de Louvor</h1>
@@ -348,7 +400,6 @@ function App() {
                 title="Alternar Modo Escuro"
                 style={{ display: "flex", alignItems: "center" }}
               >
-                {/* ÍCONE LUCIDE: Sol e Lua */}
                 {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
 
@@ -356,7 +407,6 @@ function App() {
                 onClick={handleLogout}
                 className="lauda-btn lauda-btn-secondary logout-btn"
               >
-                {/* ÍCONE LUCIDE: Sair */}
                 <LogOut size={16} /> Sair
               </button>
             </div>
@@ -368,11 +418,171 @@ function App() {
               <Route path="/musicas" element={<Musicas />} />
               <Route path="/cultos" element={<Cultos />} />
               <Route path="/membros" element={<Membros />} />
+              <Route path="/perfil" element={<Perfil />} />
               <Route path="/auditoria" element={<Auditoria />} />
             </Routes>
           </div>
         </main>
       </div>
+
+      {/* =========================================
+          MODAL DE CONFIGURAÇÕES (GERAL)
+          ========================================= */}
+
+      {isSettingsOpen && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: "450px" }}>
+            <div className="modal-header">
+              <h3
+                className="modal-title"
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                <Settings size={22} /> Configurações
+              </h3>
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="modal-close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ gap: "1.25rem" }}>
+              {/* Bloco 1: Preferências de Interface */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "15px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span style={{ fontWeight: 600, color: "var(--gray-800)" }}>
+                    Modo Escuro (Dark Mode)
+                  </span>
+                  <button
+                    onClick={() => setIsDarkMode(!isDarkMode)}
+                    className="lauda-btn lauda-btn-secondary"
+                    style={{ padding: "0.4rem 0.8rem" }}
+                  >
+                    {isDarkMode ? "Desativar ☀️" : "Ativar 🌙"}
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span style={{ fontWeight: 600, color: "var(--gray-800)" }}>
+                    Idioma do Sistema
+                  </span>
+                  <select
+                    className="input-field"
+                    style={{ width: "auto", padding: "0.3rem 0.5rem" }}
+                  >
+                    <option value="pt-BR">Português (BR)</option>
+                    <option value="en-US">English (US)</option>
+                    <option value="es">Español</option>
+                  </select>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span style={{ fontWeight: 600, color: "var(--gray-800)" }}>
+                    Notificações de Escala
+                  </span>
+                  {/* Mockup de Checkbox (estilizado como switch no futuro) */}
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                  />
+                </div>
+              </div>
+
+              <hr
+                style={{
+                  border: "none",
+                  borderTop: "1px solid var(--gray-200)",
+                  margin: "0.5rem 0",
+                }}
+              />
+
+              {/* Bloco 2: Links Úteis */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                <button
+                  className="lauda-btn lauda-btn-secondary"
+                  style={{
+                    width: "100%",
+                    justifyContent: "flex-start",
+                    color: "var(--primary-dark)",
+                    borderColor: "var(--primary-lightest)",
+                    backgroundColor: "var(--primary-lightest)",
+                  }}
+                  onClick={() => alert("Abrir caixa de sugestão!")}
+                >
+                  💡 Sugerir Melhorias
+                </button>
+                <button
+                  className="lauda-btn lauda-btn-secondary"
+                  style={{
+                    width: "100%",
+                    justifyContent: "flex-start",
+                    border: "none",
+                    paddingLeft: "0",
+                  }}
+                  onClick={() => alert("Página de Termos de Uso")}
+                >
+                  📄 Termos de Uso
+                </button>
+                <button
+                  className="lauda-btn lauda-btn-secondary"
+                  style={{
+                    width: "100%",
+                    justifyContent: "flex-start",
+                    border: "none",
+                    paddingLeft: "0",
+                  }}
+                  onClick={() => alert("Página de Política de Privacidade")}
+                >
+                  🔒 Política de Privacidade
+                </button>
+              </div>
+
+              {/* Bloco 3: Área de Perigo */}
+              <div style={{ marginTop: "0.5rem" }}>
+                <button
+                  onClick={handleLogout}
+                  className="lauda-btn lauda-btn-danger"
+                  style={{ width: "100%" }}
+                >
+                  <LogOut size={16} /> Sair do Sistema
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </BrowserRouter>
   );
 }

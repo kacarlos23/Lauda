@@ -1,4 +1,7 @@
 from rest_framework import viewsets, permissions
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import Usuario, Musica, Culto, Escala, ItemSetlist, RegistroLogin
@@ -61,3 +64,30 @@ class RegistroLoginViewSet(viewsets.ReadOnlyModelViewSet): # ReadOnly porque nã
     serializer_class = RegistroLoginSerializer
     # APLICANDO A CATRACA: Só administradores podem ver o histórico de acessos
     permission_classes = [IsAdminLevel]
+
+class UsuarioViewSet(viewsets.ModelViewSet):
+    queryset = Usuario.objects.all()
+    serializer_class = UsuarioSerializer
+    # A catraca principal continua: Só admin acessa a lista geral
+    permission_classes = [IsAdminLevel]
+
+    # ---> NOVA ROTA: /api/usuarios/me/
+    @action(detail=False, methods=['get', 'put', 'patch'], permission_classes=[IsAuthenticated])
+    def me(self, request):
+        """
+        Permite que o usuário logado veja e edite o seu próprio perfil, 
+        independente do nível de acesso.
+        """
+        user = request.user
+        
+        if request.method == 'GET':
+            serializer = self.get_serializer(user)
+            return Response(serializer.data)
+            
+        else: # PUT ou PATCH (Atualizar dados)
+            # partial=True permite que ele atualize só o telefone, sem precisar mandar a senha de novo, por exemplo
+            serializer = self.get_serializer(user, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=400)

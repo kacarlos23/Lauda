@@ -16,8 +16,6 @@ export default function Membros() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [formData, setFormData] = useState(ESTADO_INICIAL_FORM);
-
-  // NOVO: Estado para controlar se o usuário foi bloqueado
   const [acessoNegado, setAcessoNegado] = useState(false);
 
   const buscarMembros = () => {
@@ -38,7 +36,6 @@ export default function Membros() {
           window.location.href = "/";
           throw new Error("Sessao expirada");
         }
-        // NOVO: Se o Django bloquear (403), ativamos a tela de erro
         if (res.status === 403) {
           setAcessoNegado(true);
           return [];
@@ -46,7 +43,6 @@ export default function Membros() {
         return res.json();
       })
       .then((dados) => {
-        // Garantia de que sempre será um Array para não quebrar o .map()
         if (Array.isArray(dados)) setMembros(dados);
       })
       .catch((erro) => console.error("Erro na busca:", erro));
@@ -123,7 +119,6 @@ export default function Membros() {
     return <span className="badge badge-gray">Membro</span>;
   };
 
-  // NOVO: Renderiza uma tela de bloqueio elegante se for nível 3
   if (acessoNegado) {
     return (
       <div style={{ textAlign: "center", padding: "4rem" }}>
@@ -185,7 +180,10 @@ export default function Membros() {
                       {membro.funcao_principal || "-"}
                     </td>
                     <td>{renderBadgeNivel(membro.nivel_acesso)}</td>
-                    <td className="membro-actions">
+                    <td
+                      className="membro-actions"
+                      style={{ textAlign: "right" }}
+                    >
                       <button
                         className="lauda-btn lauda-btn-secondary btn-editar-membro"
                         onClick={() => handleEditClick(membro)}
@@ -208,10 +206,111 @@ export default function Membros() {
         </div>
       </div>
 
-      {/* (Modal de Edição omitido da explicação para economizar espaço, mas ele fica aqui em baixo igual antes) */}
+      {/* =========================================
+          MODAL DE EDIÇÃO DE MEMBRO (AGORA COMPLETO!)
+          ========================================= */}
       {isModalOpen && (
-        // ... Seu código de modal antigo permanece exatamente o mesmo aqui
-        <div className="modal-overlay">...</div>
+        <div className="modal-overlay">
+          <div className="modal modal-wide">
+            <div className="modal-header">
+              <h3 className="modal-title">Editar Membro</h3>
+              <button onClick={handleCloseModal} className="modal-close">
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body modal-form">
+                <div className="form-row-wrap">
+                  <div className="form-field-grow">
+                    <label className="input-label">Nome *</label>
+                    <input
+                      type="text"
+                      name="first_name"
+                      className="input-field"
+                      value={formData.first_name}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div className="form-field-grow">
+                    <label className="input-label">Sobrenome</label>
+                    <input
+                      type="text"
+                      name="last_name"
+                      className="input-field"
+                      value={formData.last_name}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row-wrap">
+                  <div className="form-field-grow">
+                    <label className="input-label">E-mail</label>
+                    <input
+                      type="email"
+                      name="email"
+                      className="input-field"
+                      value={formData.email}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <div className="form-field-grow">
+                    <label className="input-label">Telefone (WhatsApp)</label>
+                    <input
+                      type="text"
+                      name="telefone"
+                      className="input-field"
+                      value={formData.telefone}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row-wrap">
+                  <div className="form-field-grow">
+                    <label className="input-label">Função Principal</label>
+                    <input
+                      type="text"
+                      name="funcao_principal"
+                      className="input-field"
+                      value={formData.funcao_principal}
+                      onChange={handleChange}
+                      placeholder="Ex: Bateria, Vocal"
+                    />
+                  </div>
+                  <div className="form-field-small">
+                    <label className="input-label">Nível de Acesso</label>
+                    <select
+                      name="nivel_acesso"
+                      className="input-field"
+                      value={formData.nivel_acesso}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value={3}>Membro (Leitura)</option>
+                      <option value={2}>Líder de Louvor</option>
+                      <option value={1}>Administrador</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="lauda-btn lauda-btn-secondary"
+                  onClick={handleCloseModal}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="lauda-btn lauda-btn-primary">
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

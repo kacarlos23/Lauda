@@ -33,7 +33,13 @@ export default function Musicas() {
         if (res.status === 401) throw new Error("Não autorizado");
         return res.json();
       })
-      .then((dados) => setMusicas(dados))
+      .then((dados) => {
+        // ---> NOVO: Filtra para mostrar apenas as músicas ativas na tela!
+        const musicasAtivas = dados.filter(
+          (musica) => musica.is_active !== false,
+        );
+        setMusicas(musicasAtivas);
+      })
       .catch((erro) => {
         console.error(erro);
         localStorage.removeItem("token");
@@ -82,10 +88,18 @@ export default function Musicas() {
     const token = localStorage.getItem("token");
 
     fetch(`${urlLimpa}/api/musicas/${id}/`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ is_active: false }),
     }).then((res) => {
-      if (res.ok) carregarMusicas();
+      if (res.ok) {
+        carregarMusicas();
+      } else {
+        alert("Não foi possível excluir a música. Verifique sua conexão.");
+      }
     });
   };
 
