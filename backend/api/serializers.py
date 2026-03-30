@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Usuario, Musica, Culto, Escala, ItemSetlist, RegistroLogin
+from .models import Usuario, Musica, Culto, Escala, ItemSetlist, RegistroLogin, LogAuditoria
 
 class UsuarioSerializer(serializers.ModelSerializer):
     """
@@ -75,3 +75,10 @@ class RegistroLoginSerializer(serializers.ModelSerializer):
     class Meta:
         model = RegistroLogin
         fields = ['id', 'usuario', 'usuario_nome', 'first_name', 'data_hora', 'ip_address']
+
+class LogAuditoriaSerializer(serializers.ModelSerializer):
+    usuario_nome = serializers.CharField(source='usuario.first_name', read_only=True)
+    
+    class Meta:
+        model = LogAuditoria
+        fields = ['id', 'usuario', 'usuario_nome', 'acao', 'modelo_afetado', 'descricao', 'data_hora']

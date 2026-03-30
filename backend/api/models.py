@@ -42,7 +42,10 @@ class Musica(models.Model):
     tom_original = models.CharField(max_length=10) # Ex: C, Dm, G#
     bpm = models.IntegerField(blank=True, null=True)
     compasso = models.CharField(max_length=10, blank=True, null=True) # Ex: 4/4, 6/8
-    link_referencia = models.URLField(blank=True, null=True)
+    link_youtube = models.URLField(blank=True, null=True, help_text="Link do YouTube")
+    link_audio = models.URLField(blank=True, null=True, help_text="Spotify, Deezer, Apple Music")
+    link_letra = models.URLField(blank=True, null=True, help_text="Letras.com, Vagalume, etc")
+    link_cifra = models.URLField(blank=True, null=True, help_text="CifraClub, etc")
     
     # Cifras: mutuamente exclusivas (ou PDF ou Texto)
     cifra_pdf = models.FileField(upload_to='cifras_pdf/', blank=True, null=True)
@@ -125,3 +128,28 @@ class RegistroLogin(models.Model):
 
     def __str__(self):
         return f"{self.usuario.username} logou em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
+
+class LogAuditoria(models.Model):
+    """
+    Trilha de auditoria detalhada para registrar as alterações (CREATE, UPDATE, DELETE).
+    """
+    ACAO_CHOICES = [
+        ('CREATE', 'Criação'),
+        ('UPDATE', 'Atualização'),
+        ('DELETE', 'Exclusão'),
+    ]
+
+    # SET_NULL permite que, se o usuário for deletado, o log não suma (ficará como null)
+    usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True)
+    acao = models.CharField(max_length=10, choices=ACAO_CHOICES)
+    modelo_afetado = models.CharField(max_length=50) # Ex: 'Musica', 'Culto'
+    descricao = models.CharField(max_length=255) # Ex: "Música Oceanos criada por Fulano"
+    data_hora = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-data_hora'] # Os mais recentes primeiro
+
+    def __str__(self):
+        nome = self.usuario.first_name if self.usuario else "Sistema"
+        return f"{self.acao} em {self.modelo_afetado} por {nome}"
+    

@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
-// Importando os ícones do Lucide React
-import { Headphones, Edit2, Trash2 } from "lucide-react";
+import {
+  Headphones,
+  Edit2,
+  Trash2,
+  Play,
+  FileText,
+  Guitar,
+} from "lucide-react";
 import "./Musicas.css";
 
 const ESTADO_INICIAL_MUSICA = {
@@ -9,7 +15,10 @@ const ESTADO_INICIAL_MUSICA = {
   tom_original: "C",
   bpm: "",
   compasso: "",
-  link_referencia: "",
+  link_youtube: "",
+  link_audio: "",
+  link_letra: "",
+  link_cifra: "",
   cifra_texto: "",
   observacoes: "",
   tags: "",
@@ -34,7 +43,6 @@ export default function Musicas() {
         return res.json();
       })
       .then((dados) => {
-        // ---> NOVO: Filtra para mostrar apenas as músicas ativas na tela!
         const musicasAtivas = dados.filter(
           (musica) => musica.is_active !== false,
         );
@@ -69,7 +77,10 @@ export default function Musicas() {
       tom_original: musica.tom_original || "C",
       bpm: musica.bpm || "",
       compasso: musica.compasso || "",
-      link_referencia: musica.link_referencia || "",
+      link_youtube: musica.link_youtube || "",
+      link_audio: musica.link_audio || "",
+      link_letra: musica.link_letra || "",
+      link_cifra: musica.link_cifra || "",
       cifra_texto: musica.cifra_texto || "",
       observacoes: musica.observacoes || "",
       tags: musica.tags || "",
@@ -95,11 +106,8 @@ export default function Musicas() {
       },
       body: JSON.stringify({ is_active: false }),
     }).then((res) => {
-      if (res.ok) {
-        carregarMusicas();
-      } else {
-        alert("Não foi possível excluir a música. Verifique sua conexão.");
-      }
+      if (res.ok) carregarMusicas();
+      else alert("Não foi possível excluir a música. Verifique sua conexão.");
     });
   };
 
@@ -181,6 +189,54 @@ export default function Musicas() {
                 </div>
               )}
 
+              {/* MÁGICA VISUAL: As pílulas de Links Úteis */}
+              <div className="musica-external-links">
+                {musica.link_youtube && (
+                  <a
+                    href={musica.link_youtube}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="musica-link-pill pill-youtube"
+                    title="Assistir no YouTube"
+                  >
+                    <Play size={14} /> Vídeo
+                  </a>
+                )}
+                {musica.link_audio && (
+                  <a
+                    href={musica.link_audio}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="musica-link-pill pill-audio"
+                    title="Ouvir Áudio Original"
+                  >
+                    <Headphones size={14} /> Áudio
+                  </a>
+                )}
+                {musica.link_letra && (
+                  <a
+                    href={musica.link_letra}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="musica-link-pill pill-letra"
+                    title="Ver Letra"
+                  >
+                    <FileText size={14} /> Letra
+                  </a>
+                )}
+                {musica.link_cifra && (
+                  <a
+                    href={musica.link_cifra}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="musica-link-pill pill-cifra"
+                    title="Acessar Cifra"
+                  >
+                    <Guitar size={14} /> Cifra
+                  </a>
+                )}
+              </div>
+
               <div className="musica-meta-column">
                 <div className="musica-meta-row">
                   <div className="musica-meta-item">
@@ -195,28 +251,18 @@ export default function Musicas() {
               </div>
             </div>
 
-            {/* Ações refatoradas usando as novas classes e os ícones Lucide */}
+            {/* Ações Restantes (Editar / Excluir) */}
             <div className="musica-actions">
-              {musica.link_referencia && (
-                <a
-                  href={musica.link_referencia}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="lauda-btn lauda-btn-secondary musica-action-btn"
-                >
-                  <Headphones size={16} /> Ouvir
-                </a>
-              )}
               <button
                 className="lauda-btn lauda-btn-secondary musica-action-btn"
                 onClick={() => handleEditarMusica(musica)}
                 title="Editar"
               >
-                <Edit2 size={16} />
+                <Edit2 size={16} /> Editar
               </button>
               <button
-                className="lauda-btn lauda-btn-secondary musica-action-btn"
-                style={{ color: "var(--error-dark)", maxWidth: "50px" }}
+                className="lauda-btn lauda-btn-secondary"
+                style={{ color: "var(--error-dark)", padding: "0.4rem 0.8rem" }}
                 onClick={() => handleExcluirMusica(musica.id)}
                 title="Excluir"
               >
@@ -239,9 +285,7 @@ export default function Musicas() {
         )}
       </div>
 
-      {/* =========================================
-          MODAL DE CRIAR / EDITAR MÚSICA REFATORADO
-          ========================================= */}
+      {/* MODAL DE MÚSICA */}
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal modal-wide">
@@ -259,7 +303,6 @@ export default function Musicas() {
 
             <form onSubmit={handleSalvarMusica}>
               <div className="modal-body modal-form">
-                {/* Usando o form-row-wrap para estruturar o formulário limpo */}
                 <div className="form-row-wrap">
                   <div className="form-field-grow">
                     <label className="input-label">Título da Música *</label>
@@ -324,18 +367,113 @@ export default function Musicas() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="input-label">
-                    Link de Referência (YouTube/Spotify)
-                  </label>
-                  <input
-                    type="url"
-                    name="link_referencia"
-                    className="input-field"
-                    value={formData.link_referencia}
-                    onChange={handleChange}
-                    placeholder="https://..."
-                  />
+                <div
+                  style={{
+                    padding: "1rem",
+                    backgroundColor: "var(--gray-50)",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--gray-200)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "1rem",
+                  }}
+                >
+                  <h4
+                    style={{
+                      fontSize: "0.9rem",
+                      color: "var(--gray-700)",
+                      margin: 0,
+                    }}
+                  >
+                    Links
+                  </h4>
+
+                  <div className="form-row-wrap">
+                    <div className="form-field-grow">
+                      <label
+                        className="input-label"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <Play size={14} color="#ef4444" /> YouTube (Vídeo)
+                      </label>
+                      <input
+                        type="url"
+                        name="link_youtube"
+                        className="input-field"
+                        value={formData.link_youtube}
+                        onChange={handleChange}
+                        placeholder="https://youtube.com/..."
+                      />
+                    </div>
+                    <div className="form-field-grow">
+                      <label
+                        className="input-label"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <Headphones size={14} color="#10b981" /> Spotify/Deezer
+                        (Áudio)
+                      </label>
+                      <input
+                        type="url"
+                        name="link_audio"
+                        className="input-field"
+                        value={formData.link_audio}
+                        onChange={handleChange}
+                        placeholder="https://open.spotify.com/..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row-wrap">
+                    <div className="form-field-grow">
+                      <label
+                        className="input-label"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <FileText size={14} color="#f59e0b" /> Letras.com
+                      </label>
+                      <input
+                        type="url"
+                        name="link_letra"
+                        className="input-field"
+                        value={formData.link_letra}
+                        onChange={handleChange}
+                        placeholder="https://letras.mus.br/..."
+                      />
+                    </div>
+                    <div className="form-field-grow">
+                      <label
+                        className="input-label"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <Guitar size={14} color="#3b82f6" /> CifraClub
+                      </label>
+                      <input
+                        type="url"
+                        name="link_cifra"
+                        className="input-field"
+                        value={formData.link_cifra}
+                        onChange={handleChange}
+                        placeholder="https://cifraclub.com.br/..."
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -354,7 +492,7 @@ export default function Musicas() {
 
                 <div>
                   <label className="input-label">
-                    Cifra (Cole o texto aqui)
+                    Cifra Customizada (Texto)
                   </label>
                   <textarea
                     name="cifra_texto"

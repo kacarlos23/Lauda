@@ -126,3 +126,75 @@ body.dark-mode .musica-tom-badge {
 body.dark-mode .musica-tag {
   background-color: var(--gray-200);
 }
+
+/* ==========================================
+   NOVOS LINKS EXTERNOS (Pílulas)
+   ========================================== */
+.musica-external-links {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.musica-link-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+/* Cores específicas para cada plataforma */
+.pill-youtube {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444; /* Vermelho YouTube */
+}
+.pill-youtube:hover {
+  background-color: #ef4444;
+  color: white;
+}
+
+.pill-audio {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10b981; /* Verde Spotify */
+}
+.pill-audio:hover {
+  background-color: #10b981;
+  color: white;
+}
+
+.pill-letra {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b; /* Laranja */
+}
+.pill-letra:hover {
+  background-color: #f59e0b;
+  color: white;
+}
+
+.pill-cifra {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6; /* Azul CifraClub */
+}
+.pill-cifra:hover {
+  background-color: #3b82f6;
+  color: white;
+}
+
+/* Ajuste do botão Editar/Excluir para dividir melhor o espaço */
+.musica-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--gray-200);
+  padding-top: 1rem;
+}
+.musica-action-btn {
+  flex: 1;
+}

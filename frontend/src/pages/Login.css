@@ -5,10 +5,10 @@
    ========================================== */
 .login-page-container {
   min-height: 100vh; /* Ocupa a altura toda da tela */
-  width: 100%;
+  width: 100vw;
 
   /* Cor de fundo escura do Design System */
-  background-color: var(--gray-900);
+  background: linear-gradient(45deg, rgb(47, 0, 255), rgb(2, 11, 92));
 
   /* PADDING GERAL (Para criar o efeito de "cartão flutuante") */
   padding: 3rem;
