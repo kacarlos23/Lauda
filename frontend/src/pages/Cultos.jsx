@@ -9,6 +9,7 @@ import {
   Edit2,
   Trash2,
   Plus,
+  Minus,
 } from "lucide-react";
 import "./Cultos.css";
 
@@ -208,6 +209,37 @@ export default function Cultos() {
     setIsSetlistModalOpen(true);
   };
 
+  const adicionarMusicaNaSetlist = (musica) => {
+    if (!cultoSelecionado) return;
+    const token = localStorage.getItem("token");
+    fetch(`${urlLimpa}/api/setlists/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        culto: cultoSelecionado.id,
+        musica: musica.id,
+        ordem: setlistAtual.length + 1,
+        tom_execucao: musica.tom_original,
+        observacoes: "Louvor",
+      }),
+    }).then((res) => {
+      if (res.ok) carregarDados();
+    });
+  };
+
+  const removerMusicaDaSetlist = (itemId) => {
+    const token = localStorage.getItem("token");
+    fetch(`${urlLimpa}/api/setlists/${itemId}/`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((res) => {
+      if (res.ok) carregarDados();
+    });
+  };
+
   const handleDragStart = (e, item, source) => {
     setDraggedItem({ item, source });
     e.dataTransfer.effectAllowed = "move";
@@ -318,15 +350,7 @@ export default function Cultos() {
 
       <div className="cultos-grid">
         {cultos.map((culto) => (
-          <div
-            key={culto.id}
-            className="lauda-card"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-            }}
-          >
+          <div key={culto.id} className="lauda-card culto-card">
             <div>
               <div className="culto-info">
                 <h3>{culto.nome}</h3>
@@ -350,57 +374,31 @@ export default function Cultos() {
               </div>
             </div>
 
-            <div
-              style={{
-                borderTop: "1px solid var(--gray-200)",
-                paddingTop: "15px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-                marginTop: "15px",
-              }}
-            >
-              <div style={{ display: "flex", gap: "8px" }}>
+            <div className="culto-actions-panel">
+              <div className="culto-actions-row">
                 <button
-                  className="lauda-btn lauda-btn-secondary"
-                  style={{ flex: 1, padding: "5px", fontSize: "0.85rem" }}
+                  className="lauda-btn lauda-btn-secondary culto-action-btn"
                   onClick={() => abrirModalEscala(culto)}
                 >
                   <Users size={16} /> Escala
                 </button>
                 <button
-                  className="lauda-btn lauda-btn-primary"
-                  style={{ flex: 1, padding: "5px", fontSize: "0.85rem" }}
+                  className="lauda-btn lauda-btn-primary culto-action-btn"
                   onClick={() => abrirModalSetlist(culto)}
                 >
                   <Music size={16} /> Setlist
                 </button>
               </div>
 
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div className="culto-actions-row">
                 <button
-                  className="lauda-btn lauda-btn-secondary"
-                  style={{
-                    flex: 1,
-                    padding: "5px",
-                    fontSize: "0.85rem",
-                    border: "none",
-                    backgroundColor: "transparent",
-                  }}
+                  className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost"
                   onClick={() => handleEditarCulto(culto)}
                 >
                   <Edit2 size={16} /> Editar
                 </button>
                 <button
-                  className="lauda-btn lauda-btn-secondary"
-                  style={{
-                    flex: 1,
-                    padding: "5px",
-                    fontSize: "0.85rem",
-                    border: "none",
-                    backgroundColor: "transparent",
-                    color: "var(--error-dark)",
-                  }}
+                  className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost-danger"
                   onClick={() => handleExcluirCulto(culto.id)}
                 >
                   <Trash2 size={16} /> Excluir
@@ -415,47 +413,20 @@ export default function Cultos() {
           MODAL DE CRIAR / EDITAR CULTO
           ========================================= */}
       {isCultoModalOpen && (
-        <div
-          className="modal-overlay"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            className="lauda-card"
-            style={{ width: "100%", maxWidth: "500px", margin: "20px" }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "20px",
-              }}
-            >
-              <h3 className="text-primary">
+        <div className="modal-overlay">
+          <div className="modal modal-compact">
+            <div className="modal-header">
+              <h3 className="modal-title">
                 {editingCultoId ? "Editar Culto" : "Agendar Novo Culto"}
               </h3>
-              <button
-                onClick={() => setIsCultoModalOpen(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "1.5rem",
-                  cursor: "pointer",
-                }}
-              >
+              <button onClick={() => setIsCultoModalOpen(false)} className="modal-close">
                 ×
               </button>
             </div>
 
-            <form
-              onSubmit={handleSalvarCulto}
-              style={{ display: "flex", flexDirection: "column", gap: "15px" }}
-            >
-              <div>
+            <form onSubmit={handleSalvarCulto}>
+              <div className="modal-body modal-form">
+                <div>
                 <label className="input-label">Nome do Culto / Evento *</label>
                 <input
                   type="text"
@@ -480,8 +451,8 @@ export default function Cultos() {
                 />
               </div>
 
-              <div style={{ display: "flex", gap: "15px" }}>
-                <div style={{ flex: 1 }}>
+                <div className="form-row culto-form-row">
+                  <div className="form-col">
                   <label className="input-label">Início *</label>
                   <input
                     type="time"
@@ -492,7 +463,7 @@ export default function Cultos() {
                     required
                   />
                 </div>
-                <div style={{ flex: 1 }}>
+                  <div className="form-col">
                   <label className="input-label">Término *</label>
                   <input
                     type="time"
@@ -503,10 +474,10 @@ export default function Cultos() {
                     required
                   />
                 </div>
-              </div>
+                </div>
 
-              <div style={{ display: "flex", gap: "15px" }}>
-                <div style={{ flex: 2 }}>
+                <div className="form-row culto-form-row">
+                  <div className="form-col culto-form-col-wide">
                   <label className="input-label">Local *</label>
                   <input
                     type="text"
@@ -518,7 +489,7 @@ export default function Cultos() {
                     placeholder="Ex: Templo Principal"
                   />
                 </div>
-                <div style={{ flex: 1 }}>
+                  <div className="form-col">
                   <label className="input-label">Status</label>
                   <select
                     name="status"
@@ -532,16 +503,10 @@ export default function Cultos() {
                     <option value="CANCELADO">Cancelado</option>
                   </select>
                 </div>
+                </div>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "10px",
-                  marginTop: "10px",
-                }}
-              >
+              <div className="modal-footer">
                 <button
                   type="button"
                   className="lauda-btn lauda-btn-secondary"
@@ -562,56 +527,22 @@ export default function Cultos() {
           MODAL DE ESCALAS DA EQUIPE
           ========================================= */}
       {isEscalaModalOpen && cultoSelecionado && (
-        <div
-          className="modal-overlay"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            className="lauda-card"
-            style={{
-              width: "100%",
-              maxWidth: "600px",
-              maxHeight: "90vh",
-              overflowY: "auto",
-              margin: "20px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "20px",
-              }}
-            >
-              <h3 className="text-primary">Escala: {cultoSelecionado.nome}</h3>
-              <button
-                onClick={fecharModalEscala}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "1.5rem",
-                  cursor: "pointer",
-                }}
-              >
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3 className="modal-title">Escala: {cultoSelecionado.nome}</h3>
+              <button onClick={fecharModalEscala} className="modal-close">
                 ×
               </button>
             </div>
 
-            <form
-              onSubmit={handleAdicionarEscala}
-              style={{ display: "flex", gap: "10px", marginBottom: "20px" }}
-            >
-              <select
-                className="input-field"
-                value={novoMembroId}
-                onChange={(e) => setNovoMembroId(e.target.value)}
-                required
-                style={{ flex: 1 }}
+            <div className="modal-body">
+              <form onSubmit={handleAdicionarEscala} className="escala-toolbar">
+                <select
+                  value={novoMembroId}
+                  onChange={(e) => setNovoMembroId(e.target.value)}
+                  required
+                className="input-field escala-toolbar-select"
               >
                 <option value="">Selecione um membro para escalar...</option>
                 {membrosDisponiveis.map((m) => (
@@ -619,67 +550,46 @@ export default function Cultos() {
                     {m.first_name || m.username} - {m.funcao_principal}
                   </option>
                 ))}
-              </select>
-              <button type="submit" className="lauda-btn lauda-btn-primary">
-                Adicionar
-              </button>
-            </form>
+                </select>
+                <button type="submit" className="lauda-btn lauda-btn-primary">
+                  Adicionar
+                </button>
+              </form>
 
-            <div style={{ overflowX: "auto" }}>
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  textAlign: "left",
-                }}
-              >
+              <div className="lauda-table-container">
+                <table className="lauda-table">
                 <thead>
-                  <tr style={{ borderBottom: "2px solid var(--gray-200)" }}>
-                    <th style={{ padding: "10px" }}>Membro</th>
-                    <th style={{ padding: "10px" }}>Função</th>
-                    <th style={{ padding: "10px" }}>Status</th>
-                    <th style={{ padding: "10px", textAlign: "right" }}>
-                      Ação
-                    </th>
+                  <tr>
+                    <th>Membro</th>
+                    <th>Função</th>
+                    <th>Status</th>
+                    <th>Ação</th>
                   </tr>
                 </thead>
                 <tbody>
                   {escalasDoCulto.map((escala) => {
                     const membro = membros.find((m) => m.id === escala.membro);
                     return (
-                      <tr
-                        key={escala.id}
-                        style={{ borderBottom: "1px solid var(--gray-100)" }}
-                      >
-                        <td style={{ padding: "10px", fontWeight: "500" }}>
+                      <tr key={escala.id}>
+                        <td data-label="Membro" className="table-cell-muted">
                           {membro
                             ? membro.first_name || membro.username
                             : "Carregando..."}
                         </td>
-                        <td
-                          style={{ padding: "10px", color: "var(--gray-600)" }}
-                        >
+                        <td data-label="Função">
                           {membro ? membro.funcao_principal : "-"}
                         </td>
-                        <td style={{ padding: "10px" }}>
+                        <td data-label="Status">
                           <span
                             className={`badge ${escala.status_confirmacao === "CONFIRMADO" ? "badge-primary" : "badge-gray"}`}
                           >
                             {escala.status_confirmacao}
                           </span>
                         </td>
-                        <td style={{ padding: "10px", textAlign: "right" }}>
+                        <td data-label="Ação">
                           <button
                             onClick={() => handleRemoverEscala(escala.id)}
-                            style={{
-                              background: "none",
-                              border: "1px solid var(--error-dark)",
-                              color: "var(--error-dark)",
-                              borderRadius: "4px",
-                              padding: "4px 8px",
-                              cursor: "pointer",
-                              fontSize: "0.8rem",
-                            }}
+                            className="lauda-btn lauda-btn-secondary culto-remove-btn"
                           >
                             Remover
                           </button>
@@ -691,11 +601,7 @@ export default function Cultos() {
                     <tr>
                       <td
                         colSpan="4"
-                        style={{
-                          textAlign: "center",
-                          padding: "30px",
-                          color: "var(--gray-500)",
-                        }}
+                        className="table-empty"
                       >
                         Nenhum membro escalado.
                       </td>
@@ -703,6 +609,7 @@ export default function Cultos() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </div>
@@ -713,7 +620,7 @@ export default function Cultos() {
           ========================================= */}
       {isSetlistModalOpen && cultoSelecionado && (
         <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: "1000px", width: "95%" }}>
+          <div className="modal culto-setlist-modal">
             <div className="modal-header">
               <h3 className="modal-title">Setlist: {cultoSelecionado.nome}</h3>
               <button
@@ -725,7 +632,7 @@ export default function Cultos() {
             </div>
 
             <div className="modal-body">
-              <p className="text-muted" style={{ marginBottom: "10px" }}>
+              <p className="text-muted culto-setlist-helper">
                 Arraste as músicas do repertório (esquerda) para a setlist do
                 culto (direita). Arraste de volta para remover.
               </p>
@@ -737,11 +644,7 @@ export default function Cultos() {
                   onDragLeave={handleDragLeave}
                   onDrop={handleDropToRepertorio}
                 >
-                  <h4
-                    style={{ marginBottom: "15px", color: "var(--gray-200)" }}
-                  >
-                    📚 Repertório Disponível
-                  </h4>
+                  <h4 className="dnd-column-title">Repertório Disponível</h4>
 
                   {repertorioDisponivel.map((musica) => (
                     <div
@@ -752,18 +655,17 @@ export default function Cultos() {
                         handleDragStart(e, musica, "repertorio")
                       }
                     >
-                      <div
-                        className="dnd-item-title"
-                        style={{ color: "var(--gray-200)" }}
-                      >
-                        {musica.titulo}
-                      </div>
-                      <div
-                        className="dnd-item-subtitle"
-                        style={{ color: "var(--gray-200)" }}
-                      >
+                      <div className="dnd-item-title">{musica.titulo}</div>
+                      <div className="dnd-item-subtitle">
                         {musica.artista} • Tom: {musica.tom_original}
                       </div>
+                      <button
+                        type="button"
+                        className="lauda-btn lauda-btn-secondary dnd-touch-btn"
+                        onClick={() => adicionarMusicaNaSetlist(musica)}
+                      >
+                        <Plus size={16} /> Adicionar
+                      </button>
                     </div>
                   ))}
                   {repertorioDisponivel.length === 0 && (
@@ -772,24 +674,12 @@ export default function Cultos() {
                 </div>
 
                 <div
-                  className="dnd-column"
-                  style={{
-                    backgroundColor: "var(--primary-lightest)",
-                    border: "1px solid var(--primary-light)",
-                  }}
+                  className="dnd-column dnd-column-highlight"
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDropToSetlist}
                 >
-                  <h4
-                    style={{
-                      marginBottom: "15px",
-                      color: "var(--primary-dark)",
-                      display: "flex", // Adicionado para alinhar ícone e texto
-                      alignItems: "center", // Centraliza verticalmente
-                      gap: "8px", // Espaçamento entre o ícone e o texto
-                    }}
-                  >
+                  <h4 className="dnd-column-title dnd-column-title-primary">
                     <Music size={18} />
                     Músicas do Culto
                   </h4>
@@ -803,65 +693,27 @@ export default function Cultos() {
                     return (
                       <div
                         key={item.id}
-                        className="dnd-item"
                         draggable
                         onDragStart={(e) => handleDragStart(e, item, "setlist")}
-                        style={{ borderLeft: "4px solid var(--primary)" }}
+                        className="dnd-item dnd-item-setlist"
                       >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            flexWrap: "wrap",
-                            gap: "10px",
-                          }}
-                        >
-                          <div style={{ flex: 1, minWidth: "150px" }}>
-                            <div
-                              className="dnd-item-title"
-                              style={{
-                                color: "var(--gray-200)",
-                                display: "flex",
-                                alignItems: "center",
-                                flexWrap: "wrap",
-                                gap: "8px",
-                              }}
-                            >
+                        <div className="setlist-item-top">
+                          <div className="setlist-item-main">
+                            <div className="dnd-item-title setlist-item-title">
                               <span>
                                 {index + 1}. {musica.titulo}
                               </span>
 
                               {musica.is_active === false && (
-                                <span
-                                  style={{
-                                    fontSize: "0.65rem",
-                                    backgroundColor: "var(--error-light)",
-                                    color: "var(--error-dark)",
-                                    padding: "2px 6px",
-                                    borderRadius: "4px",
-                                    fontWeight: "bold",
-                                  }}
-                                >
+                                <span className="setlist-item-warning">
                                   Excluída do Repertório
                                 </span>
                               )}
                             </div>
-                            <div
-                              className="dnd-item-subtitle"
-                              style={{ color: "var(--gray-200)" }}
-                            >
-                              {musica.artista}
-                            </div>
+                            <div className="dnd-item-subtitle">{musica.artista}</div>
                           </div>
 
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: "5px",
-                              alignItems: "center",
-                            }}
-                          >
+                          <div className="setlist-item-fields">
                             <input
                               type="text"
                               value={item.tom_execucao || ""}
@@ -879,15 +731,7 @@ export default function Cultos() {
                                   e.target.value,
                                 )
                               }
-                              style={{
-                                width: "45px",
-                                padding: "4px",
-                                textAlign: "center",
-                                border: "1px solid var(--gray-300)",
-                                borderRadius: "4px",
-                                fontWeight: "bold",
-                                color: "var(--gray-800)", // Garante que a letra do input fique escura
-                              }}
+                              className="setlist-input setlist-input-tone"
                               title="Tom de Execução"
                             />
                             <input
@@ -908,29 +752,24 @@ export default function Cultos() {
                                 )
                               }
                               placeholder="Momento"
-                              style={{
-                                width: "120px",
-                                padding: "4px",
-                                border: "1px solid var(--gray-300)",
-                                borderRadius: "4px",
-                                fontSize: "0.8rem",
-                                color: "var(--gray-800)", // Garante que a letra do input fique escura
-                              }}
+                              className="setlist-input setlist-input-note"
                             />
                           </div>
                         </div>
+                        <button
+                          type="button"
+                          className="lauda-btn lauda-btn-secondary dnd-touch-btn dnd-touch-btn-remove"
+                          onClick={() => removerMusicaDaSetlist(item.id)}
+                        >
+                          <Minus size={16} /> Remover
+                        </button>
                       </div>
                     );
                   })}
                   {setlistAtual.length === 0 && (
-                    <div
-                      style={{
-                        textAlign: "center",
-                        marginTop: "40px",
-                        color: "var(--primary-dark)",
-                      }}
-                    >
-                      Arraste as músicas para cá! 👇
+                    <div className="empty-state">
+                      <h3>Setlist vazia</h3>
+                      <p>Arraste as músicas para cá ou use o botão adicionar.</p>
                     </div>
                   )}
                 </div>

@@ -79,11 +79,7 @@ function DashboardResumo() {
   }, []);
 
   if (loading) {
-    return (
-      <div style={{ padding: "2rem", textAlign: "center" }}>
-        Carregando painel...
-      </div>
-    );
+    return <div className="dashboard-loading">Carregando painel...</div>;
   }
 
   return (
@@ -108,10 +104,7 @@ function DashboardResumo() {
       </div>
 
       <div className="agenda-section">
-        <h2
-          className="text-primary"
-          style={{ display: "flex", alignItems: "center", gap: "8px" }}
-        >
+        <h2 className="text-primary dashboard-title">
           <Calendar size={24} /> Agenda de Cultos
         </h2>
         <div className="lauda-card">
@@ -225,10 +218,7 @@ function App() {
           {/* DIVISÃO 1: O TOPO DO MENU */}
           <div className="lauda-sidebar-top">
             <div className="lauda-logo">
-              <span
-                className="nav-icon"
-                style={{ display: "flex", alignItems: "center" }}
-              >
+              <span className="nav-icon">
                 <Music size={28} />
               </span>
               <span className="logo-text">Lauda</span>
@@ -241,14 +231,7 @@ function App() {
                 onClick={closeMenu}
                 end
               >
-                <span
-                  className="nav-icon"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
+                <span className="nav-icon">
                   <Home size={20} />
                 </span>
                 <span className="nav-text">Dashboard</span>
@@ -258,14 +241,7 @@ function App() {
                 className="lauda-nav-item"
                 onClick={closeMenu}
               >
-                <span
-                  className="nav-icon"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
+                <span className="nav-icon">
                   <Music2 size={20} />
                 </span>
                 <span className="nav-text">Músicas</span>
@@ -275,14 +251,7 @@ function App() {
                 className="lauda-nav-item"
                 onClick={closeMenu}
               >
-                <span
-                  className="nav-icon"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
+                <span className="nav-icon">
                   <Calendar size={20} />
                 </span>
                 <span className="nav-text">Cultos</span>
@@ -295,14 +264,7 @@ function App() {
                     className="lauda-nav-item"
                     onClick={closeMenu}
                   >
-                    <span
-                      className="nav-icon"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
+                    <span className="nav-icon">
                       <Users size={20} />
                     </span>
                     <span className="nav-text">Membros</span>
@@ -312,14 +274,7 @@ function App() {
                     className="lauda-nav-item"
                     onClick={closeMenu}
                   >
-                    <span
-                      className="nav-icon"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
+                    <span className="nav-icon">
                       <Shield size={20} />
                     </span>
                     <span className="nav-text">Auditoria</span>
@@ -336,14 +291,7 @@ function App() {
               className="lauda-nav-item"
               onClick={closeMenu}
             >
-              <span
-                className="nav-icon"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <span className="nav-icon">
                 <User size={20} />
               </span>
               <span className="nav-text">Meu Perfil</span>
@@ -356,23 +304,8 @@ function App() {
                 setIsSettingsOpen(true);
                 closeMenu();
               }}
-              style={{
-                background: "none",
-                border: "none",
-                width: "100%",
-                textAlign: "left",
-                cursor: "pointer",
-                fontFamily: "var(--font-body)",
-              }}
             >
-              <span
-                className="nav-icon"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <span className="nav-icon">
                 <Settings size={20} />
               </span>
               <span className="nav-text">Configurações</span>
@@ -398,7 +331,6 @@ function App() {
                 onClick={() => setIsDarkMode(!isDarkMode)}
                 className="theme-toggle-btn"
                 title="Alternar Modo Escuro"
-                style={{ display: "flex", alignItems: "center" }}
               >
                 {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
@@ -431,7 +363,7 @@ function App() {
 
       {isSettingsOpen && (
         <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: "450px" }}>
+          <div className="modal modal-compact">
             <div className="modal-header">
               <h3
                 className="modal-title"

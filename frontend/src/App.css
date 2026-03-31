@@ -71,7 +71,12 @@
 }
 
 .theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
+  min-width: 44px;
+  min-height: 44px;
   border: none;
   font-size: 1.2rem;
   cursor: pointer;
@@ -224,6 +229,7 @@ body.dark-mode .lauda-sidebar-bottom {
   align-items: center;
   gap: 0.75rem;
   padding: 0.625rem 0.875rem;
+  min-height: 48px;
   white-space: nowrap;
   border-radius: var(--radius-md);
   color: var(--gray-600);
@@ -231,6 +237,15 @@ body.dark-mode .lauda-sidebar-bottom {
   font-weight: 500;
   font-size: 0.875rem;
   transition: all var(--transition-fast);
+}
+
+button.lauda-nav-item {
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-body);
 }
 
 .lauda-nav-item:hover {
@@ -245,10 +260,41 @@ body.dark-mode .lauda-sidebar-bottom {
 }
 
 .lauda-nav-item .nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1.125rem;
   width: 1.5rem;
   flex-shrink: 0;
   text-align: center;
+}
+
+.dashboard-loading {
+  padding: 2rem;
+  text-align: center;
+}
+
+.dashboard-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-link-btn {
+  justify-content: flex-start;
+}
+
+.settings-link-btn.settings-link-highlight {
+  color: var(--primary-dark);
+  border-color: var(--primary-lightest);
+  background-color: var(--primary-lightest);
+}
+
+.settings-link-btn.settings-link-plain {
+  border: none;
+  padding-left: 0;
+  padding-right: 0;
+  background: transparent;
 }
 
 /* ============================================
@@ -289,7 +335,10 @@ body.dark-mode .lauda-sidebar-bottom {
   display: none;
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background:
+    radial-gradient(circle at top, rgba(37, 99, 235, 0.16), transparent 35%),
+    rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(4px);
   z-index: 99;
 }
 
@@ -335,6 +384,11 @@ body.dark-mode .lauda-sidebar-bottom {
 
   .lauda-page-header .lauda-btn {
     align-self: flex-start;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
   }
 }
 

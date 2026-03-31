@@ -8,6 +8,13 @@
   gap: 2.5rem;
 }
 
+.musica-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100%;
+}
+
 .musica-card-header {
   display: flex;
   justify-content: space-between;
@@ -119,6 +126,15 @@
   font-size: 0.85rem;
 }
 
+.musica-delete-btn {
+  color: var(--error-dark);
+  padding: 0.4rem 0.8rem;
+}
+
+.musicas-empty-state {
+  grid-column: 1 / -1;
+}
+
 /* Ajustes Dark Mode */
 body.dark-mode .musica-tom-badge {
   background-color: rgba(59, 130, 246, 0.1);
@@ -197,4 +213,20 @@ body.dark-mode .musica-tag {
 }
 .musica-action-btn {
   flex: 1;
+}
+
+@media (max-width: 768px) {
+  .musicas-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .musica-actions {
+    flex-wrap: wrap;
+  }
+
+  .musica-action-btn,
+  .musica-delete-btn {
+    flex: 1 1 100%;
+  }
 }

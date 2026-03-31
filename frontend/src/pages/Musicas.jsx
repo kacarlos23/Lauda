@@ -6,6 +6,7 @@ import {
   Play,
   FileText,
   Guitar,
+  Plus,
 } from "lucide-react";
 import "./Musicas.css";
 
@@ -160,16 +161,7 @@ export default function Musicas() {
 
       <div className="musicas-grid">
         {musicas.map((musica) => (
-          <div
-            key={musica.id}
-            className="lauda-card"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              marginBottom: "20px",
-            }}
-          >
+          <div key={musica.id} className="lauda-card musica-card">
             <div>
               <div className="musica-card-header">
                 <div>
@@ -261,8 +253,7 @@ export default function Musicas() {
                 <Edit2 size={16} /> Editar
               </button>
               <button
-                className="lauda-btn lauda-btn-secondary"
-                style={{ color: "var(--error-dark)", padding: "0.4rem 0.8rem" }}
+                className="lauda-btn lauda-btn-secondary musica-delete-btn"
                 onClick={() => handleExcluirMusica(musica.id)}
                 title="Excluir"
               >

@@ -10,6 +10,13 @@
   gap: 1.25rem;
 }
 
+.culto-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100%;
+}
+
 .culto-header {
   display: flex;
   justify-content: space-between;
@@ -69,6 +76,60 @@
   font-size: 0.875rem;
 }
 
+.culto-actions-panel {
+  border-top: 1px solid var(--gray-200);
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.culto-actions-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.culto-action-btn {
+  flex: 1;
+  font-size: 0.85rem;
+}
+
+.culto-action-btn-ghost {
+  border: none;
+  background-color: transparent;
+}
+
+.culto-action-btn-ghost-danger {
+  border: none;
+  background-color: transparent;
+  color: var(--error-dark);
+}
+
+.culto-form-row {
+  align-items: stretch;
+}
+
+.culto-form-col-wide {
+  flex: 2 1 220px;
+}
+
+.escala-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.escala-toolbar-select {
+  flex: 1 1 260px;
+}
+
+.culto-remove-btn {
+  color: var(--error-dark);
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
 /* ==========================================
    ZONAS DE DRAG AND DROP (SETLIST)
    ========================================== */
@@ -91,6 +152,23 @@
   overflow-y: auto;
 }
 
+.dnd-column-highlight {
+  background-color: var(--primary-lightest);
+  border: 1px solid var(--primary-light);
+}
+
+.dnd-column-title {
+  margin-bottom: 1rem;
+  color: var(--gray-800);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dnd-column-title-primary {
+  color: var(--primary-dark);
+}
+
 .dnd-column.drag-over {
   background-color: var(--primary-lightest);
   border-color: var(--primary);
@@ -105,6 +183,10 @@
   cursor: grab;
   box-shadow: var(--shadow-sm);
   transition: transform 0.1s;
+}
+
+.dnd-item-setlist {
+  border-left: 4px solid var(--primary);
 }
 
 .dnd-item:active {
@@ -122,18 +204,119 @@
   color: var(--gray-500);
 }
 
+.dnd-touch-btn {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
+.dnd-touch-btn-remove {
+  color: var(--error-dark);
+}
+
+.setlist-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.setlist-item-main {
+  flex: 1;
+  min-width: 150px;
+}
+
+.setlist-item-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.setlist-item-warning {
+  font-size: 0.65rem;
+  background-color: var(--error-light);
+  color: var(--error-dark);
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-xs);
+  font-weight: 700;
+}
+
+.setlist-item-fields {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.setlist-input {
+  min-height: 40px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-xs);
+  color: var(--gray-800);
+}
+
+.setlist-input-tone {
+  width: 52px;
+  padding: 0.25rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.setlist-input-note {
+  width: 130px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.culto-setlist-modal {
+  max-width: 1000px;
+  width: min(95vw, 1000px);
+}
+
+.culto-setlist-helper {
+  margin-bottom: 0.25rem;
+}
+
 /* ==========================================
    RESPONSIVIDADE E DARK MODE
    ========================================== */
 @media (max-width: 768px) {
+  .cultos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .culto-actions-row {
+    flex-direction: column;
+  }
+
+  .escala-toolbar {
+    flex-direction: column;
+  }
+
   .dnd-container {
     flex-direction: column;
     height: auto;
     min-height: auto;
   }
+
   .dnd-column {
     width: 100%;
     max-height: 50vh;
+  }
+
+  .setlist-item-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .setlist-item-fields {
+    width: 100%;
+  }
+
+  .setlist-input-tone,
+  .setlist-input-note {
+    width: 100%;
   }
 }
 
@@ -143,4 +326,10 @@ body.dark-mode .dnd-column {
 body.dark-mode .dnd-item {
   background-color: var(--gray-800);
   border-color: var(--gray-700);
+}
+body.dark-mode .dnd-column-title {
+  color: var(--gray-800);
+}
+body.dark-mode .dnd-column-title-primary {
+  color: #93c5fd;
 }

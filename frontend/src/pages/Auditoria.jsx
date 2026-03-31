@@ -275,12 +275,13 @@ export default function Auditoria() {
                     {logs.map((log) => (
                       <tr key={log.id}>
                         <td
+                          data-label="Data e Hora"
                           style={{ color: "var(--gray-600)", fontWeight: 500 }}
                         >
                           {formatarData(log.data_hora)}
                         </td>
-                        <td>{renderBadgeAcao(log.acao)}</td>
-                        <td style={{ color: "var(--gray-800)" }}>
+                        <td data-label="Ação">{renderBadgeAcao(log.acao)}</td>
+                        <td data-label="Descrição" style={{ color: "var(--gray-800)" }}>
                           {log.descricao}{" "}
                           <span
                             className="text-muted"
@@ -295,11 +296,7 @@ export default function Auditoria() {
                       <tr>
                         <td
                           colSpan="3"
-                          style={{
-                            textAlign: "center",
-                            padding: "2rem",
-                            color: "var(--gray-500)",
-                          }}
+                          className="table-empty"
                         >
                           Nenhum registro encontrado para estes filtros.
                         </td>

@@ -18,6 +18,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
             "telefone",
             "funcao_principal",
             "nivel_acesso",
+            "is_active",
         ]
         extra_kwargs = {"password": {"write_only": True, "required": False}}
 
