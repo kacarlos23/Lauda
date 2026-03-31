@@ -1,0 +1,54 @@
+﻿.perfil-loading {
+  padding: 2rem;
+  text-align: center;
+}
+
+.perfil-page-title,
+.perfil-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.perfil-wrapper {
+  margin: 0 auto;
+  max-width: 100vw;
+}
+
+.perfil-success,
+.perfil-error {
+  margin-bottom: 1.5rem;
+}
+
+.perfil-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.perfil-section-title {
+  padding-bottom: 0.6rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.perfil-account-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+}
+
+.perfil-help {
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.perfil-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}

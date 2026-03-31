@@ -1,196 +1,398 @@
-﻿/* frontend/src/pages/Login.css */
-
-/* ==========================================
-   1. O FUNDO DA PÁGINA (Com Padding e Cor Escura)
-   ========================================== */
-.login-page-container {
-  min-height: 100vh; /* Ocupa a altura toda da tela */
-  width: 100vw;
-
-  /* Cor de fundo escura do Design System */
-  background: linear-gradient(45deg, rgb(47, 0, 255), rgb(2, 11, 92));
-
-  /* PADDING GERAL (Para criar o efeito de "cartão flutuante") */
-  padding: 3rem;
-
-  /* CENTRALIZAÇÃO MÁGICA: Prende o cartão flutuante no centro */
+﻿.login-page-container {
+  position: relative;
   display: flex;
-  justify-content: center;
   align-items: center;
-
-  box-sizing: border-box;
-}
-
-/* ==========================================
-   2. O CARTÃO FLUTUANTE (A Caixa com Sombra)
-   ========================================== */
-.login-floating-box {
-  display: flex; /* Divide em duas colunas (info e form) */
+  justify-content: center;
+  min-height: 100vh;
   width: 100%;
-  max-width: 1100px; /* Limita a largura para não esticar demais */
-
-  /* Cor de fundo do cartão (se adapta no dark mode) */
-  background-color: var(--white);
-
-  /* Bordas arredondadas grandonas */
-  border-radius: var(--radius-lg);
-
-  /* O SOMBREAMENTO PESADO (2XL do Design System) */
-  box-shadow: var(--shadow-2xl);
-
-  /* Garante que o degradê da esquerda respeite a borda arredondada */
+  padding: 3rem;
   overflow: hidden;
-
-  /* Animação suave de entrada */
-  animation: slideInUp 0.5s ease-out;
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.18), transparent 32%),
+    linear-gradient(155deg, var(--color-brand-900) 0%, var(--primary-dark) 46%, var(--primary) 100%);
 }
 
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.login-background-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(12px);
+  opacity: 0.75;
+  pointer-events: none;
 }
 
-/* ==========================================
-   ÁREA ESQUERDA - INFORMAÇÕES (Lauda)
-   ========================================== */
-.login-info-section {
-  flex: 1.2; /* Um pouco mais larga */
-  background: linear-gradient(
-    135deg,
-    var(--primary) 0%,
-    var(--primary-dark) 100%
+.login-background-orb-left {
+  top: 8%;
+  left: -6%;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.24) 0%, transparent 72%);
+}
+
+.login-background-orb-right {
+  right: -8%;
+  bottom: 4%;
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, rgba(219, 234, 254, 0.16) 0%, transparent 70%);
+}
+
+.bottom-light-effect {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 1;
+  height: 40vh;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center bottom,
+    rgba(96, 165, 250, 0.18) 0%,
+    rgba(96, 165, 250, 0.08) 28%,
+    rgba(255, 255, 255, 0.02) 58%,
+    transparent 76%
   );
+  animation: pulse-light 7s ease-in-out infinite;
+}
+
+.panel-shadow-effect {
+  position: absolute;
+  left: 50%;
+  bottom: calc(50% - 270px);
+  transform: translateX(-50%);
+  width: min(920px, 82vw);
+  height: 80px;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(ellipse at center, rgba(2, 6, 23, 0.34) 0%, rgba(2, 6, 23, 0.14) 42%, transparent 72%);
+  filter: blur(26px);
+}
+
+.login-floating-box {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  width: min(1120px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.34), 0 12px 26px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  animation: slide-in-up 0.65s cubic-bezier(0.18, 0.88, 0.32, 1);
+}
+
+.glass-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.26), transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 22%);
+}
+
+.login-info-section {
+  position: relative;
+  flex: 1.15;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: center;
-  padding: 4rem; /* Padding interno generoso */
-  color: var(--white);
-  text-align: center;
+  padding: 4.5rem 4rem;
+  overflow: hidden;
+  color: var(--text-inverse);
+  background:
+    radial-gradient(circle at top right, rgba(147, 197, 253, 0.18), transparent 32%),
+    linear-gradient(160deg, var(--primary-dark) 0%, var(--primary) 100%);
 }
 
-/* Ajustes finos nos textos da esquerda */
-.lauda-logo-large {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 3.5rem;
+.login-info-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 44%),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.02), transparent 26%);
+}
+
+.login-info-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: fit-content;
+  margin-bottom: 1.5rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--primary-lightest);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lauda-logo-large {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-inverse);
+  font-family: var(--font-display);
+  font-size: 3.35rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .login-info-section h2 {
-  font-family: var(--font-display);
-  color: var(--white);
-  font-size: 2rem;
-  margin-bottom: 1.5rem;
-  line-height: 1.2;
+  max-width: 440px;
+  margin-bottom: 1rem;
+  color: var(--text-inverse);
+  font-size: clamp(2rem, 2.2vw, 2.5rem);
+  line-height: 1.08;
 }
 
 .login-info-section p {
-  font-family: var(--font-body);
-  color: var(--primary-lightest);
-  font-size: 1.1rem;
-  max-width: 450px;
-  line-height: 1.6;
+  max-width: 460px;
+  color: rgba(219, 234, 254, 0.88);
+  font-size: 1.04rem;
+  line-height: 1.72;
 }
 
-/* ==========================================
-   ÁREA DIREITA - FORMULÁRIO (Login)
-   ========================================== */
-.login-form-section {
-  flex: 1; /* Área mais enxuta */
-  display: flex;
-  justify-content: center;
+.login-feature-list {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 2.2rem;
+}
+
+.login-feature-item {
+  display: inline-flex;
   align-items: center;
-  padding: 3rem;
-  background-color: var(--white); /* Fundo limpo interno */
+  gap: 0.8rem;
+  width: fit-content;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--primary-lightest);
+  font-size: 0.95rem;
 }
 
-/* Container do formulário em si (limita largura interna) */
+.login-form-section {
+  flex: 0.95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3.3rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.24));
+}
+
 .login-form-content {
   width: 100%;
-  max-width: 380px;
+  max-width: 390px;
 }
 
 .login-header {
-  text-align: center;
   margin-bottom: 2rem;
+  text-align: center;
+}
+
+.login-header-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 1rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.16), rgba(59, 130, 246, 0.06));
+  color: var(--primary-dark);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.login-header h3 {
+  margin-bottom: 0.45rem;
+  font-size: 1.85rem;
+}
+
+.login-header p {
+  font-size: 0.98rem;
+}
+
+.form-column,
+.form-group {
+  display: flex;
+  flex-direction: column;
 }
 
 .form-column {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.15rem;
 }
 
-/* ==========================================
-   RESPONSIVIDADE (Mobile)
-   ========================================== */
-/* Breackpoint alterado para 768px (tablets e celulares) */
-@media (max-width: 768px) {
-  .login-page-container {
-    padding: 1rem; /* Reduz padding geral para o cartão usar mais espaço da tela */
+.form-group {
+  gap: 0.55rem;
+}
+
+.input-shell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.52);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.input-shell:hover {
+  border-color: var(--border-strong);
+}
+
+.input-shell:focus-within {
+  border-color: var(--interactive-primary);
+  box-shadow: var(--focus-ring), 0 14px 32px rgba(17, 31, 46, 0.08);
+  transform: translateY(-1px);
+}
+
+.input-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.login-form-section .input-field {
+  border: 0;
+  padding: 0.98rem 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.login-form-section .input-field:hover,
+.login-form-section .input-field:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.login-submit-btn {
+  width: 100%;
+  margin-top: 0.35rem;
+  min-height: 48px;
+  padding: 1rem 1.2rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.forgot-password {
+  margin-top: 0.15rem;
+  text-align: center;
+}
+
+.forgot-password-link {
+  border: 0;
+  background: transparent;
+  color: var(--primary-dark);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.forgot-password-link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.login-error-alert {
+  justify-content: center;
+}
+
+@keyframes pulse-light {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: translateY(0);
   }
 
-  /* ==========================================
-     MUDANÇA SOLICITADA: ESCONDER INFO NO MOBILE
-     ========================================== */
-  .login-info-section {
-    display: none !important; /* Esconde completamente a parte esquerda com o degradê */
+  50% {
+    opacity: 1;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 900px) {
+  .login-page-container {
+    padding: 1.5rem;
   }
 
   .login-floating-box {
-    flex-direction: column; /* Comportamento de empilhamento (embora info esteja oculta) */
+    max-width: 540px;
+    flex-direction: column;
+  }
 
-    /* No mobile, o cartão flutuante pode ter uma largura máxima menor e usar bordas mais sutis */
-    max-width: 480px;
-    border-radius: var(--radius-md);
+  .login-info-section {
+    padding: 3rem 2rem 2.5rem;
   }
 
   .login-form-section {
-    /* O form naturalmente ocupará todo o espaço da 'login-floating-box' */
-    padding: 2.5rem 1.5rem; /* Reduz padding interno para telas menores */
+    padding: 2.2rem 1.5rem 2rem;
   }
 
-  .login-header h3 {
-    font-size: 1.5rem; /* Ajusta tamanho do título no mobile */
+  .panel-shadow-effect {
+    bottom: 1.5rem;
+    width: min(520px, 88vw);
   }
 }
 
-/* ==========================================
-   CORREÇÃO DO PREENCHIMENTO AUTOMÁTICO (AUTOFILL)
-   ========================================== */
+@media (max-width: 640px) {
+  .login-page-container {
+    padding: 1rem;
+  }
 
-/* 1. Para o Modo Claro (Padrão) */
+  .login-info-section {
+    display: none;
+  }
+
+  .login-floating-box {
+    border-radius: 22px;
+  }
+
+  .login-form-section {
+    padding: 2rem 1.2rem;
+  }
+
+  .login-header h3 {
+    font-size: 1.6rem;
+  }
+
+  .bottom-light-effect {
+    height: 32vh;
+  }
+
+  .panel-shadow-effect {
+    bottom: 1rem;
+    height: 52px;
+  }
+}
+
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-  /* Força o fundo branco usando uma sombra interna gigante */
-  -webkit-box-shadow: 0 0 0 1000px var(--white) inset !important;
-  /* Força a cor do texto */
-  -webkit-text-fill-color: var(--gray-800) !important;
-  /* Suaviza a transição caso o navegador tente piscar a cor */
-  transition: background-color 5000s ease-in-out 0s;
-}
-
-/* 2. Para o Modo Escuro */
-body.dark-mode input:-webkit-autofill,
-body.dark-mode input:-webkit-autofill:hover,
-body.dark-mode input:-webkit-autofill:focus,
-body.dark-mode input:-webkit-autofill:active {
-  /* Força o fundo escuro que definimos no tema */
-  -webkit-box-shadow: 0 0 0 1000px #0f172a inset !important;
-  /* Força o texto claro */
-  -webkit-text-fill-color: #f8fafc !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-surface) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
   transition: background-color 5000s ease-in-out 0s;
 }

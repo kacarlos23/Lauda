@@ -1,0 +1,83 @@
+﻿.auditoria-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.auditoria-page-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auditoria-grid-compact {
+  margin-bottom: 0;
+}
+
+.auditoria-stat-highlight {
+  color: var(--status-success-text);
+}
+
+.auditoria-filters-card {
+  padding: 1.25rem 1.5rem;
+}
+
+.auditoria-filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.auditoria-filter-item {
+  flex: 1 1 220px;
+}
+
+.auditoria-date-col {
+  min-width: 170px;
+}
+
+.auditoria-date-cell {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.auditoria-description-cell {
+  color: var(--text-primary);
+}
+
+.auditoria-log-meta {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.auditoria-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-default);
+}
+
+.auditoria-pagination-btn {
+  padding-inline: 0.8rem;
+}
+
+.auditoria-pagination-text {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .auditoria-filters-card {
+    padding: 1rem;
+  }
+
+  .auditoria-pagination {
+    flex-wrap: wrap;
+  }
+}

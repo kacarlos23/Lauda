@@ -1,28 +1,34 @@
-import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
-// NOVO: Importando os ícones do Lucide React
+﻿import { useEffect, useMemo, useState } from "react";
+import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
 import {
-  Music,
-  Home,
-  Music2,
   Calendar,
-  Users,
-  Menu,
-  Sun,
-  Moon,
+  Home,
   LogOut,
-  Shield,
+  Menu,
+  Moon,
+  Music,
+  Music2,
   Settings,
+  Shield,
+  Sun,
   User,
+  Users,
 } from "lucide-react";
 import "./App.css";
 
-import Musicas from "./pages/Musicas";
-import Cultos from "./pages/Cultos";
-import Membros from "./pages/Membros";
-import Login from "./pages/Login";
 import Auditoria from "./pages/Auditoria";
+import Cultos from "./pages/Cultos";
+import Login from "./pages/Login";
+import Membros from "./pages/Membros";
+import Musicas from "./pages/Musicas";
 import Perfil from "./pages/Perfil";
+
+const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "UTC",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
 
 function DashboardResumo() {
   const [stats, setStats] = useState({
@@ -38,13 +44,11 @@ function DashboardResumo() {
     const token = localStorage.getItem("token");
     const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
     const urlLimpa = baseUrl.replace(/\/$/, "");
-
     const headers = {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     };
 
-    // Dentro de DashboardResumo, substitua o Promise.all por isso:
     Promise.all([
       fetch(`${urlLimpa}/api/musicas/`, { headers }),
       fetch(`${urlLimpa}/api/usuarios/`, { headers }),
@@ -56,7 +60,7 @@ function DashboardResumo() {
           window.location.href = "/";
           throw new Error("Sessão expirada");
         }
-        // Usamos o r.ok para garantir que rotas bloqueadas (403) retornem uma lista vazia e não quebrem o dashboard
+
         return Promise.all(responses.map((res) => (res.ok ? res.json() : [])));
       })
       .then(([musicas, membros, cultos]) => {
@@ -69,9 +73,11 @@ function DashboardResumo() {
 
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
+
         const futuros = cultos
           .filter((culto) => new Date(culto.data) >= hoje)
           .sort((a, b) => new Date(a.data) - new Date(b.data));
+
         setProximosCultos(futuros.slice(0, 5));
       })
       .catch((error) => console.error("Erro ao carregar dashboard:", error))
@@ -79,11 +85,11 @@ function DashboardResumo() {
   }, []);
 
   if (loading) {
-    return <div className="dashboard-loading">Carregando painel...</div>;
+    return <div className="dashboard-loading">Carregando painel…</div>;
   }
 
   return (
-    <div>
+    <div className="stack-lg">
       <div className="dashboard-grid">
         <div className="lauda-card stat-card">
           <h3>{stats.cultos}</h3>
@@ -103,30 +109,26 @@ function DashboardResumo() {
         </div>
       </div>
 
-      <div className="agenda-section">
-        <h2 className="text-primary dashboard-title">
-          <Calendar size={24} /> Agenda de Cultos
+      <section className="agenda-section">
+        <h2 className="dashboard-title text-primary">
+          <Calendar size={24} aria-hidden="true" /> Agenda de Cultos
         </h2>
         <div className="lauda-card">
           {proximosCultos.length > 0 ? (
             proximosCultos.map((culto) => (
               <div key={culto.id} className="agenda-item">
-                <span>
-                  {new Date(culto.data).toLocaleDateString("pt-BR", {
-                    timeZone: "UTC",
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}
-                </span>
+                <span>{dateFormatter.format(new Date(culto.data))}</span>
                 <strong>{culto.nome}</strong>
               </div>
             ))
           ) : (
-            <p className="text-muted">Nenhum culto agendado.</p>
+            <div className="empty-state">
+              <h3>Nenhum culto agendado</h3>
+              <p>Cadastre um novo culto para começar a montar sua agenda.</p>
+            </div>
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -136,20 +138,24 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-
-  // ---> NOVO: Estado para abrir/fechar as Configurações
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+  const [settingsNotice, setSettingsNotice] = useState("");
   const minSwipeDistance = 50;
 
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    return localStorage.getItem("theme") === "dark";
-  });
+  const [isDarkMode, setIsDarkMode] = useState(
+    () => localStorage.getItem("theme") === "dark",
+  );
+
+  const settingsLinks = useMemo(
+    () => ["Sugerir Melhorias", "Termos de Uso", "Política de Privacidade"],
+    [],
+  );
 
   useEffect(() => {
     if (!token) return;
+
     const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
     const urlLimpa = baseUrl.replace(/\/$/, "");
 
@@ -161,19 +167,19 @@ function App() {
   }, [token]);
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.body.classList.add("dark-mode");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.body.classList.remove("dark-mode");
-      localStorage.setItem("theme", "light");
-    }
+    document.body.classList.toggle("dark-mode", isDarkMode);
+    localStorage.setItem("theme", isDarkMode ? "dark" : "light");
   }, [isDarkMode]);
 
   const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-    setIsSidebarCollapsed(!isSidebarCollapsed);
+    if (window.innerWidth <= 768) {
+      setIsMenuOpen((value) => !value);
+      return;
+    }
+
+    setIsSidebarCollapsed((value) => !value);
   };
+
   const closeMenu = () => setIsMenuOpen(false);
 
   const handleLogout = () => {
@@ -181,16 +187,24 @@ function App() {
     setToken(null);
   };
 
-  const onTouchStart = (e) => {
+  const handleSettingsLinkClick = (label) => {
+    setSettingsNotice(`${label} ainda não está disponível nesta versão.`);
+  };
+
+  const onTouchStart = (event) => {
     setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
+    setTouchStart(event.targetTouches[0].clientX);
   };
-  const onTouchMove = (e) => {
-    setTouchEnd(e.targetTouches[0].clientX);
+
+  const onTouchMove = (event) => {
+    setTouchEnd(event.targetTouches[0].clientX);
   };
+
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd || window.innerWidth > 768) return;
+
     const distance = touchStart - touchEnd;
+
     if (distance < -minSwipeDistance && touchStart < 50) setIsMenuOpen(true);
     if (distance > minSwipeDistance && isMenuOpen) setIsMenuOpen(false);
   };
@@ -207,23 +221,18 @@ function App() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        <div
+        <button
+          type="button"
           className={`sidebar-overlay ${isMenuOpen ? "open" : ""}`}
           onClick={closeMenu}
-        ></div>
+          aria-label="Fechar menu lateral"
+        />
 
         <aside
           className={`lauda-sidebar ${isMenuOpen ? "open" : ""} ${isSidebarCollapsed ? "collapsed" : ""}`}
+          aria-label="Navegação principal"
         >
-          {/* DIVISÃO 1: O TOPO DO MENU */}
           <div className="lauda-sidebar-top">
-            <div className="lauda-logo">
-              <span className="nav-icon">
-                <Music size={28} />
-              </span>
-              <span className="logo-text">Lauda</span>
-            </div>
-
             <nav className="lauda-nav">
               <NavLink
                 to="/"
@@ -231,27 +240,29 @@ function App() {
                 onClick={closeMenu}
                 end
               >
-                <span className="nav-icon">
+                <span className="nav-icon" aria-hidden="true">
                   <Home size={20} />
                 </span>
                 <span className="nav-text">Dashboard</span>
               </NavLink>
+
               <NavLink
                 to="/musicas"
                 className="lauda-nav-item"
                 onClick={closeMenu}
               >
-                <span className="nav-icon">
+                <span className="nav-icon" aria-hidden="true">
                   <Music2 size={20} />
                 </span>
                 <span className="nav-text">Músicas</span>
               </NavLink>
+
               <NavLink
                 to="/cultos"
                 className="lauda-nav-item"
                 onClick={closeMenu}
               >
-                <span className="nav-icon">
+                <span className="nav-icon" aria-hidden="true">
                   <Calendar size={20} />
                 </span>
                 <span className="nav-text">Cultos</span>
@@ -264,17 +275,18 @@ function App() {
                     className="lauda-nav-item"
                     onClick={closeMenu}
                   >
-                    <span className="nav-icon">
+                    <span className="nav-icon" aria-hidden="true">
                       <Users size={20} />
                     </span>
                     <span className="nav-text">Membros</span>
                   </NavLink>
+
                   <NavLink
                     to="/auditoria"
                     className="lauda-nav-item"
                     onClick={closeMenu}
                   >
-                    <span className="nav-icon">
+                    <span className="nav-icon" aria-hidden="true">
                       <Shield size={20} />
                     </span>
                     <span className="nav-text">Auditoria</span>
@@ -284,28 +296,28 @@ function App() {
             </nav>
           </div>
 
-          {/* DIVISÃO 2: A BASE DO MENU (Perfil e Configurações) */}
           <div className="lauda-sidebar-bottom">
             <NavLink
               to="/perfil"
               className="lauda-nav-item"
               onClick={closeMenu}
             >
-              <span className="nav-icon">
+              <span className="nav-icon" aria-hidden="true">
                 <User size={20} />
               </span>
               <span className="nav-text">Meu Perfil</span>
             </NavLink>
 
-            {/* O botão de Configurações não é um link, ele abre o Modal! */}
             <button
+              type="button"
               className="lauda-nav-item"
               onClick={() => {
+                setSettingsNotice("");
                 setIsSettingsOpen(true);
                 closeMenu();
               }}
             >
-              <span className="nav-icon">
+              <span className="nav-icon" aria-hidden="true">
                 <Settings size={20} />
               </span>
               <span className="nav-text">Configurações</span>
@@ -317,29 +329,43 @@ function App() {
           <header className="lauda-header">
             <div className="lauda-header-left">
               <button
+                type="button"
                 className="menu-toggle-btn"
                 onClick={toggleMenu}
-                title="Alternar Menu"
+                aria-label="Alternar menu lateral"
               >
                 <Menu size={22} />
               </button>
-              <h1>Ministério de Louvor</h1>
+              <h1>
+                <Music
+                  size={22}
+                  aria-hidden="true"
+                  className="header-title-icon"
+                />
+                <span className="header-title-text">
+                  Lauda - Gerenciamento de Cultos e Músicas
+                </span>
+              </h1>
             </div>
 
             <div className="lauda-user-profile">
               <button
-                onClick={() => setIsDarkMode(!isDarkMode)}
+                type="button"
+                onClick={() => setIsDarkMode((value) => !value)}
                 className="theme-toggle-btn"
-                title="Alternar Modo Escuro"
+                aria-label={
+                  isDarkMode ? "Ativar tema claro" : "Ativar tema escuro"
+                }
               >
                 {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
 
               <button
+                type="button"
                 onClick={handleLogout}
                 className="lauda-btn lauda-btn-secondary logout-btn"
               >
-                <LogOut size={16} /> Sair
+                <LogOut size={16} aria-hidden="true" /> Sair
               </button>
             </div>
           </header>
@@ -357,69 +383,61 @@ function App() {
         </main>
       </div>
 
-      {/* =========================================
-          MODAL DE CONFIGURAÇÕES (GERAL)
-          ========================================= */}
-
       {isSettingsOpen && (
-        <div className="modal-overlay">
-          <div className="modal modal-compact">
+        <div className="modal-overlay" role="presentation">
+          <div
+            className="modal modal-compact"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-title"
+          >
             <div className="modal-header">
               <h3
-                className="modal-title"
-                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                id="settings-title"
+                className="modal-title settings-modal-title"
               >
-                <Settings size={22} /> Configurações
+                <Settings size={22} aria-hidden="true" /> Configurações
               </h3>
               <button
+                type="button"
                 onClick={() => setIsSettingsOpen(false)}
                 className="modal-close"
+                aria-label="Fechar configurações"
               >
                 ×
               </button>
             </div>
 
-            <div className="modal-body" style={{ gap: "1.25rem" }}>
-              {/* Bloco 1: Preferências de Interface */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "15px",
-                }}
-              >
+            <div className="modal-body settings-modal-body">
+              {settingsNotice && (
                 <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
+                  className="status-alert status-alert--success settings-note"
+                  aria-live="polite"
                 >
-                  <span style={{ fontWeight: 600, color: "var(--gray-800)" }}>
-                    Modo Escuro (Dark Mode)
-                  </span>
+                  {settingsNotice}
+                </div>
+              )}
+
+              <div className="settings-section">
+                <div className="settings-row">
+                  <span className="settings-label">Modo Escuro</span>
                   <button
-                    onClick={() => setIsDarkMode(!isDarkMode)}
-                    className="lauda-btn lauda-btn-secondary"
-                    style={{ padding: "0.4rem 0.8rem" }}
+                    type="button"
+                    onClick={() => setIsDarkMode((value) => !value)}
+                    className="lauda-btn lauda-btn-secondary settings-inline-btn"
                   >
-                    {isDarkMode ? "Desativar ☀️" : "Ativar 🌙"}
+                    {isDarkMode ? "Desativar" : "Ativar"}
                   </button>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <span style={{ fontWeight: 600, color: "var(--gray-800)" }}>
+                <div className="settings-row">
+                  <label className="settings-label" htmlFor="settings-language">
                     Idioma do Sistema
-                  </span>
+                  </label>
                   <select
-                    className="input-field"
-                    style={{ width: "auto", padding: "0.3rem 0.5rem" }}
+                    id="settings-language"
+                    className="input-field settings-inline-select"
+                    defaultValue="pt-BR"
                   >
                     <option value="pt-BR">Português (BR)</option>
                     <option value="en-US">English (US)</option>
@@ -427,88 +445,44 @@ function App() {
                   </select>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <span style={{ fontWeight: 600, color: "var(--gray-800)" }}>
-                    Notificações de Escala
-                  </span>
-                  {/* Mockup de Checkbox (estilizado como switch no futuro) */}
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    style={{ width: "18px", height: "18px", cursor: "pointer" }}
-                  />
+                <div className="settings-row">
+                  <span className="settings-label">Notificações de Escala</span>
+                  <label
+                    className="checkbox-control"
+                    htmlFor="settings-notifications"
+                  >
+                    <input
+                      id="settings-notifications"
+                      type="checkbox"
+                      defaultChecked
+                    />
+                    <span>Ativas</span>
+                  </label>
                 </div>
               </div>
 
-              <hr
-                style={{
-                  border: "none",
-                  borderTop: "1px solid var(--gray-200)",
-                  margin: "0.5rem 0",
-                }}
-              />
+              <hr className="modal-divider" />
 
-              {/* Bloco 2: Links Úteis */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
-              >
-                <button
-                  className="lauda-btn lauda-btn-secondary"
-                  style={{
-                    width: "100%",
-                    justifyContent: "flex-start",
-                    color: "var(--primary-dark)",
-                    borderColor: "var(--primary-lightest)",
-                    backgroundColor: "var(--primary-lightest)",
-                  }}
-                  onClick={() => alert("Abrir caixa de sugestão!")}
-                >
-                  💡 Sugerir Melhorias
-                </button>
-                <button
-                  className="lauda-btn lauda-btn-secondary"
-                  style={{
-                    width: "100%",
-                    justifyContent: "flex-start",
-                    border: "none",
-                    paddingLeft: "0",
-                  }}
-                  onClick={() => alert("Página de Termos de Uso")}
-                >
-                  📄 Termos de Uso
-                </button>
-                <button
-                  className="lauda-btn lauda-btn-secondary"
-                  style={{
-                    width: "100%",
-                    justifyContent: "flex-start",
-                    border: "none",
-                    paddingLeft: "0",
-                  }}
-                  onClick={() => alert("Página de Política de Privacidade")}
-                >
-                  🔒 Política de Privacidade
-                </button>
+              <div className="settings-link-list">
+                {settingsLinks.map((label, index) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className={`lauda-btn lauda-btn-secondary settings-link-btn ${index === 0 ? "settings-link-highlight" : "settings-link-plain"}`}
+                    onClick={() => handleSettingsLinkClick(label)}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
 
-              {/* Bloco 3: Área de Perigo */}
-              <div style={{ marginTop: "0.5rem" }}>
+              <div className="settings-danger-zone">
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="lauda-btn lauda-btn-danger"
-                  style={{ width: "100%" }}
                 >
-                  <LogOut size={16} /> Sair do Sistema
+                  <LogOut size={16} aria-hidden="true" /> Sair do Sistema
                 </button>
               </div>
             </div>

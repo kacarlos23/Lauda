@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Lock,
   UserPlus,
@@ -36,6 +36,7 @@ export default function Membros() {
   });
   const [novoUsuario, setNovoUsuario] = useState(ESTADO_INICIAL_USUARIO);
   const [usuarioSelecionado, setUsuarioSelecionado] = useState(null);
+  const painelInicializadoRef = useRef(false);
 
   const [filtros, setFiltros] = useState({
     busca: "",
@@ -46,7 +47,7 @@ export default function Membros() {
   const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
   const urlLimpa = baseUrl.replace(/\/$/, "");
 
-  const carregarDados = () => {
+  const carregarDados = useCallback(() => {
     const token = localStorage.getItem("token");
     const headers = { Authorization: `Bearer ${token}` };
 
@@ -55,16 +56,23 @@ export default function Membros() {
         setIsAdmin(res.ok);
         return res.ok ? res.json() : [];
       })
-      .then((dados) => setUsuarios(dados));
+      .then((dados) => {
+        setUsuarios(dados);
+
+        if (!painelInicializadoRef.current && dados.length > 0) {
+          setUsuarioSelecionado(dados[0]);
+          painelInicializadoRef.current = true;
+        }
+      });
 
     fetch(`${urlLimpa}/api/auditoria/?page_size=5`, { headers })
       .then((res) => (res.ok ? res.json() : { results: [] }))
       .then((dados) => setLogs(dados.results || dados));
-  };
+  }, [urlLimpa]);
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [carregarDados]);
 
   const exibirMensagem = (texto, tipo = "success") => {
     setMensagem({ texto, tipo });

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 // Importando os ícones do Lucide React
 import {
   Calendar,
@@ -42,7 +42,7 @@ export default function Cultos() {
   const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
   const urlLimpa = baseUrl.replace(/\/$/, "");
 
-  const carregarDados = () => {
+  const carregarDados = useCallback(() => {
     const token = localStorage.getItem("token");
     const headers = {
       Authorization: `Bearer ${token}`,
@@ -78,13 +78,12 @@ export default function Cultos() {
       )
       .catch((erro) => {
         console.error("Erro na busca:", erro);
-        // Removemos o redirecionamento bruto aqui para evitar loops de login
       });
-  };
+  }, [urlLimpa]);
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [carregarDados]);
 
   const formatarDataBR = (dataString) => {
     if (!dataString) return "";

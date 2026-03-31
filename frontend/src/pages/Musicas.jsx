@@ -1,13 +1,5 @@
-import { useState, useEffect } from "react";
-import {
-  Headphones,
-  Edit2,
-  Trash2,
-  Play,
-  FileText,
-  Guitar,
-  Plus,
-} from "lucide-react";
+﻿import { useCallback, useEffect, useState } from "react";
+import { Edit2, FileText, Guitar, Headphones, Play, Trash2 } from "lucide-react";
 import "./Musicas.css";
 
 const ESTADO_INICIAL_MUSICA = {
@@ -34,8 +26,9 @@ export default function Musicas() {
   const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
   const urlLimpa = baseUrl.replace(/\/$/, "");
 
-  const carregarMusicas = () => {
+  const carregarMusicas = useCallback(() => {
     const token = localStorage.getItem("token");
+
     fetch(`${urlLimpa}/api/musicas/`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -44,9 +37,7 @@ export default function Musicas() {
         return res.json();
       })
       .then((dados) => {
-        const musicasAtivas = dados.filter(
-          (musica) => musica.is_active !== false,
-        );
+        const musicasAtivas = dados.filter((musica) => musica.is_active !== false);
         setMusicas(musicasAtivas);
       })
       .catch((erro) => {
@@ -54,15 +45,15 @@ export default function Musicas() {
         localStorage.removeItem("token");
         window.location.href = "/";
       });
-  };
+  }, [urlLimpa]);
 
   useEffect(() => {
     carregarMusicas();
-  }, []);
+  }, [carregarMusicas]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((current) => ({ ...current, [name]: value }));
   };
 
   const handleNovaMusica = () => {
@@ -91,12 +82,10 @@ export default function Musicas() {
   };
 
   const handleExcluirMusica = (id) => {
-    if (
-      !window.confirm(
-        "Tem certeza que deseja remover esta música do repertório?",
-      )
-    )
+    if (!window.confirm("Tem certeza que deseja remover esta música do repertório?")) {
       return;
+    }
+
     const token = localStorage.getItem("token");
 
     fetch(`${urlLimpa}/api/musicas/${id}/`, {
@@ -107,13 +96,17 @@ export default function Musicas() {
       },
       body: JSON.stringify({ is_active: false }),
     }).then((res) => {
-      if (res.ok) carregarMusicas();
-      else alert("Não foi possível excluir a música. Verifique sua conexão.");
+      if (res.ok) {
+        carregarMusicas();
+        return;
+      }
+
+      alert("Não foi possível excluir a música. Verifique sua conexão.");
     });
   };
 
-  const handleSalvarMusica = (e) => {
-    e.preventDefault();
+  const handleSalvarMusica = (event) => {
+    event.preventDefault();
     const token = localStorage.getItem("token");
     const url = editingId
       ? `${urlLimpa}/api/musicas/${editingId}/`
@@ -134,34 +127,28 @@ export default function Musicas() {
       if (res.ok) {
         setIsModalOpen(false);
         carregarMusicas();
-      } else {
-        alert(
-          "Erro ao salvar música. Verifique se preencheu título, artista e tom.",
-        );
+        return;
       }
+
+      alert("Erro ao salvar música. Verifique título, artista e tom.");
     });
   };
 
   return (
-    <div>
+    <div className="stack-lg">
       <div className="lauda-page-header">
         <div>
           <h2 className="text-primary">Repertório de Músicas</h2>
-          <p className="text-muted">
-            Gerencie as canções, tons e cifras do ministério
-          </p>
+          <p className="text-muted">Gerencie canções, tons, links e cifras do ministério.</p>
         </div>
-        <button
-          className="lauda-btn lauda-btn-primary"
-          onClick={handleNovaMusica}
-        >
+        <button type="button" className="lauda-btn lauda-btn-primary" onClick={handleNovaMusica}>
           + Nova Música
         </button>
       </div>
 
       <div className="musicas-grid">
         {musicas.map((musica) => (
-          <div key={musica.id} className="lauda-card musica-card">
+          <article key={musica.id} className="lauda-card musica-card">
             <div>
               <div className="musica-card-header">
                 <div>
@@ -173,25 +160,24 @@ export default function Musicas() {
 
               {musica.tags && (
                 <div className="musica-tags">
-                  {musica.tags.split(",").map((tag, index) => (
-                    <span key={index} className="musica-tag">
+                  {musica.tags.split(",").map((tag) => (
+                    <span key={`${musica.id}-${tag.trim()}`} className="musica-tag">
                       {tag.trim()}
                     </span>
                   ))}
                 </div>
               )}
 
-              {/* MÁGICA VISUAL: As pílulas de Links Úteis */}
               <div className="musica-external-links">
                 {musica.link_youtube && (
                   <a
                     href={musica.link_youtube}
                     target="_blank"
                     rel="noreferrer"
-                    className="musica-link-pill pill-youtube"
+                    className="musica-link-pill musica-link-pill-danger"
                     title="Assistir no YouTube"
                   >
-                    <Play size={14} /> Vídeo
+                    <Play size={14} aria-hidden="true" /> Vídeo
                   </a>
                 )}
                 {musica.link_audio && (
@@ -199,10 +185,10 @@ export default function Musicas() {
                     href={musica.link_audio}
                     target="_blank"
                     rel="noreferrer"
-                    className="musica-link-pill pill-audio"
-                    title="Ouvir Áudio Original"
+                    className="musica-link-pill musica-link-pill-success"
+                    title="Ouvir áudio original"
                   >
-                    <Headphones size={14} /> Áudio
+                    <Headphones size={14} aria-hidden="true" /> Áudio
                   </a>
                 )}
                 {musica.link_letra && (
@@ -210,10 +196,10 @@ export default function Musicas() {
                     href={musica.link_letra}
                     target="_blank"
                     rel="noreferrer"
-                    className="musica-link-pill pill-letra"
-                    title="Ver Letra"
+                    className="musica-link-pill musica-link-pill-warning"
+                    title="Ver letra"
                   >
-                    <FileText size={14} /> Letra
+                    <FileText size={14} aria-hidden="true" /> Letra
                   </a>
                 )}
                 {musica.link_cifra && (
@@ -221,10 +207,10 @@ export default function Musicas() {
                     href={musica.link_cifra}
                     target="_blank"
                     rel="noreferrer"
-                    className="musica-link-pill pill-cifra"
-                    title="Acessar Cifra"
+                    className="musica-link-pill musica-link-pill-primary"
+                    title="Acessar cifra"
                   >
-                    <Guitar size={14} /> Cifra
+                    <Guitar size={14} aria-hidden="true" /> Cifra
                   </a>
                 )}
               </div>
@@ -243,50 +229,46 @@ export default function Musicas() {
               </div>
             </div>
 
-            {/* Ações Restantes (Editar / Excluir) */}
             <div className="musica-actions">
               <button
+                type="button"
                 className="lauda-btn lauda-btn-secondary musica-action-btn"
                 onClick={() => handleEditarMusica(musica)}
-                title="Editar"
               >
-                <Edit2 size={16} /> Editar
+                <Edit2 size={16} aria-hidden="true" /> Editar
               </button>
               <button
+                type="button"
                 className="lauda-btn lauda-btn-secondary musica-delete-btn"
                 onClick={() => handleExcluirMusica(musica.id)}
-                title="Excluir"
+                aria-label={`Excluir ${musica.titulo}`}
               >
-                <Trash2 size={16} />
+                <Trash2 size={16} aria-hidden="true" />
               </button>
             </div>
-          </div>
+          </article>
         ))}
+
         {musicas.length === 0 && (
-          <div
-            style={{
-              gridColumn: "1 / -1",
-              textAlign: "center",
-              padding: "40px",
-              color: "var(--gray-500)",
-            }}
-          >
-            Seu repertório está vazio. Adicione a primeira música!
+          <div className="empty-state musicas-empty-state">
+            <h3>Seu repertório está vazio</h3>
+            <p>Cadastre a primeira música para começar a montar escalas e setlists.</p>
           </div>
         )}
       </div>
 
-      {/* MODAL DE MÚSICA */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal modal-wide">
+        <div className="modal-overlay" role="presentation">
+          <div className="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="musica-modal-title">
             <div className="modal-header">
-              <h3 className="modal-title">
+              <h3 id="musica-modal-title" className="modal-title">
                 {editingId ? "Editar Música" : "Cadastrar Nova Música"}
               </h3>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="modal-close"
+                aria-label="Fechar cadastro de música"
               >
                 ×
               </button>
@@ -296,213 +278,192 @@ export default function Musicas() {
               <div className="modal-body modal-form">
                 <div className="form-row-wrap">
                   <div className="form-field-grow">
-                    <label className="input-label">Título da Música *</label>
+                    <label className="input-label" htmlFor="musica-titulo">
+                      Título da Música *
+                    </label>
                     <input
+                      id="musica-titulo"
                       type="text"
                       name="titulo"
                       className="input-field"
                       value={formData.titulo}
                       onChange={handleChange}
                       required
-                      placeholder="Ex: Oceanos"
+                      autoComplete="off"
+                      placeholder="Ex: Oceanos…"
                     />
                   </div>
                   <div className="form-field-grow">
-                    <label className="input-label">Artista / Banda *</label>
+                    <label className="input-label" htmlFor="musica-artista">
+                      Artista / Banda *
+                    </label>
                     <input
+                      id="musica-artista"
                       type="text"
                       name="artista"
                       className="input-field"
                       value={formData.artista}
                       onChange={handleChange}
                       required
-                      placeholder="Ex: Hillsong"
+                      autoComplete="off"
+                      placeholder="Ex: Hillsong…"
                     />
                   </div>
                 </div>
 
                 <div className="form-row-wrap">
                   <div className="form-field-small">
-                    <label className="input-label">Tom *</label>
+                    <label className="input-label" htmlFor="musica-tom">
+                      Tom *
+                    </label>
                     <input
+                      id="musica-tom"
                       type="text"
                       name="tom_original"
                       className="input-field"
                       value={formData.tom_original}
                       onChange={handleChange}
                       required
-                      placeholder="Ex: C, G#"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="Ex: C…"
                     />
                   </div>
                   <div className="form-field-small">
-                    <label className="input-label">BPM</label>
+                    <label className="input-label" htmlFor="musica-bpm">
+                      BPM
+                    </label>
                     <input
+                      id="musica-bpm"
                       type="number"
                       name="bpm"
                       className="input-field"
                       value={formData.bpm}
                       onChange={handleChange}
-                      placeholder="Ex: 72"
+                      placeholder="Ex: 72…"
                     />
                   </div>
                   <div className="form-field-small">
-                    <label className="input-label">Compasso</label>
+                    <label className="input-label" htmlFor="musica-compasso">
+                      Compasso
+                    </label>
                     <input
+                      id="musica-compasso"
                       type="text"
                       name="compasso"
                       className="input-field"
                       value={formData.compasso}
                       onChange={handleChange}
-                      placeholder="Ex: 4/4"
+                      autoComplete="off"
+                      placeholder="Ex: 4/4…"
                     />
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    padding: "1rem",
-                    backgroundColor: "var(--gray-50)",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--gray-200)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "1rem",
-                  }}
-                >
-                  <h4
-                    style={{
-                      fontSize: "0.9rem",
-                      color: "var(--gray-700)",
-                      margin: 0,
-                    }}
-                  >
-                    Links
-                  </h4>
+                <div className="musica-links-surface surface-subtle">
+                  <h4 className="musica-links-title">Links</h4>
 
                   <div className="form-row-wrap">
                     <div className="form-field-grow">
-                      <label
-                        className="input-label"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        <Play size={14} color="#ef4444" /> YouTube (Vídeo)
+                      <label className="input-label musica-link-label" htmlFor="musica-youtube">
+                        <Play size={14} className="text-danger" aria-hidden="true" /> YouTube (Vídeo)
                       </label>
                       <input
+                        id="musica-youtube"
                         type="url"
                         name="link_youtube"
                         className="input-field"
                         value={formData.link_youtube}
                         onChange={handleChange}
-                        placeholder="https://youtube.com/..."
+                        autoComplete="off"
+                        placeholder="https://youtube.com/…"
                       />
                     </div>
                     <div className="form-field-grow">
-                      <label
-                        className="input-label"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        <Headphones size={14} color="#10b981" /> Spotify/Deezer
-                        (Áudio)
+                      <label className="input-label musica-link-label" htmlFor="musica-audio">
+                        <Headphones size={14} className="text-success" aria-hidden="true" /> Spotify/Deezer (Áudio)
                       </label>
                       <input
+                        id="musica-audio"
                         type="url"
                         name="link_audio"
                         className="input-field"
                         value={formData.link_audio}
                         onChange={handleChange}
-                        placeholder="https://open.spotify.com/..."
+                        autoComplete="off"
+                        placeholder="https://open.spotify.com/…"
                       />
                     </div>
                   </div>
 
                   <div className="form-row-wrap">
                     <div className="form-field-grow">
-                      <label
-                        className="input-label"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        <FileText size={14} color="#f59e0b" /> Letras.com
+                      <label className="input-label musica-link-label" htmlFor="musica-letra">
+                        <FileText size={14} className="text-warning" aria-hidden="true" /> Letras.com
                       </label>
                       <input
+                        id="musica-letra"
                         type="url"
                         name="link_letra"
                         className="input-field"
                         value={formData.link_letra}
                         onChange={handleChange}
-                        placeholder="https://letras.mus.br/..."
+                        autoComplete="off"
+                        placeholder="https://letras.mus.br/…"
                       />
                     </div>
                     <div className="form-field-grow">
-                      <label
-                        className="input-label"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        <Guitar size={14} color="#3b82f6" /> CifraClub
+                      <label className="input-label musica-link-label" htmlFor="musica-cifra">
+                        <Guitar size={14} className="text-primary" aria-hidden="true" /> CifraClub
                       </label>
                       <input
+                        id="musica-cifra"
                         type="url"
                         name="link_cifra"
                         className="input-field"
                         value={formData.link_cifra}
                         onChange={handleChange}
-                        placeholder="https://cifraclub.com.br/..."
+                        autoComplete="off"
+                        placeholder="https://cifraclub.com.br/…"
                       />
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="input-label">
+                  <label className="input-label" htmlFor="musica-tags">
                     Tags (Separe por vírgula)
                   </label>
                   <input
+                    id="musica-tags"
                     type="text"
                     name="tags"
                     className="input-field"
                     value={formData.tags}
                     onChange={handleChange}
-                    placeholder="Adoração, Ceia, Animada"
+                    autoComplete="off"
+                    placeholder="Adoração, Ceia, Animada…"
                   />
                 </div>
 
                 <div>
-                  <label className="input-label">
+                  <label className="input-label" htmlFor="musica-cifra-texto">
                     Cifra Customizada (Texto)
                   </label>
                   <textarea
+                    id="musica-cifra-texto"
                     name="cifra_texto"
-                    className="input-field"
+                    className="input-field musica-cifra-textarea"
                     rows="4"
                     value={formData.cifra_texto}
                     onChange={handleChange}
-                    placeholder="[C]  [G]  [Am]  [F]..."
-                    style={{ fontFamily: "monospace" }}
-                  ></textarea>
+                    placeholder="[C] [G] [Am] [F]…"
+                  />
                 </div>
               </div>
 
               <div className="modal-footer">
-                <button
-                  type="button"
-                  className="lauda-btn lauda-btn-secondary"
-                  onClick={() => setIsModalOpen(false)}
-                >
+                <button type="button" className="lauda-btn lauda-btn-secondary" onClick={() => setIsModalOpen(false)}>
                   Cancelar
                 </button>
                 <button type="submit" className="lauda-btn lauda-btn-primary">

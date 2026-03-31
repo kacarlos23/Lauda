@@ -1,233 +1,243 @@
-﻿﻿@charset "UTF-8";
-
-/* frontend/src/pages/Musicas.css */
-
-.musicas-grid {
+﻿.musicas-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 2.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
 }
 
 .musica-card {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  gap: 1.25rem;
   min-height: 100%;
-  margin-bottom: 1.25rem;
 }
 
 .musica-card-header {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1rem;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .musica-titulo {
+  margin-bottom: 0.3rem;
+  color: var(--text-primary);
   font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--gray-900);
-  margin-bottom: 0.25rem;
-  line-height: 1.2;
 }
 
 .musica-artista {
-  font-size: 0.9rem;
-  color: var(--gray-500);
+  color: var(--text-muted);
+  font-size: 0.92rem;
 }
 
 .musica-tom-badge {
-  background-color: var(--primary-lightest);
-  color: var(--primary-dark);
-  font-weight: 800;
-  font-size: 1.1rem;
-  padding: 0.4rem 0.6rem;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 45px;
-}
-
-/* ==========================================
-   NOVAS CLASSES: ESTRUTURA E MODAL (Refatoração)
-   ========================================== */
-
-/* Layout do Modal de Músicas */
-.modal-wide {
-  max-width: 600px;
+  min-width: 52px;
+  min-height: 44px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: var(--radius-md);
+  background: var(--interactive-primary-soft);
+  color: var(--interactive-primary);
+  font-size: 1rem;
+  font-weight: 800;
 }
 
 .form-row-wrap {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
-  margin-bottom: 0.5rem;
 }
 
 .form-field-grow {
-  flex: 1 1 200px;
+  flex: 1 1 220px;
 }
 
 .form-field-small {
-  flex: 1 1 80px;
+  flex: 1 1 110px;
 }
 
-/* Ajustes nos Cards de Música */
 .musica-meta-column {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  border-top: 1px solid var(--gray-200);
-  padding-top: 1rem;
   margin-top: 1rem;
-  font-size: 0.85rem;
-  color: var(--gray-600);
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-default);
 }
 
 .musica-meta-row {
   display: flex;
-  gap: 1.5rem;
   flex-wrap: wrap;
+  gap: 1.25rem;
 }
 
 .musica-meta-item {
   display: flex;
   flex-direction: column;
-}
-
-.musica-tags {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-top: 1rem;
-}
-
-.musica-tag {
-  background-color: var(--gray-100);
-  color: var(--gray-700);
-  font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-full);
-}
-
-/* Botões de Ação do Card */
-.musica-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
-  border-top: 1px solid var(--gray-200);
-  padding-top: 1rem;
-}
-
-.musica-action-btn {
-  flex: 1;
-  padding: 0.4rem;
+  gap: 0.2rem;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
-.musica-delete-btn {
-  color: var(--error-dark);
-  padding: 0.4rem 0.8rem;
+.musica-meta-item strong {
+  color: var(--text-primary);
 }
 
-.musicas-empty-state {
-  grid-column: 1 / -1;
-}
-
-/* Ajustes Dark Mode */
-body.dark-mode .musica-tom-badge {
-  background-color: rgba(59, 130, 246, 0.1);
-}
-body.dark-mode .musica-tag {
-  background-color: var(--gray-200);
-}
-
-/* ==========================================
-   NOVOS LINKS EXTERNOS (Pílulas)
-   ========================================== */
-.musica-external-links {
+.musica-tags,
+.musica-actions {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
   flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.musica-tags,
+.musica-external-links {
+  margin-top: 1rem;
+}
+
+.musica-external-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.musica-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.musica-links-surface {
+  gap: 1rem;
+}
+
+.musica-links-title {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.musica-link-label {
+  min-height: auto;
+}
+
+.musica-cifra-textarea {
+  font-family: "Courier New", monospace;
 }
 
 .musica-link-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  min-height: 32px;
   padding: 0.3rem 0.75rem;
-  border-radius: var(--radius-full);
-  text-decoration: none;
-  transition: all var(--transition-fast);
   border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
-/* Cores específicas para cada plataforma */
-.pill-youtube {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #ef4444; /* Vermelho YouTube */
-}
-.pill-youtube:hover {
-  background-color: #ef4444;
-  color: white;
+.musica-link-pill:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.96) saturate(1.04);
+  box-shadow: var(--shadow-sm);
 }
 
-.pill-audio {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: #10b981; /* Verde Spotify */
-}
-.pill-audio:hover {
-  background-color: #10b981;
-  color: white;
+.musica-link-pill-primary {
+  background: var(--interactive-primary-soft);
+  color: var(--interactive-primary);
+  border-color: rgba(37, 99, 235, 0.16);
 }
 
-.pill-letra {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #f59e0b; /* Laranja */
-}
-.pill-letra:hover {
-  background-color: #f59e0b;
-  color: white;
+.musica-link-pill-success {
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+  border-color: var(--status-success-border);
 }
 
-.pill-cifra {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6; /* Azul CifraClub */
-}
-.pill-cifra:hover {
-  background-color: #3b82f6;
-  color: white;
+.musica-link-pill-warning {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+  border-color: var(--status-warning-border);
 }
 
-/* Ajuste do botão Editar/Excluir para dividir melhor o espaço */
+.musica-link-pill-danger {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+  border-color: var(--status-danger-border);
+}
+
 .musica-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
-  border-top: 1px solid var(--gray-200);
+  margin-top: auto;
   padding-top: 1rem;
+  border-top: 1px solid var(--border-default);
 }
+
 .musica-action-btn {
   flex: 1;
+}
+
+.musica-delete-btn {
+  color: var(--error);
+  border-color: var(--status-danger-border);
+}
+
+.musica-delete-btn svg {
+  color: var(--error);
+}
+
+.musicas-empty-state {
+  grid-column: 1 / -1;
+}
+
+.modal-wide {
+  max-width: 760px;
 }
 
 @media (max-width: 768px) {
   .musicas-grid {
     grid-template-columns: 1fr;
-    gap: 1.25rem;
   }
 
-  .musica-actions {
-    flex-wrap: wrap;
+  .musica-external-links {
+    grid-template-columns: 1fr;
   }
 
   .musica-action-btn,
-  .musica-delete-btn {
+  .musica-delete-btn,
+  .form-field-grow,
+  .form-field-small {
     flex: 1 1 100%;
   }
+}
+
+body.dark-mode .musica-links-surface {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: var(--border-strong);
+}
+
+body.dark-mode .musica-links-surface .input-field {
+  background: rgba(15, 23, 42, 0.92);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+body.dark-mode .musica-links-surface .input-field::placeholder {
+  color: var(--text-muted);
+}
+
+body.dark-mode .musica-link-label {
+  color: var(--text-secondary);
 }

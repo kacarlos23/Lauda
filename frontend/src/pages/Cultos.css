@@ -1,11 +1,5 @@
-﻿/* ==========================================
-   frontend/src/pages/Cultos.css
-   LAUDA - Agenda de Cultos e Setlists
-   ========================================== */
-
-.cultos-grid {
+﻿.cultos-grid {
   display: grid;
-  /* Reduzido para 280px para não quebrar em celulares menores, conforme documento */
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.25rem;
 }
@@ -15,13 +9,7 @@
   flex-direction: column;
   justify-content: space-between;
   min-height: 100%;
-}
-
-.culto-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
+  gap: 1rem;
 }
 
 .culto-info {
@@ -29,30 +17,27 @@
 }
 
 .culto-info h3 {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--gray-900);
   margin-bottom: 0.25rem;
-  line-height: 1.2;
+  color: var(--text-primary);
+  font-size: 1.1rem;
 }
 
 .culto-data {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--primary-dark);
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-top: 0.25rem;
+  color: var(--interactive-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
-/* Meta-informações organizadas em coluna com espaçamento em rem */
 .culto-meta {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  border-top: 1px solid var(--gray-200);
   padding-top: 1rem;
+  border-top: 1px solid var(--border-default);
   font-size: 0.875rem;
 }
 
@@ -60,29 +45,28 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--gray-600);
+  color: var(--text-secondary);
 }
 
 .culto-meta-item strong {
-  color: var(--gray-700);
+  color: var(--text-primary);
 }
 
 .cultos-grid:empty::after {
   content: "Nenhum culto cadastrado ainda.";
   grid-column: 1 / -1;
-  text-align: center;
   padding: 3rem 1rem;
-  color: var(--gray-400);
-  font-size: 0.875rem;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 .culto-actions-panel {
-  border-top: 1px solid var(--gray-200);
-  padding-top: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-default);
 }
 
 .culto-actions-row {
@@ -95,15 +79,19 @@
   font-size: 0.85rem;
 }
 
+.culto-action-btn-ghost,
+.culto-action-btn-ghost-danger {
+  background: transparent;
+}
+
 .culto-action-btn-ghost {
-  border: none;
-  background-color: transparent;
+  border-style: dashed;
 }
 
 .culto-action-btn-ghost-danger {
-  border: none;
-  background-color: transparent;
-  color: var(--error-dark);
+  color: var(--error);
+  border-color: var(--status-danger-border);
+  background: var(--status-danger-bg);
 }
 
 .culto-form-row {
@@ -116,9 +104,9 @@
 
 .escala-toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-bottom: 1rem;
-  flex-wrap: wrap;
 }
 
 .escala-toolbar-select {
@@ -126,67 +114,71 @@
 }
 
 .culto-remove-btn {
-  color: var(--error-dark);
-  border-color: rgba(220, 38, 38, 0.25);
+  color: var(--error);
+  border-color: var(--status-danger-border);
+  background: var(--status-danger-bg);
 }
 
-/* ==========================================
-   ZONAS DE DRAG AND DROP (SETLIST)
-   ========================================== */
 .dnd-container {
   display: flex;
-  gap: 1.25rem; /* Substituindo 20px por rem */
-  height: 60vh;
+  gap: 1.25rem;
   min-height: 400px;
+  height: 60vh;
 }
 
 .dnd-column {
-  flex: 1;
-  background-color: var(--gray-50);
-  border-radius: var(--radius-md);
-  padding: 1rem; /* Substituindo 15px por rem */
   display: flex;
+  flex: 1;
   flex-direction: column;
-  border: 2px dashed transparent;
-  transition: all 0.2s ease;
   overflow-y: auto;
+  padding: 1rem;
+  border: 1px dashed transparent;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-subtle);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .dnd-column-highlight {
-  background-color: var(--primary-lightest);
-  border: 1px solid var(--primary-light);
+  background: var(--interactive-primary-soft);
+  border-color: rgba(37, 99, 235, 0.16);
 }
 
 .dnd-column-title {
-  margin-bottom: 1rem;
-  color: var(--gray-800);
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
 }
 
 .dnd-column-title-primary {
-  color: var(--primary-dark);
+  color: var(--interactive-primary);
 }
 
 .dnd-column.drag-over {
-  background-color: var(--primary-lightest);
-  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.1);
+  border-color: var(--interactive-primary);
 }
 
 .dnd-item {
-  background-color: var(--white);
-  border: 1px solid var(--gray-200);
-  padding: 0.75rem 1rem;
   margin-bottom: 0.75rem;
-  border-radius: var(--radius-sm);
-  cursor: grab;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
   box-shadow: var(--shadow-sm);
-  transition: transform 0.1s;
+  cursor: grab;
+  transition:
+    border-color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .dnd-item-setlist {
-  border-left: 4px solid var(--primary);
+  border-left: 4px solid var(--interactive-primary);
 }
 
 .dnd-item:active {
@@ -195,13 +187,13 @@
 }
 
 .dnd-item-title {
+  color: var(--text-primary);
   font-weight: 600;
-  color: var(--gray-800);
 }
 
 .dnd-item-subtitle {
+  color: var(--text-muted);
   font-size: 0.8rem;
-  color: var(--gray-500);
 }
 
 .dnd-touch-btn {
@@ -210,14 +202,16 @@
 }
 
 .dnd-touch-btn-remove {
-  color: var(--error-dark);
+  color: var(--error);
+  border-color: var(--status-danger-border);
+  background: var(--status-danger-bg);
 }
 
 .setlist-item-top {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
   flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 0.75rem;
 }
 
@@ -228,76 +222,72 @@
 
 .setlist-item-title {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
 }
 
 .setlist-item-warning {
-  font-size: 0.65rem;
-  background-color: var(--error-light);
-  color: var(--error-dark);
   padding: 0.125rem 0.375rem;
   border-radius: var(--radius-xs);
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+  font-size: 0.68rem;
   font-weight: 700;
 }
 
 .setlist-item-fields {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .setlist-input {
   min-height: 40px;
-  border: 1px solid var(--gray-300);
-  border-radius: var(--radius-xs);
-  color: var(--gray-800);
 }
 
 .setlist-input-tone {
   width: 52px;
-  padding: 0.25rem;
+  padding-inline: 0.35rem;
   text-align: center;
   font-weight: 700;
 }
 
 .setlist-input-note {
   width: 130px;
-  padding: 0.25rem 0.5rem;
+  padding-inline: 0.55rem;
   font-size: 0.85rem;
 }
 
 .culto-setlist-modal {
-  max-width: 1000px;
   width: min(95vw, 1000px);
+  max-width: 1000px;
 }
 
 .culto-setlist-helper {
   margin-bottom: 0.25rem;
 }
 
-/* ==========================================
-   RESPONSIVIDADE E DARK MODE
-   ========================================== */
 @media (max-width: 768px) {
   .cultos-grid {
     grid-template-columns: 1fr;
   }
 
-  .culto-actions-row {
+  .culto-actions-row,
+  .escala-toolbar,
+  .dnd-container,
+  .setlist-item-top {
     flex-direction: column;
   }
 
-  .escala-toolbar {
-    flex-direction: column;
+  .setlist-item-top {
+    align-items: stretch;
   }
 
   .dnd-container {
-    flex-direction: column;
-    height: auto;
     min-height: auto;
+    height: auto;
   }
 
   .dnd-column {
@@ -305,31 +295,9 @@
     max-height: 50vh;
   }
 
-  .setlist-item-top {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .setlist-item-fields {
-    width: 100%;
-  }
-
+  .setlist-item-fields,
   .setlist-input-tone,
   .setlist-input-note {
     width: 100%;
   }
-}
-
-body.dark-mode .dnd-column {
-  background-color: var(--gray-900);
-}
-body.dark-mode .dnd-item {
-  background-color: var(--gray-800);
-  border-color: var(--gray-700);
-}
-body.dark-mode .dnd-column-title {
-  color: var(--gray-800);
-}
-body.dark-mode .dnd-column-title-primary {
-  color: #93c5fd;
 }
