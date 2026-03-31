@@ -171,7 +171,7 @@ export default function Membros() {
   return (
     <div className="membros-page">
       <div className="lauda-page-header">
-    <div className="membros-page">
+        <div className="membros-header-content">
           <h2 className="text-primary membros-page-title">
             <Shield size={28} /> Usuários e Segurança
           </h2>
@@ -194,38 +194,45 @@ export default function Membros() {
         <h3 className="sec-header">
           <Lock size={18} /> Minha Senha
         </h3>
-        <form onSubmit={handleAtualizarSenha} className="form-row">
-          <div className="form-col form-col-md">
-            <label className="input-label">Nova Senha</label>
-            <input
-              type="password"
-              name="password"
-              className="input-field"
-              value={senhaData.password}
-              onChange={(e) =>
-                setSenhaData({ ...senhaData, password: e.target.value })
-              }
-              required
-              placeholder="Digite a nova senha"
-            />
+        <form onSubmit={handleAtualizarSenha} className="form-container">
+          <div className="form-row">
+            <div className="form-col form-col-md">
+              <label className="input-label">Nova Senha</label>
+              <input
+                type="password"
+                name="password"
+                className="input-field"
+                value={senhaData.password}
+                onChange={(e) =>
+                  setSenhaData({ ...senhaData, password: e.target.value })
+                }
+                required
+                placeholder="Digite a nova senha"
+              />
+            </div>
+            <div className="form-col form-col-md">
+              <label className="input-label">Confirmação da Nova Senha</label>
+              <input
+                type="password"
+                name="confirm_password"
+                className="input-field"
+                value={senhaData.confirm_password}
+                onChange={(e) =>
+                  setSenhaData({
+                    ...senhaData,
+                    confirm_password: e.target.value,
+                  })
+                }
+                required
+                placeholder="Repita a senha"
+              />
+            </div>
           </div>
-          <div className="form-col form-col-md">
-            <label className="input-label">Confirmação da Nova Senha</label>
-            <input
-              type="password"
-              name="confirm_password"
-              className="input-field"
-              value={senhaData.confirm_password}
-              onChange={(e) =>
-                setSenhaData({ ...senhaData, confirm_password: e.target.value })
-              }
-              required
-              placeholder="Repita a senha"
-            />
+          <div className="form-actions">
+            <button type="submit" className="lauda-btn lauda-btn-primary">
+              Atualizar Senha
+            </button>
           </div>
-          <button type="submit" className="lauda-btn lauda-btn-primary">
-            Atualizar Senha
-          </button>
         </form>
       </section>
 
@@ -336,7 +343,8 @@ export default function Membros() {
           </section>
 
           {/* SEÇÃO 3 e 4: LISTA E PAINEL DE EDIÇÃO (GRID) */}
-          <div className="usuarios-grid">
+          <section className="usuarios-grid-wrapper">
+            <div className="usuarios-grid">
             <section className="usuarios-tabela-col">
               <h3 className="sec-header">
                 <Users size={18} /> Usuários Cadastrados
@@ -555,7 +563,8 @@ export default function Membros() {
                 </form>
               </section>
             )}
-          </div>
+            </div>
+          </section>
 
           {/* SEÇÃO 5: AUDITORIA */}
           <section className="lauda-card usuarios-secao">
