@@ -1,13 +1,19 @@
-from rest_framework import serializers
-from .models import Usuario, Musica, Culto, Escala, ItemSetlist, RegistroLogin, LogAuditoria
+﻿from rest_framework import serializers
+
+from .models import (
+    Culto,
+    Escala,
+    ItemSetlist,
+    LogAuditoria,
+    Musica,
+    RegistroLogin,
+    Usuario,
+)
+
 
 class UsuarioSerializer(serializers.ModelSerializer):
-    """
-    Traduz os dados do Usuário para JSON.
-    """
     class Meta:
         model = Usuario
-        # Escolhemos quais campos o React vai poder ver
         fields = [
             "id",
             "username",
@@ -23,63 +29,74 @@ class UsuarioSerializer(serializers.ModelSerializer):
         extra_kwargs = {"password": {"write_only": True, "required": False}}
 
     def validate(self, attrs):
-        # Exigimos senha ao criar usuário novo para evitar conta sem login.
         if self.instance is None and not attrs.get("password"):
-            raise serializers.ValidationError({"password": "Este campo é obrigatório na criação."})
+            raise serializers.ValidationError(
+                {"password": "Este campo e obrigatorio na criacao."},
+            )
         return attrs
 
     def create(self, validated_data):
         password = validated_data.pop("password")
-        # Garante criação com hash de senha via manager padrão do Django.
-        user = Usuario.objects.create_user(password=password, **validated_data)
-        return user
+        return Usuario.objects.create_user(password=password, **validated_data)
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password", None)
-        user = super().update(instance, validated_data)  # Atualiza o resto
+        user = super().update(instance, validated_data)
         if password:
-            user.set_password(password)  # Criptografa a senha nova!
+            user.set_password(password)
             user.save()
         return user
 
+
 class MusicaSerializer(serializers.ModelSerializer):
-    """
-    Traduz os dados das Músicas para JSON.
-    """
     class Meta:
         model = Musica
-        fields = '__all__' # '__all__' significa que queremos enviar todos os campos
+        fields = "__all__"
+
+
+class MusicEnrichmentRequestSerializer(serializers.Serializer):
+    query = serializers.CharField(required=False, allow_blank=True)
+    title = serializers.CharField(required=False, allow_blank=True)
+    artist = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        if not any(attrs.get(field, "").strip() for field in ["query", "title", "artist"]):
+            raise serializers.ValidationError(
+                "Informe ao menos titulo, artista ou consulta livre para buscar metadados.",
+            )
+        return attrs
+
 
 class CultoSerializer(serializers.ModelSerializer):
-    """
-    Traduz os dados dos Cultos para JSON.
-    """
     class Meta:
         model = Culto
-        fields = '__all__'
+        fields = "__all__"
+
 
 class EscalaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Escala
-        fields = '__all__'
+        fields = "__all__"
+
 
 class ItemSetlistSerializer(serializers.ModelSerializer):
     class Meta:
         model = ItemSetlist
-        fields = '__all__'
+        fields = "__all__"
+
 
 class RegistroLoginSerializer(serializers.ModelSerializer):
-    # Vamos adicionar o nome do usuário na resposta para facilitar pro React
-    usuario_nome = serializers.CharField(source='usuario.username', read_only=True)
-    first_name = serializers.CharField(source='usuario.first_name', read_only=True)
+    usuario_nome = serializers.CharField(source="usuario.username", read_only=True)
+    first_name = serializers.CharField(source="usuario.first_name", read_only=True)
 
     class Meta:
         model = RegistroLogin
-        fields = ['id', 'usuario', 'usuario_nome', 'first_name', 'data_hora', 'ip_address']
+        fields = ["id", "usuario", "usuario_nome", "first_name", "data_hora", "ip_address"]
+
 
 class LogAuditoriaSerializer(serializers.ModelSerializer):
-    usuario_nome = serializers.CharField(source='usuario.first_name', read_only=True)
-    
+    usuario_nome = serializers.CharField(source="usuario.first_name", read_only=True)
+
     class Meta:
         model = LogAuditoria
-        fields = ['id', 'usuario', 'usuario_nome', 'acao', 'modelo_afetado', 'descricao', 'data_hora']
+        fields = ["id", "usuario", "usuario_nome", "acao", "modelo_afetado", "descricao", "data_hora"]

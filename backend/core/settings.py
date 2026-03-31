@@ -1,10 +1,23 @@
 from pathlib import Path
 import os
-from decouple import config, Csv
+from decouple import Csv, config
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def env_bool(name, default=False):
+    raw_value = config(name, default=default)
+    if isinstance(raw_value, bool):
+        return raw_value
+
+    value = str(raw_value).strip().lower()
+    if value in {"1", "true", "yes", "on", "debug", "local"}:
+        return True
+    if value in {"0", "false", "no", "off", "release", "prod", "production"}:
+        return False
+    return bool(default)
 
 
 # Quick-start development settings - unsuitable for production
@@ -14,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='chave-insegura-de-fallback-6sadf310f1a45s9fas8d')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = env_bool('DEBUG', default=False)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1,localhost', cast=Csv())
 
@@ -117,7 +130,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 AUTH_USER_MODEL = 'api.Usuario'
 
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
+CORS_ALLOW_ALL_ORIGINS = env_bool('CORS_ALLOW_ALL_ORIGINS', default=False)
 
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
@@ -141,3 +154,12 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+SPOTIFY_CLIENT_ID = config("SPOTIFY_CLIENT_ID", default="")
+SPOTIFY_CLIENT_SECRET = config("SPOTIFY_CLIENT_SECRET", default="")
+SPOTIFY_MARKET = config("SPOTIFY_MARKET", default="BR")
+GENIUS_ACCESS_TOKEN = config("GENIUS_ACCESS_TOKEN", default="")
+EXTERNAL_API_TIMEOUT = config("EXTERNAL_API_TIMEOUT", default=10, cast=int)
+MUSIC_METADATA_CACHE_TTL = config("MUSIC_METADATA_CACHE_TTL", default=86400, cast=int)
+SPOTIFY_THROTTLE_SECONDS = config("SPOTIFY_THROTTLE_SECONDS", default=0.35, cast=float)
+GENIUS_THROTTLE_SECONDS = config("GENIUS_THROTTLE_SECONDS", default=0.9, cast=float)
