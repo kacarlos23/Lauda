@@ -1,11 +1,13 @@
-﻿import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Edit2,
   ExternalLink,
+  Eye,
   FileText,
   Guitar,
   Headphones,
   Play,
+  Plus,
   Search,
   Trash2,
 } from "lucide-react";
@@ -35,17 +37,80 @@ const ESTADO_INICIAL_MUSICA = {
   metadata_last_synced_at: "",
 };
 
+const ESTADO_INICIAL_FILTROS = {
+  nome: "",
+  artista: "",
+  tom: "",
+  tag: "",
+};
+
+const normalizarTexto = (valor = "") =>
+  valor
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const extrairTags = (tags = "") =>
+  tags
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+
+const mapearMusicaParaFormulario = (musica = {}) => ({
+  titulo: musica.titulo || "",
+  artista: musica.artista || "",
+  tom_original: musica.tom_original || "C",
+  bpm: musica.bpm || "",
+  compasso: musica.compasso || "",
+  link_youtube: musica.link_youtube || "",
+  link_audio: musica.link_audio || "",
+  link_letra: musica.link_letra || "",
+  link_cifra: musica.link_cifra || "",
+  cifra_texto: musica.cifra_texto || "",
+  observacoes: musica.observacoes || "",
+  tags: musica.tags || "",
+  spotify_id: musica.spotify_id || "",
+  genius_id: musica.genius_id || "",
+  isrc: musica.isrc || "",
+  cover_url: musica.cover_url || "",
+  preview_url: musica.preview_url || "",
+  spotify_popularidade: musica.spotify_popularidade || "",
+  genius_popularidade: musica.genius_popularidade || "",
+  metadata_source: musica.metadata_source || "",
+  metadata_last_synced_at: musica.metadata_last_synced_at || "",
+});
+
+const criarSnapshotEnriquecimento = (musica = {}) => ({
+  title: musica.titulo || "",
+  artist: musica.artista || "",
+  source: musica.metadata_source || "manual",
+  spotify_id: musica.spotify_id || "",
+  genius_id: musica.genius_id || "",
+  isrc: musica.isrc || "",
+  hasCover: Boolean(musica.cover_url),
+  hasPreview: Boolean(musica.preview_url),
+  hasLyricsLink: Boolean(musica.link_letra),
+});
+
 export default function Musicas() {
   const [musicas, setMusicas] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [modalMode, setModalMode] = useState("create");
   const [formData, setFormData] = useState(ESTADO_INICIAL_MUSICA);
+  const [filtros, setFiltros] = useState(ESTADO_INICIAL_FILTROS);
   const [isEnriching, setIsEnriching] = useState(false);
-  const [enrichmentFeedback, setEnrichmentFeedback] = useState({ text: "", type: "" });
+  const [enrichmentFeedback, setEnrichmentFeedback] = useState({
+    text: "",
+    type: "",
+  });
   const [enrichmentSnapshot, setEnrichmentSnapshot] = useState(null);
 
   const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
   const urlLimpa = baseUrl.replace(/\/$/, "");
+  const isReadOnly = modalMode === "view";
 
   const carregarMusicas = useCallback(() => {
     const token = localStorage.getItem("token");
@@ -58,7 +123,9 @@ export default function Musicas() {
         return res.json();
       })
       .then((dados) => {
-        const musicasAtivas = dados.filter((musica) => musica.is_active !== false);
+        const musicasAtivas = dados
+          .filter((musica) => musica.is_active !== false)
+          .sort((a, b) => a.titulo.localeCompare(b.titulo, "pt-BR"));
         setMusicas(musicasAtivas);
       })
       .catch((erro) => {
@@ -72,61 +139,92 @@ export default function Musicas() {
     carregarMusicas();
   }, [carregarMusicas]);
 
+  const artistaOptions = useMemo(
+    () =>
+      [
+        ...new Set(musicas.map((musica) => musica.artista).filter(Boolean)),
+      ].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [musicas],
+  );
+
+  const tomOptions = useMemo(
+    () =>
+      [
+        ...new Set(
+          musicas.map((musica) => musica.tom_original).filter(Boolean),
+        ),
+      ].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [musicas],
+  );
+
+  const tagOptions = useMemo(
+    () =>
+      [...new Set(musicas.flatMap((musica) => extrairTags(musica.tags)))].sort(
+        (a, b) => a.localeCompare(b, "pt-BR"),
+      ),
+    [musicas],
+  );
+
+  const musicasFiltradas = useMemo(() => {
+    const nomeBusca = normalizarTexto(filtros.nome);
+    const artistaBusca = normalizarTexto(filtros.artista);
+    const tomBusca = normalizarTexto(filtros.tom);
+    const tagBusca = normalizarTexto(filtros.tag);
+
+    return musicas.filter((musica) => {
+      const tagsMusica = extrairTags(musica.tags).map(normalizarTexto);
+
+      return (
+        (!nomeBusca || normalizarTexto(musica.titulo).includes(nomeBusca)) &&
+        (!artistaBusca || normalizarTexto(musica.artista) === artistaBusca) &&
+        (!tomBusca || normalizarTexto(musica.tom_original) === tomBusca) &&
+        (!tagBusca || tagsMusica.includes(tagBusca))
+      );
+    });
+  }, [musicas, filtros]);
+
   const handleChange = (event) => {
     const { name, value } = event.target;
     setFormData((current) => ({ ...current, [name]: value }));
   };
 
+  const handleFiltroChange = (event) => {
+    const { name, value } = event.target;
+    setFiltros((current) => ({ ...current, [name]: value }));
+  };
+
   const handleNovaMusica = () => {
     setFormData(ESTADO_INICIAL_MUSICA);
     setEditingId(null);
+    setModalMode("create");
     setEnrichmentFeedback({ text: "", type: "" });
     setEnrichmentSnapshot(null);
     setIsModalOpen(true);
   };
 
-  const handleEditarMusica = (musica) => {
-    setFormData({
-      titulo: musica.titulo || "",
-      artista: musica.artista || "",
-      tom_original: musica.tom_original || "C",
-      bpm: musica.bpm || "",
-      compasso: musica.compasso || "",
-      link_youtube: musica.link_youtube || "",
-      link_audio: musica.link_audio || "",
-      link_letra: musica.link_letra || "",
-      link_cifra: musica.link_cifra || "",
-      cifra_texto: musica.cifra_texto || "",
-      observacoes: musica.observacoes || "",
-      tags: musica.tags || "",
-      spotify_id: musica.spotify_id || "",
-      genius_id: musica.genius_id || "",
-      isrc: musica.isrc || "",
-      cover_url: musica.cover_url || "",
-      preview_url: musica.preview_url || "",
-      spotify_popularidade: musica.spotify_popularidade || "",
-      genius_popularidade: musica.genius_popularidade || "",
-      metadata_source: musica.metadata_source || "",
-      metadata_last_synced_at: musica.metadata_last_synced_at || "",
-    });
+  const handleAbrirMusica = (musica, mode) => {
+    setFormData(mapearMusicaParaFormulario(musica));
     setEditingId(musica.id);
+    setModalMode(mode);
     setEnrichmentFeedback({ text: "", type: "" });
-    setEnrichmentSnapshot({
-      title: musica.titulo || "",
-      artist: musica.artista || "",
-      source: musica.metadata_source || "manual",
-      spotify_id: musica.spotify_id || "",
-      genius_id: musica.genius_id || "",
-      isrc: musica.isrc || "",
-      hasCover: Boolean(musica.cover_url),
-      hasPreview: Boolean(musica.preview_url),
-      hasLyricsLink: Boolean(musica.link_letra),
-    });
+    setEnrichmentSnapshot(criarSnapshotEnriquecimento(musica));
     setIsModalOpen(true);
   };
 
+  const handleEditarMusica = (musica) => {
+    handleAbrirMusica(musica, "edit");
+  };
+
+  const handleVerMusica = (musica) => {
+    handleAbrirMusica(musica, "view");
+  };
+
   const handleExcluirMusica = (id) => {
-    if (!window.confirm("Tem certeza que deseja remover esta música do repertório?")) {
+    if (
+      !window.confirm(
+        "Tem certeza que deseja remover esta música do repertório?",
+      )
+    ) {
       return;
     }
 
@@ -148,7 +246,6 @@ export default function Musicas() {
       alert("Não foi possível excluir a música. Verifique sua conexão.");
     });
   };
-
   const applyEnrichment = (data) => {
     setEnrichmentSnapshot({
       title: data.title || formData.titulo || "",
@@ -173,10 +270,13 @@ export default function Musicas() {
       isrc: data.isrc || current.isrc,
       cover_url: data.cover || current.cover_url,
       preview_url: data.preview || current.preview_url,
-      spotify_popularidade: data.spotify_popularity || current.spotify_popularidade,
-      genius_popularidade: data.genius_popularity || current.genius_popularidade,
+      spotify_popularidade:
+        data.spotify_popularity || current.spotify_popularidade,
+      genius_popularidade:
+        data.genius_popularity || current.genius_popularidade,
       metadata_source: data.source || current.metadata_source,
-      metadata_last_synced_at: data.synced_at || current.metadata_last_synced_at,
+      metadata_last_synced_at:
+        data.synced_at || current.metadata_last_synced_at,
     }));
   };
 
@@ -211,10 +311,13 @@ export default function Musicas() {
         return data.detail;
       }
       return Object.entries(data || {})
-        .map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(", ") : value}`)
+        .map(
+          ([field, value]) =>
+            `${field}: ${Array.isArray(value) ? value.join(", ") : value}`,
+        )
         .join(" | ");
     } catch {
-      return "Erro ao salvar m?sica. Verifique os dados informados.";
+      return "Erro ao salvar música. Verifique os dados informados.";
     }
   };
 
@@ -250,7 +353,9 @@ export default function Musicas() {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.detail || "Não foi possível enriquecer os metadados.");
+        throw new Error(
+          data.detail || "Não foi possível enriquecer os metadados.",
+        );
       }
 
       applyEnrichment(data);
@@ -303,140 +408,270 @@ export default function Musicas() {
       <div className="lauda-page-header">
         <div>
           <h2 className="text-primary">Repertório de Músicas</h2>
-          <p className="text-muted">Gerencie canções, tons, links e cifras do ministério.</p>
+          <p className="text-muted">
+            Gerencie canções, tons, links e cifras do ministério.
+          </p>
         </div>
-        <button type="button" className="lauda-btn lauda-btn-primary" onClick={handleNovaMusica}>
-          + Nova Música
+        <button
+          type="button"
+          className="lauda-btn lauda-btn-primary"
+          onClick={handleNovaMusica}
+        >
+          <Plus size={18} aria-hidden="true" /> Nova Música
         </button>
       </div>
 
-      <div className="musicas-grid">
-        {musicas.map((musica) => (
-          <article key={musica.id} className="lauda-card musica-card">
-            {musica.cover_url && (
-              <div className="musica-cover-shell">
-                <img src={musica.cover_url} alt={`Capa de ${musica.titulo}`} className="musica-cover-image" />
-              </div>
-            )}
-
-            <div>
-              <div className="musica-card-header">
-                <div>
-                  <h3 className="musica-titulo">{musica.titulo}</h3>
-                  <div className="musica-artista">{musica.artista}</div>
-                </div>
-                <div className="musica-tom-badge">{musica.tom_original}</div>
-              </div>
-
-              {musica.tags && (
-                <div className="musica-tags">
-                  {musica.tags.split(",").map((tag) => (
-                    <span key={`${musica.id}-${tag.trim()}`} className="musica-tag">
-                      {tag.trim()}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div className="musica-external-links">
-                {musica.link_youtube && (
-                  <a
-                    href={musica.link_youtube}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="musica-link-pill musica-link-pill-danger"
-                    title="Assistir no YouTube"
-                  >
-                    <Play size={14} aria-hidden="true" /> Vídeo
-                  </a>
-                )}
-                {musica.link_audio && (
-                  <a
-                    href={musica.link_audio}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="musica-link-pill musica-link-pill-success"
-                    title="Ouvir áudio original"
-                  >
-                    <Headphones size={14} aria-hidden="true" /> Áudio
-                  </a>
-                )}
-                {musica.link_letra && (
-                  <a
-                    href={musica.link_letra}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="musica-link-pill musica-link-pill-warning"
-                    title="Ver letra oficial"
-                  >
-                    <FileText size={14} aria-hidden="true" /> Letra
-                  </a>
-                )}
-                {musica.link_cifra && (
-                  <a
-                    href={musica.link_cifra}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="musica-link-pill musica-link-pill-primary"
-                    title="Acessar cifra"
-                  >
-                    <Guitar size={14} aria-hidden="true" /> Cifra
-                  </a>
-                )}
-              </div>
-
-              <div className="musica-meta-column">
-                <div className="musica-meta-row">
-                  <div className="musica-meta-item">
-                    <strong>BPM</strong>
-                    <span>{musica.bpm || "-"}</span>
-                  </div>
-                  <div className="musica-meta-item">
-                    <strong>Compasso</strong>
-                    <span>{musica.compasso || "-"}</span>
-                  </div>
-                  <div className="musica-meta-item">
-                    <strong>Fonte</strong>
-                    <span>{musica.metadata_source || "Manual"}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="musica-actions">
-              <button
-                type="button"
-                className="lauda-btn lauda-btn-secondary musica-action-btn"
-                onClick={() => handleEditarMusica(musica)}
-              >
-                <Edit2 size={16} aria-hidden="true" /> Editar
-              </button>
-              <button
-                type="button"
-                className="lauda-btn lauda-btn-secondary musica-delete-btn"
-                onClick={() => handleExcluirMusica(musica.id)}
-                aria-label={`Excluir ${musica.titulo}`}
-              >
-                <Trash2 size={16} aria-hidden="true" />
-              </button>
-            </div>
-          </article>
-        ))}
-
-        {musicas.length === 0 && (
-          <div className="empty-state musicas-empty-state">
-            <h3>Seu repertório está vazio</h3>
-            <p>Cadastre a primeira música para começar a montar escalas e setlists.</p>
+      <section className="lauda-card musicas-filtros-card">
+        <div className="musicas-filtros-header">
+          <div>
+            <h3>Consulta do repertório</h3>
+            <p className="text-muted">
+              Pesquise em tempo real por nome e refine por artista, tom e tag.
+            </p>
           </div>
-        )}
-      </div>
+          <span className="badge badge-gray">
+            {musicasFiltradas.length} resultado(s)
+          </span>
+        </div>
 
+        <div className="musicas-filtros-grid">
+          <label
+            className="musicas-filtro-field musicas-filtro-field-search"
+            htmlFor="filtro-nome"
+          >
+            <span className="input-label">Nome</span>
+            <div className="musicas-search-shell">
+              <Search size={16} aria-hidden="true" />
+              <input
+                id="filtro-nome"
+                type="text"
+                name="nome"
+                value={filtros.nome}
+                onChange={handleFiltroChange}
+                className="input-field musicas-search-input"
+                placeholder="Digite o nome da música"
+                autoComplete="off"
+              />
+            </div>
+          </label>
+
+          <label className="musicas-filtro-field" htmlFor="filtro-artista">
+            <span className="input-label">Artista</span>
+            <select
+              id="filtro-artista"
+              name="artista"
+              value={filtros.artista}
+              onChange={handleFiltroChange}
+              className="input-field"
+            >
+              <option value="">Todos</option>
+              {artistaOptions.map((artista) => (
+                <option key={artista} value={artista}>
+                  {artista}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="musicas-filtro-field" htmlFor="filtro-tom">
+            <span className="input-label">Tom</span>
+            <select
+              id="filtro-tom"
+              name="tom"
+              value={filtros.tom}
+              onChange={handleFiltroChange}
+              className="input-field"
+            >
+              <option value="">Todos</option>
+              {tomOptions.map((tom) => (
+                <option key={tom} value={tom}>
+                  {tom}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="musicas-filtro-field" htmlFor="filtro-tag">
+            <span className="input-label">Tag</span>
+            <select
+              id="filtro-tag"
+              name="tag"
+              value={filtros.tag}
+              onChange={handleFiltroChange}
+              className="input-field"
+            >
+              <option value="">Todas</option>
+              {tagOptions.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <div className="lauda-table-container musicas-table-container">
+        <table className="lauda-table musicas-table">
+          <thead>
+            <tr>
+              <th>Música e Artista</th>
+              <th>Links Oficiais</th>
+              <th>Tom</th>
+              <th>BPM</th>
+              <th>Compasso</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {musicasFiltradas.map((musica) => {
+              const tags = extrairTags(musica.tags);
+
+              return (
+                <tr key={musica.id}>
+                  {/* COLUNA 1: TÍTULO, ARTISTA E TAGS */}
+                  <td data-label="Música e Artista">
+                    <div className="musica-table-main">
+                      <div className="musica-table-title">{musica.titulo}</div>
+                      <div className="musica-table-artist">
+                        {musica.artista || "Artista não informado"}
+                      </div>
+
+                      {tags.length > 0 && (
+                        <div className="musica-table-tags">
+                          {tags.map((tag) => (
+                            <span
+                              key={`${musica.id}-${tag}`}
+                              className="musica-tag"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* COLUNA 2: GRID 2x2 DE LINKS */}
+                  <td data-label="Links Oficiais">
+                    <div className="musica-links-grid">
+                      {musica.link_youtube && (
+                        <a
+                          href={musica.link_youtube}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="musica-link-pill musica-link-pill-danger"
+                          title="Assistir no YouTube"
+                        >
+                          <Play size={14} aria-hidden="true" /> Vídeo
+                        </a>
+                      )}
+                      {musica.link_audio && (
+                        <a
+                          href={musica.link_audio}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="musica-link-pill musica-link-pill-success"
+                          title="Ouvir áudio"
+                        >
+                          <Headphones size={14} aria-hidden="true" /> Áudio
+                        </a>
+                      )}
+                      {musica.link_letra && (
+                        <a
+                          href={musica.link_letra}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="musica-link-pill musica-link-pill-warning"
+                          title="Ver letra oficial"
+                        >
+                          <FileText size={14} aria-hidden="true" /> Letra
+                        </a>
+                      )}
+                      {musica.link_cifra && (
+                        <a
+                          href={musica.link_cifra}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="musica-link-pill musica-link-pill-primary"
+                          title="Acessar cifra"
+                        >
+                          <Guitar size={14} aria-hidden="true" /> Cifra
+                        </a>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* COLUNAS RESTANTES */}
+                  <td data-label="Tom">
+                    <span className="musica-tom-badge musica-tom-badge-inline">
+                      {musica.tom_original || "-"}
+                    </span>
+                  </td>
+                  <td data-label="BPM">{musica.bpm || "-"}</td>
+                  <td data-label="Compasso">{musica.compasso || "-"}</td>
+
+                  {/* AÇÕES: VISUALIZAR, EDITAR E EXCLUIR */}
+                  <td data-label="Ações">
+                    <div className="musica-table-actions">
+                      <button
+                        type="button"
+                        className="lauda-btn lauda-btn-secondary musica-table-btn musica-table-icon-btn"
+                        onClick={() => handleVerMusica(musica)}
+                        aria-label={`Visualizar ${musica.titulo}`}
+                        title="Ver dados"
+                      >
+                        <Eye size={16} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="lauda-btn lauda-btn-secondary musica-table-btn musica-table-icon-btn"
+                        onClick={() => handleEditarMusica(musica)}
+                        aria-label={`Editar ${musica.titulo}`}
+                        title="Editar"
+                      >
+                        <Edit2 size={16} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="lauda-btn lauda-btn-secondary musica-table-btn musica-table-icon-btn musica-delete-btn"
+                        onClick={() => handleExcluirMusica(musica.id)}
+                        aria-label={`Excluir ${musica.titulo}`}
+                        title="Excluir"
+                      >
+                        <Trash2 size={16} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+
+            {musicasFiltradas.length === 0 && (
+              <tr>
+                <td colSpan="6" className="table-empty musicas-table-empty">
+                  Nenhuma música encontrada com os filtros informados.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       {isModalOpen && (
         <div className="modal-overlay" role="presentation">
-          <div className="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="musica-modal-title">
+          <div
+            className="modal modal-wide"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="musica-modal-title"
+          >
             <div className="modal-header">
               <h3 id="musica-modal-title" className="modal-title">
-                {editingId ? "Editar Música" : "Cadastrar Nova Música"}
+                {isReadOnly
+                  ? "Dados da Música"
+                  : editingId
+                    ? "Editar Música"
+                    : "Cadastrar Nova Música"}
               </h3>
               <button
                 type="button"
@@ -450,25 +685,37 @@ export default function Musicas() {
 
             <form onSubmit={handleSalvarMusica}>
               <div className="modal-body modal-form">
-                <div className="musica-enrichment-toolbar">
-                  <div>
-                    <h4 className="musica-links-title">Integração Spotify + Genius</h4>
-                    <p className="text-muted musica-enrichment-copy">
-                      Busca capa, preview de 30s e link oficial para a letra sem depender de scraping.
-                    </p>
+                {!isReadOnly && (
+                  <div className="musica-enrichment-toolbar">
+                    <div>
+                      <h4 className="musica-links-title">
+                        Integração Spotify + Genius
+                      </h4>
+                      <p className="text-muted musica-enrichment-copy">
+                        Busca capa, preview de 30s e link oficial para a letra
+                        sem depender de scraping.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="lauda-btn lauda-btn-secondary"
+                      onClick={handleEnriquecerMusica}
+                      disabled={isEnriching}
+                    >
+                      <Search size={16} aria-hidden="true" />{" "}
+                      {isEnriching ? "Buscando..." : "Buscar metadados"}
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="lauda-btn lauda-btn-secondary"
-                    onClick={handleEnriquecerMusica}
-                    disabled={isEnriching}
-                  >
-                    <Search size={16} aria-hidden="true" /> {isEnriching ? "Buscando..." : "Buscar metadados"}
-                  </button>
-                </div>
+                )}
 
                 {enrichmentFeedback.text && (
-                  <div className={`status-alert ${enrichmentFeedback.type === "error" ? "status-alert--error" : "status-alert--success"}`}>
+                  <div
+                    className={`status-alert ${
+                      enrichmentFeedback.type === "error"
+                        ? "status-alert--error"
+                        : "status-alert--success"
+                    }`}
+                  >
                     {enrichmentFeedback.text}
                   </div>
                 )}
@@ -476,13 +723,17 @@ export default function Musicas() {
                 {enrichmentSnapshot && (
                   <div className="musica-enrichment-debug surface-subtle">
                     <div className="musica-enrichment-debug-header">
-                      <h4 className="musica-links-title">Retorno do enriquecimento</h4>
-                      <span className="badge badge-gray">{enrichmentSnapshot.source || "manual"}</span>
+                      <h4 className="musica-links-title">
+                        Retorno do enriquecimento
+                      </h4>
+                      <span className="badge badge-gray">
+                        {enrichmentSnapshot.source || "manual"}
+                      </span>
                     </div>
 
                     <div className="musica-enrichment-debug-grid">
                       <div className="musica-enrichment-debug-item">
-                        <strong>T?tulo</strong>
+                        <strong>Título</strong>
                         <span>{enrichmentSnapshot.title || "-"}</span>
                       </div>
                       <div className="musica-enrichment-debug-item">
@@ -491,52 +742,85 @@ export default function Musicas() {
                       </div>
                       <div className="musica-enrichment-debug-item">
                         <strong>Spotify ID</strong>
-                        <span>{enrichmentSnapshot.spotify_id || "N?o encontrado"}</span>
+                        <span>
+                          {enrichmentSnapshot.spotify_id || "Não encontrado"}
+                        </span>
                       </div>
                       <div className="musica-enrichment-debug-item">
                         <strong>Genius ID</strong>
-                        <span>{enrichmentSnapshot.genius_id || "N?o encontrado"}</span>
+                        <span>
+                          {enrichmentSnapshot.genius_id || "Não encontrado"}
+                        </span>
                       </div>
                       <div className="musica-enrichment-debug-item">
                         <strong>ISRC</strong>
-                        <span>{enrichmentSnapshot.isrc || "N?o encontrado"}</span>
+                        <span>
+                          {enrichmentSnapshot.isrc || "Não encontrado"}
+                        </span>
                       </div>
                       <div className="musica-enrichment-debug-item">
                         <strong>Recursos</strong>
                         <span>
                           {enrichmentSnapshot.hasCover ? "Capa" : "Sem capa"}
-                          {" ? "}
-                          {enrichmentSnapshot.hasPreview ? "Preview" : "Sem preview"}
-                          {" ? "}
-                          {enrichmentSnapshot.hasLyricsLink ? "Letra oficial" : "Sem letra oficial"}
+                          {" • "}
+                          {enrichmentSnapshot.hasPreview
+                            ? "Preview"
+                            : "Sem preview"}
+                          {" • "}
+                          {enrichmentSnapshot.hasLyricsLink
+                            ? "Letra oficial"
+                            : "Sem letra oficial"}
                         </span>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {(formData.cover_url || formData.preview_url || formData.link_letra || formData.isrc) && (
+                {(formData.cover_url ||
+                  formData.preview_url ||
+                  formData.link_letra ||
+                  formData.isrc) && (
                   <div className="musica-preview-surface surface-subtle">
                     {formData.cover_url && (
                       <img
                         src={formData.cover_url}
-                        alt={formData.titulo ? `Capa de ${formData.titulo}` : "Capa da música"}
+                        alt={
+                          formData.titulo
+                            ? `Capa de ${formData.titulo}`
+                            : "Capa da música"
+                        }
                         className="musica-preview-cover"
                       />
                     )}
                     <div className="musica-preview-content">
                       <div className="musica-preview-meta">
-                        <span className="badge badge-primary">{formData.metadata_source || "manual"}</span>
-                        {formData.isrc && <span className="badge badge-gray">ISRC {formData.isrc}</span>}
+                        <span className="badge badge-primary">
+                          {formData.metadata_source || "manual"}
+                        </span>
+                        {formData.isrc && (
+                          <span className="badge badge-gray">
+                            ISRC {formData.isrc}
+                          </span>
+                        )}
                       </div>
                       {formData.preview_url && (
-                        <audio controls className="musica-preview-audio" src={formData.preview_url}>
+                        <audio
+                          controls
+                          className="musica-preview-audio"
+                          src={formData.preview_url}
+                        >
                           Seu navegador não suporta áudio embutido.
                         </audio>
                       )}
                       {formData.link_letra && (
-                        <a href={formData.link_letra} target="_blank" rel="noreferrer" className="lauda-btn lauda-btn-secondary musica-lyrics-btn">
-                          <ExternalLink size={16} aria-hidden="true" /> Ver letra oficial
+                        <a
+                          href={formData.link_letra}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="lauda-btn lauda-btn-secondary musica-lyrics-btn"
+                        >
+                          <ExternalLink size={16} aria-hidden="true" /> Ver
+                          letra oficial
                         </a>
                       )}
                     </div>
@@ -557,7 +841,8 @@ export default function Musicas() {
                       onChange={handleChange}
                       required
                       autoComplete="off"
-                      placeholder="Ex: Oceanos…"
+                      placeholder="Ex: Oceanos..."
+                      disabled={isReadOnly}
                     />
                   </div>
                   <div className="form-field-grow">
@@ -573,7 +858,8 @@ export default function Musicas() {
                       onChange={handleChange}
                       required
                       autoComplete="off"
-                      placeholder="Ex: Hillsong…"
+                      placeholder="Ex: Hillsong..."
+                      disabled={isReadOnly}
                     />
                   </div>
                 </div>
@@ -593,7 +879,8 @@ export default function Musicas() {
                       required
                       autoComplete="off"
                       spellCheck={false}
-                      placeholder="Ex: C…"
+                      placeholder="Ex: C..."
+                      disabled={isReadOnly}
                     />
                   </div>
                   <div className="form-field-small">
@@ -607,7 +894,8 @@ export default function Musicas() {
                       className="input-field"
                       value={formData.bpm}
                       onChange={handleChange}
-                      placeholder="Ex: 72…"
+                      placeholder="Ex: 72..."
+                      disabled={isReadOnly}
                     />
                   </div>
                   <div className="form-field-small">
@@ -622,18 +910,26 @@ export default function Musicas() {
                       value={formData.compasso}
                       onChange={handleChange}
                       autoComplete="off"
-                      placeholder="Ex: 4/4…"
+                      placeholder="Ex: 4/4..."
+                      disabled={isReadOnly}
                     />
                   </div>
                 </div>
-
                 <div className="musica-links-surface surface-subtle">
                   <h4 className="musica-links-title">Links</h4>
 
                   <div className="form-row-wrap">
                     <div className="form-field-grow">
-                      <label className="input-label musica-link-label" htmlFor="musica-youtube">
-                        <Play size={14} className="text-danger" aria-hidden="true" /> YouTube (Vídeo)
+                      <label
+                        className="input-label musica-link-label"
+                        htmlFor="musica-youtube"
+                      >
+                        <Play
+                          size={14}
+                          className="text-danger"
+                          aria-hidden="true"
+                        />{" "}
+                        YouTube (Vídeo)
                       </label>
                       <input
                         id="musica-youtube"
@@ -643,12 +939,21 @@ export default function Musicas() {
                         value={formData.link_youtube}
                         onChange={handleChange}
                         autoComplete="off"
-                        placeholder="https://youtube.com/…"
+                        placeholder="https://youtube.com/..."
+                        disabled={isReadOnly}
                       />
                     </div>
                     <div className="form-field-grow">
-                      <label className="input-label musica-link-label" htmlFor="musica-audio">
-                        <Headphones size={14} className="text-success" aria-hidden="true" /> Spotify/Deezer (Áudio)
+                      <label
+                        className="input-label musica-link-label"
+                        htmlFor="musica-audio"
+                      >
+                        <Headphones
+                          size={14}
+                          className="text-success"
+                          aria-hidden="true"
+                        />{" "}
+                        Spotify/Deezer (Áudio)
                       </label>
                       <input
                         id="musica-audio"
@@ -658,15 +963,24 @@ export default function Musicas() {
                         value={formData.link_audio}
                         onChange={handleChange}
                         autoComplete="off"
-                        placeholder="https://open.spotify.com/…"
+                        placeholder="https://open.spotify.com/..."
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
 
                   <div className="form-row-wrap">
                     <div className="form-field-grow">
-                      <label className="input-label musica-link-label" htmlFor="musica-letra">
-                        <FileText size={14} className="text-warning" aria-hidden="true" /> Letra oficial (Genius)
+                      <label
+                        className="input-label musica-link-label"
+                        htmlFor="musica-letra"
+                      >
+                        <FileText
+                          size={14}
+                          className="text-warning"
+                          aria-hidden="true"
+                        />{" "}
+                        Letra oficial (Genius)
                       </label>
                       <input
                         id="musica-letra"
@@ -676,12 +990,21 @@ export default function Musicas() {
                         value={formData.link_letra}
                         onChange={handleChange}
                         autoComplete="off"
-                        placeholder="https://genius.com/…"
+                        placeholder="https://genius.com/..."
+                        disabled={isReadOnly}
                       />
                     </div>
                     <div className="form-field-grow">
-                      <label className="input-label musica-link-label" htmlFor="musica-cifra">
-                        <Guitar size={14} className="text-primary" aria-hidden="true" /> CifraClub
+                      <label
+                        className="input-label musica-link-label"
+                        htmlFor="musica-cifra"
+                      >
+                        <Guitar
+                          size={14}
+                          className="text-primary"
+                          aria-hidden="true"
+                        />{" "}
+                        CifraClub
                       </label>
                       <input
                         id="musica-cifra"
@@ -691,7 +1014,8 @@ export default function Musicas() {
                         value={formData.link_cifra}
                         onChange={handleChange}
                         autoComplete="off"
-                        placeholder="https://cifraclub.com.br/…"
+                        placeholder="https://cifraclub.com.br/..."
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
@@ -709,7 +1033,8 @@ export default function Musicas() {
                     value={formData.tags}
                     onChange={handleChange}
                     autoComplete="off"
-                    placeholder="Adoração, Ceia, Animada…"
+                    placeholder="Adoração, Ceia, Animada..."
+                    disabled={isReadOnly}
                   />
                 </div>
 
@@ -724,18 +1049,25 @@ export default function Musicas() {
                     rows="4"
                     value={formData.cifra_texto}
                     onChange={handleChange}
-                    placeholder="[C] [G] [Am] [F]…"
+                    placeholder="[C] [G] [Am] [F]..."
+                    disabled={isReadOnly}
                   />
                 </div>
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="lauda-btn lauda-btn-secondary" onClick={() => setIsModalOpen(false)}>
-                  Cancelar
+                <button
+                  type="button"
+                  className="lauda-btn lauda-btn-secondary"
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  {isReadOnly ? "Fechar" : "Cancelar"}
                 </button>
-                <button type="submit" className="lauda-btn lauda-btn-primary">
-                  Salvar Música
-                </button>
+                {!isReadOnly && (
+                  <button type="submit" className="lauda-btn lauda-btn-primary">
+                    Salvar Música
+                  </button>
+                )}
               </div>
             </form>
           </div>

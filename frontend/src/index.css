@@ -230,11 +230,16 @@ body:has(.modal-overlay) {
   overflow: hidden;
 }
 
+/* Remove a piscada azul padrão do navegador ao tocar em elementos no mobile */
 button,
+a,
 input,
 select,
-textarea {
+textarea,
+.lauda-card,
+.fc-event {
   font: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button {
@@ -394,7 +399,11 @@ h6 {
 }
 
 .lauda-btn-primary {
-  background: linear-gradient(135deg, var(--interactive-primary), var(--interactive-primary-hover));
+  background: linear-gradient(
+    135deg,
+    var(--interactive-primary),
+    var(--interactive-primary-hover)
+  );
   color: var(--text-inverse);
   box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
 }

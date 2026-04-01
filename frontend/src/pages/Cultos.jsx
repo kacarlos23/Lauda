@@ -1,5 +1,10 @@
 ﻿import { useCallback, useEffect, useState } from "react";
-// Importando os ícones do Lucide React
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin from "@fullcalendar/interaction";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import ptBrLocale from "@fullcalendar/core/locales/pt-br";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Calendar,
   MapPin,
@@ -10,6 +15,7 @@ import {
   Trash2,
   Plus,
   Minus,
+  LayoutGrid,
 } from "lucide-react";
 import "./Cultos.css";
 
@@ -23,6 +29,8 @@ const ESTADO_INICIAL_CULTO = {
 };
 
 export default function Cultos() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [cultos, setCultos] = useState([]);
   const [membros, setMembros] = useState([]);
   const [escalas, setEscalas] = useState([]);
@@ -38,6 +46,10 @@ export default function Cultos() {
   const [isCultoModalOpen, setIsCultoModalOpen] = useState(false);
   const [editingCultoId, setEditingCultoId] = useState(null);
   const [formData, setFormData] = useState(ESTADO_INICIAL_CULTO);
+  const [viewMode, setViewMode] = useState("grid");
+  const [filtroStatus, setFiltroStatus] = useState("TODOS");
+  const [mobileActionsCultoId, setMobileActionsCultoId] = useState(null);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
 
   const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
   const urlLimpa = baseUrl.replace(/\/$/, "");
@@ -49,7 +61,6 @@ export default function Cultos() {
       "Content-Type": "application/json",
     };
 
-    // Correção: r.ok verifica se o status é 200 (Sucesso). Se for 403 (Bloqueado), ele devolve um array vazio [] para não quebrar a tela.
     Promise.all([
       fetch(`${urlLimpa}/api/cultos/`, { headers }).then((r) =>
         r.ok ? r.json() : [],
@@ -76,14 +87,40 @@ export default function Cultos() {
           setItensSetlist(setlistsData);
         },
       )
-      .catch((erro) => {
-        console.error("Erro na busca:", erro);
-      });
+      .catch((erro) => console.error("Erro na busca:", erro));
   }, [urlLimpa]);
 
   useEffect(() => {
     carregarDados();
   }, [carregarDados]);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const focusCultoId = location.state?.focusCultoId;
+    if (!focusCultoId || cultos.length === 0) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.querySelector(
+        `[data-culto-id="${focusCultoId}"]`,
+      );
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.classList.add("culto-card-highlight");
+        window.setTimeout(
+          () => target.classList.remove("culto-card-highlight"),
+          2200,
+        );
+      }
+    });
+
+    navigate(location.pathname, { replace: true, state: null });
+    return () => window.cancelAnimationFrame(frame);
+  }, [cultos, location.pathname, location.state, navigate]);
 
   const formatarDataBR = (dataString) => {
     if (!dataString) return "";
@@ -91,10 +128,37 @@ export default function Cultos() {
     return `${dia}/${mes}/${ano}`;
   };
 
-  const handleChangeCulto = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
+  const cultosFiltrados = cultos.filter(
+    (culto) => filtroStatus === "TODOS" || culto.status === filtroStatus,
+  );
+
+  const transformarCultosParaCalendar = useCallback(
+    () =>
+      cultosFiltrados.map((culto) => ({
+        id: String(culto.id),
+        title: culto.nome,
+        start: `${culto.data}T${(culto.horario_inicio || "00:00:00").slice(0, 8)}`,
+        end: `${culto.data}T${(culto.horario_termino || "23:59:00").slice(0, 8)}`,
+        backgroundColor:
+          culto.status === "AGENDADO"
+            ? "var(--interactive-primary)"
+            : culto.status === "REALIZADO"
+              ? "var(--text-secondary)"
+              : "var(--error)",
+        borderColor: "transparent",
+        textColor: "#fff",
+        extendedProps: {
+          local: culto.local,
+          status: culto.status,
+          horario_inicio: culto.horario_inicio?.substring(0, 5) || "--:--",
+          horario_termino: culto.horario_termino?.substring(0, 5) || "--:--",
+        },
+      })),
+    [cultosFiltrados],
+  );
+
+  const handleChangeCulto = (e) =>
+    setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleNovoCulto = () => {
     setFormData(ESTADO_INICIAL_CULTO);
@@ -164,6 +228,7 @@ export default function Cultos() {
     setCultoSelecionado(culto);
     setIsEscalaModalOpen(true);
   };
+
   const fecharModalEscala = () => {
     setIsEscalaModalOpen(false);
     setCultoSelecionado(null);
@@ -222,7 +287,7 @@ export default function Cultos() {
         musica: musica.id,
         ordem: setlistAtual.length + 1,
         tom_execucao: musica.tom_original,
-        observacoes: "Louvor",
+        observacoes: "",
       }),
     }).then((res) => {
       if (res.ok) carregarDados();
@@ -248,34 +313,14 @@ export default function Cultos() {
     e.preventDefault();
     e.currentTarget.classList.add("drag-over");
   };
-  const handleDragLeave = (e) => {
-    e.currentTarget.classList.remove("drag-over");
-  };
+
+  const handleDragLeave = (e) => e.currentTarget.classList.remove("drag-over");
 
   const handleDropToSetlist = (e) => {
     e.preventDefault();
     e.currentTarget.classList.remove("drag-over");
     if (draggedItem && draggedItem.source === "repertorio") {
-      const musica = draggedItem.item;
-      const token = localStorage.getItem("token");
-      fetch(`${urlLimpa}/api/setlists/`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          culto: cultoSelecionado.id,
-          musica: musica.id,
-          ordem:
-            itensSetlist.filter((i) => i.culto === cultoSelecionado.id).length +
-            1,
-          tom_execucao: musica.tom_original,
-          observacoes: "Louvor",
-        }),
-      }).then((res) => {
-        if (res.ok) carregarDados();
-      });
+      adicionarMusicaNaSetlist(draggedItem.item);
     }
     setDraggedItem(null);
   };
@@ -284,20 +329,16 @@ export default function Cultos() {
     e.preventDefault();
     e.currentTarget.classList.remove("drag-over");
     if (draggedItem && draggedItem.source === "setlist") {
-      const token = localStorage.getItem("token");
-      fetch(`${urlLimpa}/api/setlists/${draggedItem.item.id}/`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((res) => {
-        if (res.ok) carregarDados();
-      });
+      removerMusicaDaSetlist(draggedItem.item.id);
     }
     setDraggedItem(null);
   };
 
   const handleChangeItemSetlistLocal = (itemId, campo, valor) => {
     setItensSetlist((prev) =>
-      prev.map((i) => (i.id === itemId ? { ...i, [campo]: valor } : i)),
+      prev.map((item) =>
+        item.id === itemId ? { ...item, [campo]: valor } : item,
+      ),
     );
   };
 
@@ -315,102 +356,218 @@ export default function Cultos() {
   };
 
   const escalasDoCulto = cultoSelecionado
-    ? escalas.filter((e) => e.culto === cultoSelecionado.id)
+    ? escalas.filter((escala) => escala.culto === cultoSelecionado.id)
     : [];
   const membrosDisponiveis = membros.filter(
     (membro) => !escalasDoCulto.some((escala) => escala.membro === membro.id),
   );
-
   const setlistAtual = cultoSelecionado
     ? itensSetlist
-        .filter((i) => i.culto === cultoSelecionado.id)
+        .filter((item) => item.culto === cultoSelecionado.id)
         .sort((a, b) => a.ordem - b.ordem)
     : [];
   const repertorioDisponivel = musicasGlobais.filter(
-    (m) =>
-      m.is_active !== false &&
-      !setlistAtual.some((item) => item.musica === m.id),
+    (musica) =>
+      musica.is_active !== false &&
+      !setlistAtual.some((item) => item.musica === musica.id),
   );
 
   return (
-    <div>
+    <div className="cultos-page">
       <div className="lauda-page-header">
         <div>
           <h2 className="text-primary">Agenda de Cultos</h2>
           <p className="text-muted">Gerencie eventos, escalas e setlists</p>
         </div>
         <button
-          className="lauda-btn lauda-btn-primary"
+          className="lauda-btn lauda-btn-primary agenda-new-btn"
           onClick={handleNovoCulto}
         >
           <Plus size={18} /> Novo Culto
         </button>
       </div>
 
-      <div className="cultos-grid">
-        {cultos.map((culto) => (
-          <div key={culto.id} className="lauda-card culto-card">
-            <div>
-              <div className="culto-info">
-                <h3>{culto.nome}</h3>
-                <div className="culto-data">
-                  <Calendar size={16} /> {formatarDataBR(culto.data)} das{" "}
-                  {culto.horario_inicio?.substring(0, 5) || "--:--"}
-                </div>
-              </div>
-              <div className="culto-meta text-muted">
-                <div className="culto-meta-item">
-                  <MapPin size={16} /> <strong>Local:</strong> {culto.local}
-                </div>
-                <div className="culto-meta-item">
-                  <Tag size={16} /> <strong>Status:</strong>
-                  <span
-                    className={`badge ${culto.status === "AGENDADO" ? "badge-primary" : "badge-gray"}`}
-                  >
-                    {culto.status}
-                  </span>
-                </div>
-              </div>
-            </div>
+      <div className="view-controls">
+        <div className="view-toggle" role="tablist">
+          <button
+            type="button"
+            className={`lauda-btn agenda-view-btn ${viewMode === "grid" ? "lauda-btn-primary" : "lauda-btn-secondary"}`}
+            onClick={() => setViewMode("grid")}
+          >
+            <LayoutGrid size={18} /> Grid
+          </button>
+          <button
+            type="button"
+            className={`lauda-btn agenda-view-btn ${viewMode === "calendar" ? "lauda-btn-primary" : "lauda-btn-secondary"}`}
+            onClick={() => setViewMode("calendar")}
+          >
+            <Calendar size={18} /> Calendário
+          </button>
+        </div>
 
-            <div className="culto-actions-panel">
-              <div className="culto-actions-row">
-                <button
-                  className="lauda-btn lauda-btn-secondary culto-action-btn"
-                  onClick={() => abrirModalEscala(culto)}
-                >
-                  <Users size={16} /> Escala
-                </button>
-                <button
-                  className="lauda-btn lauda-btn-primary culto-action-btn"
-                  onClick={() => abrirModalSetlist(culto)}
-                >
-                  <Music size={16} /> Setlist
-                </button>
-              </div>
-
-              <div className="culto-actions-row">
-                <button
-                  className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost"
-                  onClick={() => handleEditarCulto(culto)}
-                >
-                  <Edit2 size={16} /> Editar
-                </button>
-                <button
-                  className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost-danger"
-                  onClick={() => handleExcluirCulto(culto.id)}
-                >
-                  <Trash2 size={16} /> Excluir
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+        <div className="filtro-status">
+          <label className="input-label" style={{ fontSize: "0.85rem" }}>
+            Exibição de Status
+          </label>
+          <select
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value)}
+            className="input-field agenda-status-filter"
+          >
+            <option value="TODOS">Todos os Status</option>
+            <option value="AGENDADO">Agendados</option>
+            <option value="REALIZADO">Realizados</option>
+            <option value="CANCELADO">Cancelados</option>
+          </select>
+        </div>
       </div>
 
-      {/* =========================================
-          MODAL DE CRIAR / EDITAR CULTO
-          ========================================= */}
+      {viewMode === "grid" ? (
+        <div className="cultos-grid">
+          {cultosFiltrados.map((culto) => (
+            <div
+              key={culto.id}
+              className="lauda-card culto-card"
+              data-culto-id={culto.id}
+            >
+              <div>
+                <div className="culto-info">
+                  <h3>{culto.nome}</h3>
+                  <div className="culto-data">
+                    <Calendar size={16} /> {formatarDataBR(culto.data)} das{" "}
+                    {culto.horario_inicio?.substring(0, 5) || "--:--"}
+                  </div>
+                </div>
+                <div className="culto-meta text-muted">
+                  <div className="culto-meta-item">
+                    <MapPin size={16} /> <strong>Local:</strong> {culto.local}
+                  </div>
+                  <div className="culto-meta-item">
+                    <Tag size={16} /> <strong>Status:</strong>
+                    <span
+                      className={`badge ${culto.status === "AGENDADO" ? "badge-primary" : "badge-gray"}`}
+                    >
+                      {culto.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="culto-actions-panel">
+                <div className="culto-actions-row">
+                  <button
+                    className="lauda-btn lauda-btn-primary culto-action-btn"
+                    onClick={() => abrirModalSetlist(culto)}
+                  >
+                    <Music size={16} /> Setlist
+                  </button>
+                  {!isMobile && (
+                    <button
+                      className="lauda-btn lauda-btn-secondary culto-action-btn"
+                      onClick={() => abrirModalEscala(culto)}
+                    >
+                      <Users size={16} /> Escala
+                    </button>
+                  )}
+                </div>
+
+                {isMobile ? (
+                  <details
+                    className="culto-actions-disclosure"
+                    open={mobileActionsCultoId === culto.id}
+                    onToggle={(e) =>
+                      setMobileActionsCultoId(
+                        e.currentTarget.open ? culto.id : null,
+                      )
+                    }
+                  >
+                    <summary className="culto-actions-summary">
+                      Opções avançadas
+                    </summary>
+                    <div className="culto-actions-row culto-actions-row-secondary">
+                      <button
+                        className="lauda-btn lauda-btn-secondary culto-action-btn"
+                        onClick={() => abrirModalEscala(culto)}
+                      >
+                        <Users size={16} /> Escala
+                      </button>
+                      <button
+                        className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost"
+                        onClick={() => handleEditarCulto(culto)}
+                      >
+                        <Edit2 size={16} /> Editar
+                      </button>
+                      <button
+                        className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost-danger"
+                        onClick={() => handleExcluirCulto(culto.id)}
+                      >
+                        <Trash2 size={16} /> Excluir
+                      </button>
+                    </div>
+                  </details>
+                ) : (
+                  <div className="culto-actions-row">
+                    <button
+                      className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost"
+                      onClick={() => handleEditarCulto(culto)}
+                    >
+                      <Edit2 size={16} /> Editar
+                    </button>
+                    <button
+                      className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost-danger"
+                      onClick={() => handleExcluirCulto(culto.id)}
+                    >
+                      <Trash2 size={16} /> Excluir
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="calendar-wrapper">
+          <FullCalendar
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={{
+              left: isMobile ? "prev,next" : "prev,next today",
+              center: "title",
+              right: isMobile
+                ? "dayGridMonth"
+                : "dayGridMonth,timeGridWeek,timeGridDay",
+            }}
+            events={transformarCultosParaCalendar()}
+            eventClick={(info) => {
+              const culto = cultos.find(
+                (item) => String(item.id) === info.event.id,
+              );
+              if (culto) abrirModalSetlist(culto);
+            }}
+            eventContent={(eventInfo) => (
+              <div className="fc-event-content">
+                <span className="fc-event-title">{eventInfo.event.title}</span>
+                <span className="fc-event-time">
+                  {eventInfo.event.extendedProps.horario_inicio}
+                </span>
+              </div>
+            )}
+            locale={ptBrLocale}
+            height="auto"
+            editable={false}
+            droppable={false}
+            selectable={false}
+            buttonText={{
+              today: "Hoje",
+              month: "Mês",
+              week: "Semana",
+              day: "Dia",
+            }}
+          />
+        </div>
+      )}
+
+      {/* MODAL DE NOVO/EDITAR CULTO */}
       {isCultoModalOpen && (
         <div className="modal-overlay">
           <div className="modal modal-compact">
@@ -418,14 +575,19 @@ export default function Cultos() {
               <h3 className="modal-title">
                 {editingCultoId ? "Editar Culto" : "Agendar Novo Culto"}
               </h3>
-              <button onClick={() => setIsCultoModalOpen(false)} className="modal-close">
+              <button
+                onClick={() => setIsCultoModalOpen(false)}
+                className="modal-close"
+              >
                 ×
               </button>
             </div>
 
-            <form onSubmit={handleSalvarCulto}>
-              <div className="modal-body modal-form">
-                <div>
+            <form
+              onSubmit={handleSalvarCulto}
+              className="modal-body form-container"
+            >
+              <div className="form-group">
                 <label className="input-label">Nome do Culto / Evento *</label>
                 <input
                   type="text"
@@ -438,7 +600,7 @@ export default function Cultos() {
                 />
               </div>
 
-              <div>
+              <div className="form-group">
                 <label className="input-label">Data *</label>
                 <input
                   type="date"
@@ -450,8 +612,8 @@ export default function Cultos() {
                 />
               </div>
 
-                <div className="form-row culto-form-row">
-                  <div className="form-col">
+              <div className="form-row">
+                <div className="form-col form-col-sm">
                   <label className="input-label">Início *</label>
                   <input
                     type="time"
@@ -462,7 +624,7 @@ export default function Cultos() {
                     required
                   />
                 </div>
-                  <div className="form-col">
+                <div className="form-col form-col-sm">
                   <label className="input-label">Término *</label>
                   <input
                     type="time"
@@ -473,10 +635,10 @@ export default function Cultos() {
                     required
                   />
                 </div>
-                </div>
+              </div>
 
-                <div className="form-row culto-form-row">
-                  <div className="form-col culto-form-col-wide">
+              <div className="form-row">
+                <div className="form-col form-col-lg">
                   <label className="input-label">Local *</label>
                   <input
                     type="text"
@@ -488,7 +650,7 @@ export default function Cultos() {
                     placeholder="Ex: Templo Principal"
                   />
                 </div>
-                  <div className="form-col">
+                <div className="form-col form-col-sm">
                   <label className="input-label">Status</label>
                   <select
                     name="status"
@@ -502,10 +664,9 @@ export default function Cultos() {
                     <option value="CANCELADO">Cancelado</option>
                   </select>
                 </div>
-                </div>
               </div>
 
-              <div className="modal-footer">
+              <div className="modal-footer" style={{ marginTop: "0.5rem" }}>
                 <button
                   type="button"
                   className="lauda-btn lauda-btn-secondary"
@@ -522,9 +683,7 @@ export default function Cultos() {
         </div>
       )}
 
-      {/* =========================================
-          MODAL DE ESCALAS DA EQUIPE
-          ========================================= */}
+      {/* MODAL DE ESCALA */}
       {isEscalaModalOpen && cultoSelecionado && (
         <div className="modal-overlay">
           <div className="modal">
@@ -535,88 +694,97 @@ export default function Cultos() {
               </button>
             </div>
 
-            <div className="modal-body">
+            <div className="modal-body form-container">
               <form onSubmit={handleAdicionarEscala} className="escala-toolbar">
-                <select
-                  value={novoMembroId}
-                  onChange={(e) => setNovoMembroId(e.target.value)}
-                  required
-                className="input-field escala-toolbar-select"
-              >
-                <option value="">Selecione um membro para escalar...</option>
-                {membrosDisponiveis.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.first_name || m.username} - {m.funcao_principal}
-                  </option>
-                ))}
-                </select>
-                <button type="submit" className="lauda-btn lauda-btn-primary">
+                <div className="form-group escala-toolbar-select">
+                  <label className="input-label">
+                    Adicionar Membro na Equipe
+                  </label>
+                  <select
+                    value={novoMembroId}
+                    onChange={(e) => setNovoMembroId(e.target.value)}
+                    required
+                    className="input-field"
+                  >
+                    <option value="">
+                      Selecione um membro para escalar...
+                    </option>
+                    {membrosDisponiveis.map((membro) => (
+                      <option key={membro.id} value={membro.id}>
+                        {membro.first_name || membro.username} -{" "}
+                        {membro.funcao_principal}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="lauda-btn lauda-btn-primary"
+                  style={{ height: "42px" }}
+                >
                   Adicionar
                 </button>
               </form>
 
               <div className="lauda-table-container">
                 <table className="lauda-table">
-                <thead>
-                  <tr>
-                    <th>Membro</th>
-                    <th>Função</th>
-                    <th>Status</th>
-                    <th>Ação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {escalasDoCulto.map((escala) => {
-                    const membro = membros.find((m) => m.id === escala.membro);
-                    return (
-                      <tr key={escala.id}>
-                        <td data-label="Membro" className="table-cell-muted">
-                          {membro
-                            ? membro.first_name || membro.username
-                            : "Carregando..."}
-                        </td>
-                        <td data-label="Função">
-                          {membro ? membro.funcao_principal : "-"}
-                        </td>
-                        <td data-label="Status">
-                          <span
-                            className={`badge ${escala.status_confirmacao === "CONFIRMADO" ? "badge-primary" : "badge-gray"}`}
-                          >
-                            {escala.status_confirmacao}
-                          </span>
-                        </td>
-                        <td data-label="Ação">
-                          <button
-                            onClick={() => handleRemoverEscala(escala.id)}
-                            className="lauda-btn lauda-btn-secondary culto-remove-btn"
-                          >
-                            Remover
-                          </button>
+                  <thead>
+                    <tr>
+                      <th>Membro</th>
+                      <th>Função</th>
+                      <th>Status</th>
+                      <th>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {escalasDoCulto.map((escala) => {
+                      const membro = membros.find(
+                        (item) => item.id === escala.membro,
+                      );
+                      return (
+                        <tr key={escala.id}>
+                          <td data-label="Membro" className="table-cell-muted">
+                            {membro
+                              ? membro.first_name || membro.username
+                              : "Carregando..."}
+                          </td>
+                          <td data-label="Função">
+                            {membro ? membro.funcao_principal : "-"}
+                          </td>
+                          <td data-label="Status">
+                            <span
+                              className={`badge ${escala.status_confirmacao === "CONFIRMADO" ? "badge-primary" : "badge-gray"}`}
+                            >
+                              {escala.status_confirmacao}
+                            </span>
+                          </td>
+                          <td data-label="Ação">
+                            <button
+                              onClick={() => handleRemoverEscala(escala.id)}
+                              className="lauda-btn lauda-btn-secondary culto-remove-btn"
+                            >
+                              Remover
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {escalasDoCulto.length === 0 && (
+                      <tr>
+                        <td colSpan="4" className="table-empty">
+                          Nenhum membro escalado.
                         </td>
                       </tr>
-                    );
-                  })}
-                  {escalasDoCulto.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan="4"
-                        className="table-empty"
-                      >
-                        Nenhum membro escalado.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* =========================================
-          MODAL DA SETLIST (DRAG AND DROP)
-          ========================================= */}
+      {/* MODAL DE SETLIST */}
       {isSetlistModalOpen && cultoSelecionado && (
         <div className="modal-overlay">
           <div className="modal culto-setlist-modal">
@@ -633,7 +801,7 @@ export default function Cultos() {
             <div className="modal-body">
               <p className="text-muted culto-setlist-helper">
                 Arraste as músicas do repertório (esquerda) para a setlist do
-                culto (direita). Arraste de volta para remover.
+                culto (direita).
               </p>
 
               <div className="dnd-container">
@@ -644,7 +812,6 @@ export default function Cultos() {
                   onDrop={handleDropToRepertorio}
                 >
                   <h4 className="dnd-column-title">Repertório Disponível</h4>
-
                   {repertorioDisponivel.map((musica) => (
                     <div
                       key={musica.id}
@@ -656,7 +823,7 @@ export default function Cultos() {
                     >
                       <div className="dnd-item-title">{musica.titulo}</div>
                       <div className="dnd-item-subtitle">
-                        {musica.artista} • Tom: {musica.tom_original}
+                        {musica.artista} • Tom original: {musica.tom_original}
                       </div>
                       <button
                         type="button"
@@ -679,13 +846,11 @@ export default function Cultos() {
                   onDrop={handleDropToSetlist}
                 >
                   <h4 className="dnd-column-title dnd-column-title-primary">
-                    <Music size={18} />
-                    Músicas do Culto
+                    <Music size={18} /> Músicas do Culto
                   </h4>
-
                   {setlistAtual.map((item, index) => {
                     const musica = musicasGlobais.find(
-                      (m) => m.id === item.musica,
+                      (song) => song.id === item.musica,
                     );
                     if (!musica) return null;
 
@@ -702,14 +867,15 @@ export default function Cultos() {
                               <span>
                                 {index + 1}. {musica.titulo}
                               </span>
-
                               {musica.is_active === false && (
                                 <span className="setlist-item-warning">
                                   Excluída do Repertório
                                 </span>
                               )}
                             </div>
-                            <div className="dnd-item-subtitle">{musica.artista}</div>
+                            <div className="dnd-item-subtitle">
+                              {musica.artista}
+                            </div>
                           </div>
 
                           <div className="setlist-item-fields">
@@ -730,8 +896,9 @@ export default function Cultos() {
                                   e.target.value,
                                 )
                               }
-                              className="setlist-input setlist-input-tone"
+                              className="setlist-input setlist-input-tone input-field"
                               title="Tom de Execução"
+                              placeholder="Tom"
                             />
                             <input
                               type="text"
@@ -750,8 +917,8 @@ export default function Cultos() {
                                   e.target.value,
                                 )
                               }
-                              placeholder="Momento"
-                              className="setlist-input setlist-input-note"
+                              placeholder="Obs: Ex: Acústico"
+                              className="setlist-input setlist-input-note input-field"
                             />
                           </div>
                         </div>
@@ -768,7 +935,9 @@ export default function Cultos() {
                   {setlistAtual.length === 0 && (
                     <div className="empty-state">
                       <h3>Setlist vazia</h3>
-                      <p>Arraste as músicas para cá ou use o botão adicionar.</p>
+                      <p>
+                        Arraste as músicas para cá ou use o botão adicionar.
+                      </p>
                     </div>
                   )}
                 </div>

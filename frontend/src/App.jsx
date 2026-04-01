@@ -16,122 +16,14 @@ import {
 } from "lucide-react";
 import "./App.css";
 
+// Importando as páginas extraídas
+import Dashboard from "./pages/Dashboard";
 import Auditoria from "./pages/Auditoria";
 import Cultos from "./pages/Cultos";
 import Login from "./pages/Login";
 import Membros from "./pages/Membros";
 import Musicas from "./pages/Musicas";
 import Perfil from "./pages/Perfil";
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: "UTC",
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
-
-function DashboardResumo() {
-  const [stats, setStats] = useState({
-    musicas: 0,
-    membros: 0,
-    cultos: 0,
-    minhasEscalas: 0,
-  });
-  const [proximosCultos, setProximosCultos] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-    const urlLimpa = baseUrl.replace(/\/$/, "");
-    const headers = {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
-
-    Promise.all([
-      fetch(`${urlLimpa}/api/musicas/`, { headers }),
-      fetch(`${urlLimpa}/api/usuarios/`, { headers }),
-      fetch(`${urlLimpa}/api/cultos/`, { headers }),
-    ])
-      .then(async (responses) => {
-        if (responses[0].status === 401) {
-          localStorage.removeItem("token");
-          window.location.href = "/";
-          throw new Error("Sessão expirada");
-        }
-
-        return Promise.all(responses.map((res) => (res.ok ? res.json() : [])));
-      })
-      .then(([musicas, membros, cultos]) => {
-        setStats({
-          musicas: musicas.length || 0,
-          membros: membros.length || 0,
-          cultos: cultos.length || 0,
-          minhasEscalas: 0,
-        });
-
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
-
-        const futuros = cultos
-          .filter((culto) => new Date(culto.data) >= hoje)
-          .sort((a, b) => new Date(a.data) - new Date(b.data));
-
-        setProximosCultos(futuros.slice(0, 5));
-      })
-      .catch((error) => console.error("Erro ao carregar dashboard:", error))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return <div className="dashboard-loading">Carregando painel…</div>;
-  }
-
-  return (
-    <div className="stack-lg">
-      <div className="dashboard-grid">
-        <div className="lauda-card stat-card">
-          <h3>{stats.cultos}</h3>
-          <p>Próximos Cultos</p>
-        </div>
-        <div className="lauda-card stat-card">
-          <h3>{stats.musicas}</h3>
-          <p>Músicas</p>
-        </div>
-        <div className="lauda-card stat-card">
-          <h3>{stats.membros}</h3>
-          <p>Membros Ativos</p>
-        </div>
-        <div className="lauda-card stat-card">
-          <h3>{stats.minhasEscalas}</h3>
-          <p>Minhas Escalas</p>
-        </div>
-      </div>
-
-      <section className="agenda-section">
-        <h2 className="dashboard-title text-primary">
-          <Calendar size={24} aria-hidden="true" /> Agenda de Cultos
-        </h2>
-        <div className="lauda-card">
-          {proximosCultos.length > 0 ? (
-            proximosCultos.map((culto) => (
-              <div key={culto.id} className="agenda-item">
-                <span>{dateFormatter.format(new Date(culto.data))}</span>
-                <strong>{culto.nome}</strong>
-              </div>
-            ))
-          ) : (
-            <div className="empty-state">
-              <h3>Nenhum culto agendado</h3>
-              <p>Cadastre um novo culto para começar a montar sua agenda.</p>
-            </div>
-          )}
-        </div>
-      </section>
-    </div>
-  );
-}
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
@@ -322,6 +214,17 @@ function App() {
               </span>
               <span className="nav-text">Configurações</span>
             </button>
+
+            <button
+              type="button"
+              className="lauda-nav-item sidebar-logout-item"
+              onClick={handleLogout}
+            >
+              <span className="nav-icon" aria-hidden="true">
+                <LogOut size={20} />
+              </span>
+              <span className="nav-text">Sair</span>
+            </button>
           </div>
         </aside>
 
@@ -342,7 +245,11 @@ function App() {
                   aria-hidden="true"
                   className="header-title-icon"
                 />
-                <span className="header-title-text">
+                <span
+                  className="header-title-text"
+                  data-short="Lauda"
+                  data-full="Lauda - Gerenciamento de Cultos e Músicas"
+                >
                   Lauda - Gerenciamento de Cultos e Músicas
                 </span>
               </h1>
@@ -363,7 +270,7 @@ function App() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="lauda-btn lauda-btn-secondary logout-btn"
+                className="lauda-btn lauda-btn-secondary logout-btn header-logout-btn"
               >
                 <LogOut size={16} aria-hidden="true" /> Sair
               </button>
@@ -372,7 +279,8 @@ function App() {
 
           <div className="lauda-content">
             <Routes>
-              <Route path="/" element={<DashboardResumo />} />
+              {/* O componente Dashboard limpo sendo importado aqui */}
+              <Route path="/" element={<Dashboard />} />
               <Route path="/musicas" element={<Musicas />} />
               <Route path="/cultos" element={<Cultos />} />
               <Route path="/membros" element={<Membros />} />

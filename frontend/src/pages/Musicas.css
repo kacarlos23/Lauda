@@ -1,115 +1,104 @@
-﻿.musicas-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-}
-
-.musica-card {
+﻿.musicas-filtros-card {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 1.25rem;
-  min-height: 100%;
+  gap: 1rem;
 }
 
-.musica-cover-shell {
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  aspect-ratio: 16 / 9;
-  background: var(--bg-surface-subtle);
-}
-
-.musica-cover-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.musica-card-header {
+.musicas-filtros-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 0.75rem;
 }
 
-.musica-titulo {
-  margin-bottom: 0.3rem;
+.musicas-filtros-header h3 {
+  margin: 0;
   color: var(--text-primary);
-  font-size: 1.1rem;
 }
 
-.musica-artista {
-  color: var(--text-muted);
-  font-size: 0.92rem;
-}
-
-.musica-tom-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 52px;
-  min-height: 44px;
-  padding: 0.45rem 0.7rem;
-  border: 1px solid rgba(37, 99, 235, 0.16);
-  border-radius: var(--radius-md);
-  background: var(--interactive-primary-soft);
-  color: var(--interactive-primary);
-  font-size: 1rem;
-  font-weight: 800;
-}
-
-.form-row-wrap {
-  display: flex;
-  flex-wrap: wrap;
+.musicas-filtros-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 2fr) repeat(3, minmax(160px, 1fr));
   gap: 1rem;
 }
 
-.form-field-grow {
-  flex: 1 1 220px;
-}
-
-.form-field-small {
-  flex: 1 1 110px;
-}
-
-.musica-meta-column {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-default);
-}
-
-.musica-meta-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-}
-
-.musica-meta-item {
+.musicas-filtro-field {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
+  gap: 0.45rem;
 }
 
-.musica-meta-item strong {
+.musicas-search-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.musicas-search-shell svg {
+  position: absolute;
+  left: 0.85rem;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 2; /* Garante que fique acima do fundo do input */
+}
+
+.musicas-search-input {
+  padding-left: 2.5rem !important; /* Força o respiro para o ícone */
+  width: 100%;
+}
+
+.musicas-table-container {
+  overflow-x: auto;
+}
+
+.musicas-table {
+  min-width: 1100px;
+}
+
+.musicas-table th:nth-child(1),
+.musicas-table td:nth-child(1) {
+  width: 32%; /* Reduzido um pouco já que o artista entrou aqui */
+}
+
+.musicas-table th:nth-child(2),
+.musicas-table td:nth-child(2) {
+  width: 26%; /* Nova coluna de Links Oficiais */
+}
+
+.musicas-table th:nth-child(6),
+.musicas-table td:nth-child(6) {
+  width: 16%; /* Espaço garantido para os 3 botões de ação */
+}
+
+.musica-table-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.musica-table-title {
   color: var(--text-primary);
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
-.musica-tags,
-.musica-actions {
+.musica-table-artist {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.musica-table-tags,
+.musica-table-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-.musica-tags,
-.musica-external-links {
-  margin-top: 1rem;
-}
-
-.musica-external-links {
+.musica-links-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
@@ -128,29 +117,116 @@
   font-weight: 600;
 }
 
-.musica-links-surface,
-.musica-preview-surface {
-  gap: 1rem;
+.musica-tom-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  min-height: 44px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: var(--radius-md);
+  background: var(--interactive-primary-soft);
+  color: var(--interactive-primary);
+  font-size: 1rem;
+  font-weight: 800;
 }
 
-.musica-links-title {
-  color: var(--text-primary);
-  font-size: 0.95rem;
+.musica-tom-badge-inline {
+  min-height: 38px;
 }
 
-.musica-link-label {
-  min-height: auto;
+.musica-table-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
 }
 
-.musica-cifra-textarea {
-  font-family: "Courier New", monospace;
+.musica-table-icon-btn {
+  min-width: 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 0;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.musica-table-icon-btn:hover,
+.musica-table-icon-btn:focus-visible {
+  color: var(--interactive-primary);
+}
+
+.musica-table-icon-btn svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+  stroke-width: 2.1;
+}
+
+/* ==========================================
+   BOTÕES DE AÇÃO (Visualizar, Editar, Excluir)
+   ========================================== */
+.musica-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+/* Forçamos o botão a ser um quadrado perfeito ignorando o padding global */
+.musica-table-icon-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 38px !important;
+  width: 38px !important;
+  height: 38px !important;
+  padding: 0 !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--text-secondary) !important;
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border-default) !important;
+}
+
+/* Garante que o ícone do Lucide apareça independente do container */
+.musica-table-icon-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+  display: block !important;
+  visibility: visible !important;
+  stroke-width: 2 !important;
+}
+
+/* Efeito de Hover Padrão */
+.musica-table-icon-btn:hover {
+  color: var(--interactive-primary) !important;
+  background-color: var(--interactive-primary-soft) !important;
+  border-color: rgba(37, 99, 235, 0.3) !important;
+  transform: translateY(-1px);
+}
+
+/* Botão de Excluir Específico */
+.musica-table-icon-btn.musica-delete-btn {
+  color: var(--error) !important;
+}
+
+.musica-table-icon-btn.musica-delete-btn:hover {
+  background-color: var(--status-danger-bg) !important;
+  color: var(--error) !important;
+  border-color: var(--status-danger-border) !important;
 }
 
 .musica-link-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
-  min-height: 32px;
+  width: 100%;
+  min-height: 34px;
   padding: 0.3rem 0.75rem;
   border: 1px solid transparent;
   border-radius: var(--radius-full);
@@ -193,27 +269,50 @@
   border-color: var(--status-danger-border);
 }
 
-.musica-actions {
-  margin-top: auto;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-default);
-}
-
-.musica-action-btn {
-  flex: 1;
-}
-
 .musica-delete-btn {
   color: var(--error);
   border-color: var(--status-danger-border);
+  background: var(--status-danger-bg);
 }
 
 .musica-delete-btn svg {
   color: var(--error);
 }
 
-.musicas-empty-state {
-  grid-column: 1 / -1;
+.musicas-table-empty {
+  padding-block: 3rem;
+}
+
+.form-row-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.form-field-grow {
+  flex: 1 1 220px;
+}
+
+.form-field-small {
+  flex: 1 1 110px;
+}
+
+.musica-links-surface,
+.musica-preview-surface {
+  gap: 1rem;
+}
+
+.musica-links-title {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.musica-link-label {
+  min-height: auto;
+}
+
+.musica-cifra-textarea {
+  font-family: "Courier New", monospace;
 }
 
 .modal-wide {
@@ -284,31 +383,6 @@ body.dark-mode .musica-link-label {
   color: var(--text-secondary);
 }
 
-@media (max-width: 768px) {
-  .musicas-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .musica-external-links,
-  .musica-preview-surface,
-  .musica-enrichment-debug-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .musica-enrichment-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .musica-action-btn,
-  .musica-delete-btn,
-  .form-field-grow,
-  .form-field-small {
-    flex: 1 1 100%;
-  }
-}
-
-
 .musica-enrichment-debug {
   display: flex;
   flex-direction: column;
@@ -343,4 +417,38 @@ body.dark-mode .musica-link-label {
   color: var(--text-secondary);
   font-size: 0.86rem;
   word-break: break-word;
+}
+
+@media (max-width: 1024px) {
+  .musicas-filtros-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .musicas-filtros-grid,
+  .musica-preview-surface,
+  .musica-enrichment-debug-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .musicas-filtros-header,
+  .musica-enrichment-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .musica-table-actions {
+    flex-direction: row;
+  }
+
+  .musica-table-btn,
+  .form-field-grow,
+  .form-field-small {
+    width: 100%;
+  }
+
+  .musica-links-grid {
+    grid-template-columns: 1fr;
+  }
 }

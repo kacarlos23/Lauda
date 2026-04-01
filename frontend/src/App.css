@@ -12,7 +12,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  padding-top: calc(68px + 3.5rem);
+  padding-top: calc(68px + 2.75rem);
 }
 
 .lauda-header {
@@ -162,10 +162,14 @@ body.dark-mode .lauda-header {
   padding-inline: 0.9rem;
 }
 
+.sidebar-logout-item {
+  display: none;
+}
+
 .lauda-content {
-  width: min(1200px, 100%);
+  width: min(1440px, 100%);
   margin: 0 auto;
-  padding: 1rem 1.5rem 2rem;
+  padding: 0.75rem 1rem 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -328,6 +332,160 @@ button.lauda-nav-item {
   gap: 1rem;
 }
 
+.dashboard-calendar-card {
+  position: relative;
+  padding: 1rem;
+}
+
+.dashboard-calendar-highlight {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(255, 255, 255, 0)),
+    var(--bg-surface-subtle);
+}
+
+.dashboard-calendar-highlight strong {
+  color: var(--text-primary);
+}
+
+.dashboard-calendar-highlight span:last-child {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.dashboard-calendar-card .fc {
+  --fc-border-color: var(--border-default);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: var(--bg-surface-subtle);
+  --fc-today-bg-color: var(--interactive-primary-soft);
+  --fc-button-bg-color: var(--bg-surface-subtle);
+  --fc-button-border-color: var(--border-default);
+  --fc-button-text-color: var(--text-primary);
+  --fc-button-hover-bg-color: var(--interactive-primary-soft);
+  --fc-button-hover-border-color: var(--interactive-primary);
+  --fc-button-active-bg-color: var(--interactive-primary);
+  --fc-button-active-border-color: var(--interactive-primary);
+  --fc-event-border-color: transparent;
+}
+
+.dashboard-calendar-card .fc-toolbar-title {
+  color: var(--text-primary);
+  font-size: 1.1rem !important;
+  font-weight: 700;
+}
+
+.dashboard-calendar-card .fc-button {
+  border-radius: var(--radius-md) !important;
+  box-shadow: none !important;
+  text-transform: capitalize;
+}
+
+.dashboard-calendar-card .fc-col-header-cell-cushion,
+.dashboard-calendar-card .fc-daygrid-day-number {
+  color: var(--text-primary);
+}
+
+.dashboard-calendar-card .fc-daygrid-event {
+  padding: 0.18rem 0.35rem;
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-calendar-card .fc-day-today {
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.18);
+}
+
+.dashboard-calendar-card .fc-event.dashboard-next-event {
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.94),
+    0 0 0 4px rgba(37, 99, 235, 0.3),
+    0 10px 20px rgba(37, 99, 235, 0.18);
+  transform: translateY(-1px);
+}
+
+.dashboard-calendar-card .fc-daygrid-day-frame {
+  min-height: 92px;
+}
+
+.dashboard-calendar-tooltip {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 180px;
+  max-width: 240px;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: rgba(17, 24, 39, 0.94);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+
+.dashboard-calendar-tooltip strong {
+  color: #fff;
+  font-size: 0.88rem;
+}
+
+.dashboard-calendar-tooltip span {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.78rem;
+}
+
+.dashboard-culto-modal {
+  max-width: 520px;
+}
+
+.dashboard-culto-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dashboard-culto-modal-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dashboard-culto-modal-date {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.dashboard-culto-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.dashboard-culto-modal-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dashboard-culto-modal-grid strong {
+  color: var(--text-primary);
+  font-size: 0.84rem;
+}
+
+.dashboard-culto-modal-grid span {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
 .agenda-item {
   display: flex;
   align-items: center;
@@ -460,6 +618,7 @@ button.lauda-nav-item {
     margin: 0;
     z-index: 100;
     transform: translateX(calc(-100% - 2rem));
+    padding: 1rem 0.8rem;
   }
 
   .lauda-sidebar.open {
@@ -474,7 +633,8 @@ button.lauda-nav-item {
     top: 1rem;
     left: 1rem;
     right: 1rem;
-    padding: 0 1rem;
+    min-height: 62px;
+    padding: 0 0.85rem;
   }
 
   .lauda-header-brand {
@@ -492,19 +652,53 @@ button.lauda-nav-item {
   }
 
   .lauda-header h1 {
-    font-size: 1rem;
+    font-size: 0.96rem;
   }
 
   .lauda-user-profile {
-    gap: 0.5rem;
+    gap: 0.35rem;
+  }
+
+  .header-title-text {
+    position: relative;
+    color: transparent;
+  }
+
+  .header-title-text::after {
+    content: attr(data-short);
+    color: var(--text-primary);
+  }
+
+  .header-logout-btn {
+    display: none;
+  }
+
+  .sidebar-logout-item {
+    display: flex;
+  }
+
+  .lauda-sidebar-bottom {
+    gap: 0.4rem;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+  }
+
+  .lauda-nav {
+    gap: 0.4rem;
+  }
+
+  .lauda-nav-item {
+    min-height: 48px;
+    padding: 0.78rem 0.85rem;
+    font-size: 0.9rem;
   }
 
   .lauda-main-zone {
-    padding-top: calc(68px + 2.5rem);
+    padding-top: calc(68px + 2rem);
   }
 
   .lauda-content {
-    padding: 1rem 1rem 1.5rem;
+    padding: 0.75rem 0.85rem 1.25rem;
   }
 
   .lauda-page-header {
@@ -513,12 +707,30 @@ button.lauda-nav-item {
   }
 
   .lauda-page-header .lauda-btn {
-    align-self: flex-start;
+    align-self: stretch;
+    width: 100%;
+    justify-content: center;
   }
 
   .settings-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .dashboard-calendar-card .fc-toolbar {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .dashboard-culto-modal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-calendar-card .fc-toolbar-chunk {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .settings-inline-select {
