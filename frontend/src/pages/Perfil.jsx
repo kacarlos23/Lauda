@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { CheckCircle, Lock, Mail, Phone, Shield, User } from "lucide-react";
+import { getApiBaseUrl } from "../lib/api";
 import "./Perfil.css";
 
 export default function Perfil() {
@@ -19,8 +20,7 @@ export default function Perfil() {
   const [mensagemSucesso, setMensagemSucesso] = useState("");
   const [erro, setErro] = useState("");
 
-  const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-  const urlLimpa = baseUrl.replace(/\/$/, "");
+  const urlLimpa = getApiBaseUrl();
 
   useEffect(() => {
     const token = localStorage.getItem("token");

@@ -11,6 +11,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { getApiBaseUrl } from "../lib/api";
 import "./Musicas.css";
 
 const ESTADO_INICIAL_MUSICA = {
@@ -108,8 +109,7 @@ export default function Musicas() {
   });
   const [enrichmentSnapshot, setEnrichmentSnapshot] = useState(null);
 
-  const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-  const urlLimpa = baseUrl.replace(/\/$/, "");
+  const urlLimpa = getApiBaseUrl();
   const isReadOnly = modalMode === "view";
 
   const carregarMusicas = useCallback(() => {

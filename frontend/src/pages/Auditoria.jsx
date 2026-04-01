@@ -7,6 +7,7 @@ import {
   LayoutList,
   ShieldCheck,
 } from "lucide-react";
+import { getApiBaseUrl } from "../lib/api";
 import "./Auditoria.css";
 
 export default function Auditoria() {
@@ -23,8 +24,7 @@ export default function Auditoria() {
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-  const urlLimpa = baseUrl.replace(/\/$/, "");
+  const urlLimpa = getApiBaseUrl();
 
   useEffect(() => {
     const token = localStorage.getItem("token");

@@ -20,6 +20,11 @@ def env_bool(name, default=False):
     return bool(default)
 
 
+def env_csv(name, default=""):
+    values = config(name, default=default, cast=Csv())
+    return [value for value in values if value]
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -29,7 +34,9 @@ SECRET_KEY = config('SECRET_KEY', default='chave-insegura-de-fallback-6sadf310f1
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1,localhost', cast=Csv())
+ALLOWED_HOSTS = env_csv('ALLOWED_HOSTS', default='127.0.0.1,localhost')
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 
@@ -132,10 +139,19 @@ AUTH_USER_MODEL = 'api.Usuario'
 
 CORS_ALLOW_ALL_ORIGINS = env_bool('CORS_ALLOW_ALL_ORIGINS', default=False)
 
-CORS_ALLOWED_ORIGINS = config(
+CORS_ALLOWED_ORIGINS = env_csv(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173',
-    cast=Csv()
+    default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173'
+)
+
+CORS_ALLOWED_ORIGIN_REGEXES = env_csv(
+    'CORS_ALLOWED_ORIGIN_REGEXES',
+    default=r'^https://.*\.trycloudflare\.com$'
+)
+
+CSRF_TRUSTED_ORIGINS = env_csv(
+    'CSRF_TRUSTED_ORIGINS',
+    default='http://localhost:5173,http://127.0.0.1:5173,https://*.trycloudflare.com'
 )
 
 from datetime import timedelta

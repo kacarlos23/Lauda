@@ -1,4 +1,5 @@
-﻿import { useState } from "react";
+﻿import { useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   KeyRound,
   Music,
@@ -6,11 +7,39 @@ import {
   Sparkles,
   UserRound,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { apiFetch } from "../lib/api";
 import "./Login.css";
 
-export default function Login({ setToken }) {
+export default function Login({ mode = "member" }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({ username: "", password: "" });
   const [erro, setErro] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const config = useMemo(() => {
+    if (mode === "admin") {
+      return {
+        endpoint: "/api/auth/admin/login/",
+        badge: "Admin Console",
+        title: "Acesso administrativo global",
+        description: "Gerencie ministérios, convites e usuários de toda a plataforma.",
+        buttonLabel: "Entrar no Painel Global",
+        nextPath: "/admin",
+      };
+    }
+
+    return {
+      endpoint: "/api/auth/login/",
+      badge: "Ministry Access",
+      title: "Acesse o seu ministério",
+      description: "Entre com a conta vinculada ao seu ministério ou use um convite para começar.",
+      buttonLabel: "Entrar no Ministério",
+      nextPath: "/app",
+    };
+  }, [mode]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -20,49 +49,36 @@ export default function Login({ setToken }) {
   const handleLogin = async (event) => {
     event.preventDefault();
     setErro("");
-    const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-    const urlLimpa = baseUrl.replace(/\/$/, "");
+    setIsSubmitting(true);
 
     try {
-      const resposta = await fetch(`${urlLimpa}/api/token/`, {
+      const dados = await apiFetch(config.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
-      const dados = await resposta.json();
-
-      if (resposta.ok) {
-        localStorage.setItem("token", dados.access);
-        setToken(dados.access);
-        return;
-      }
-
-      setErro(
-        "Usuário ou senha incorretos. Revise os dados e tente novamente.",
-      );
+      login(dados);
+      const redirectTo = location.state?.from || config.nextPath;
+      navigate(redirectTo, { replace: true });
     } catch (error) {
-      console.error("Erro no login:", error);
-      setErro(
-        "Não foi possível conectar ao servidor. Tente novamente em instantes.",
-      );
+      setErro(error.message || "Nao foi possivel concluir o login.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <main className="login-page-wrapper">
-      {/* Efeitos de Fundo */}
       <div className="login-background-orb orb-left" aria-hidden="true" />
       <div className="login-background-orb orb-right" aria-hidden="true" />
       <div className="bottom-light-effect" aria-hidden="true" />
 
-      {/* Container Principal (Vidro) */}
       <div className="login-glass-panel">
-        {/* Painel Esquerdo: Branding e Informações */}
         <aside className="login-branding-panel">
           <div className="login-badge">
             <Sparkles size={16} aria-hidden="true" />
-            <span>Lauda Platform</span>
+            <span>{config.badge}</span>
           </div>
 
           <div className="login-logo">
@@ -70,33 +86,31 @@ export default function Login({ setToken }) {
             <span>Lauda</span>
           </div>
 
-          <h2>Sua plataforma de gerenciamento ministerial.</h2>
-          <p>
-            Organize repertórios, crie escalas, planeje cultos e integre sua
-            equipe de louvor e voluntários em um só lugar.
-          </p>
+          <h2>{config.title}</h2>
+          <p>{config.description}</p>
 
           <div className="login-features">
             <div className="feature-item">
               <ShieldCheck size={18} />
-              <span>Acesso seguro para sua equipe</span>
+              <span>Segurança com autenticação segmentada</span>
             </div>
             <div className="feature-item">
               <Music size={18} />
-              <span>Organização de repertórios e escalas</span>
+              <span>Escopo isolado por ministério</span>
             </div>
           </div>
         </aside>
 
-        {/* Painel Direito: Formulário de Login */}
         <section className="login-form-panel">
           <div className="login-form-content">
             <header className="login-header">
               <div className="login-header-icon" aria-hidden="true">
                 <KeyRound size={20} />
               </div>
-              <h3 className="text-primary">Bem-vindo de volta</h3>
-              <p className="text-muted">Acesse sua conta para continuar.</p>
+              <h3 className="text-primary">
+                {mode === "admin" ? "Painel global" : "Bem-vindo de volta"}
+              </h3>
+              <p className="text-muted">{config.description}</p>
             </header>
 
             <form onSubmit={handleLogin} className="login-form">
@@ -111,11 +125,7 @@ export default function Login({ setToken }) {
                   Login (Nome de Usuário)
                 </label>
                 <div className="input-wrapper">
-                  <UserRound
-                    size={18}
-                    className="input-icon"
-                    aria-hidden="true"
-                  />
+                  <UserRound size={18} className="input-icon" aria-hidden="true" />
                   <input
                     type="text"
                     name="username"
@@ -126,7 +136,7 @@ export default function Login({ setToken }) {
                     required
                     autoComplete="username"
                     spellCheck={false}
-                    placeholder="seunome.sobrenome…"
+                    placeholder="seunome.sobrenome"
                   />
                 </div>
               </div>
@@ -136,11 +146,7 @@ export default function Login({ setToken }) {
                   Sua Senha
                 </label>
                 <div className="input-wrapper">
-                  <KeyRound
-                    size={18}
-                    className="input-icon"
-                    aria-hidden="true"
-                  />
+                  <KeyRound size={18} className="input-icon" aria-hidden="true" />
                   <input
                     type="password"
                     name="password"
@@ -150,7 +156,7 @@ export default function Login({ setToken }) {
                     onChange={handleChange}
                     required
                     autoComplete="current-password"
-                    placeholder="Digite sua senha…"
+                    placeholder="Digite sua senha"
                   />
                 </div>
               </div>
@@ -158,14 +164,30 @@ export default function Login({ setToken }) {
               <button
                 type="submit"
                 className="lauda-btn lauda-btn-primary btn-submit"
+                disabled={isSubmitting}
               >
-                Entrar no Sistema
+                {isSubmitting ? "Entrando..." : config.buttonLabel}
               </button>
 
-              <div className="login-footer">
-                <button type="button" className="forgot-password-link">
-                  Esqueceu a senha?
-                </button>
+              <div className="login-footer login-footer-links">
+                {mode !== "admin" && (
+                  <button
+                    type="button"
+                    className="forgot-password-link"
+                    onClick={() => navigate("/admin/login")}
+                  >
+                    Sou admin global
+                  </button>
+                )}
+                {mode === "admin" && (
+                  <button
+                    type="button"
+                    className="forgot-password-link"
+                    onClick={() => navigate("/login")}
+                  >
+                    Voltar para login do ministério
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -176,3 +198,4 @@ export default function Login({ setToken }) {
     </main>
   );
 }
+

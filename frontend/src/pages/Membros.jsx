@@ -10,6 +10,8 @@ import {
   Save,
   CheckCircle,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { getApiBaseUrl } from "../lib/api";
 import "./Membros.css";
 
 const ESTADO_INICIAL_USUARIO = {
@@ -25,6 +27,7 @@ const ESTADO_INICIAL_USUARIO = {
 };
 
 export default function Membros() {
+  const { user, updateUser } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
   const [logs, setLogs] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -44,8 +47,27 @@ export default function Membros() {
     status: "ativos",
   });
 
-  const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-  const urlLimpa = baseUrl.replace(/\/$/, "");
+  const urlLimpa = getApiBaseUrl();
+
+  const extrairMensagemErro = async (res, fallback) => {
+    const dados = await res.json().catch(() => null);
+    return (
+      dados?.detail ||
+      Object.values(dados || {})
+        .flat()
+        .find(Boolean) ||
+      fallback
+    );
+  };
+
+  const atualizarUsuarioNaLista = (usuarioAtualizado) => {
+    setUsuarios((atuais) => {
+      const semDuplicado = atuais.filter(
+        (usuarioItem) => usuarioItem.id !== usuarioAtualizado.id,
+      );
+      return [usuarioAtualizado, ...semDuplicado];
+    });
+  };
 
   const carregarDados = useCallback(() => {
     const token = localStorage.getItem("token");
@@ -103,53 +125,82 @@ export default function Membros() {
     });
   };
 
-  const handleCriarUsuario = (e) => {
+  const handleCriarUsuario = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
-    fetch(`${urlLimpa}/api/usuarios/`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(novoUsuario),
-    }).then((res) => {
-      if (res.ok) {
-        exibirMensagem("Novo usuário cadastrado com sucesso!");
-        setNovoUsuario(ESTADO_INICIAL_USUARIO);
-        carregarDados();
-      } else {
-        exibirMensagem(
+    const payload = {
+      ...novoUsuario,
+      funcao_principal: novoUsuario.funcao_principal?.trim() || "Membro",
+    };
+
+    try {
+      const res = await fetch(`${urlLimpa}/api/usuarios/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const detalhe = await extrairMensagemErro(
+          res,
           "Erro ao cadastrar. Verifique se o login já existe.",
-          "error",
         );
+        exibirMensagem(detalhe, "error");
+        return;
       }
-    });
+
+      const dados = await res.json();
+      atualizarUsuarioNaLista(dados);
+      setUsuarioSelecionado(dados);
+      painelInicializadoRef.current = true;
+      exibirMensagem("Novo usuário cadastrado com sucesso!");
+      setNovoUsuario(ESTADO_INICIAL_USUARIO);
+    } catch {
+      exibirMensagem("Erro ao cadastrar usuário.", "error");
+    }
   };
 
-  const handleSalvarEdicao = (e) => {
+  const handleSalvarEdicao = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
 
     const dadosEnvio = { ...usuarioSelecionado };
     if (!dadosEnvio.password) delete dadosEnvio.password;
 
-    fetch(`${urlLimpa}/api/usuarios/${usuarioSelecionado.id}/`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(dadosEnvio),
-    }).then((res) => {
-      if (res.ok) {
-        exibirMensagem(`Dados de ${usuarioSelecionado.username} atualizados!`);
-        setUsuarioSelecionado(null);
-        carregarDados();
-      } else {
-        exibirMensagem("Erro ao atualizar usuário.", "error");
+    try {
+      const res = await fetch(`${urlLimpa}/api/usuarios/${usuarioSelecionado.id}/`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(dadosEnvio),
+      });
+
+      if (!res.ok) {
+        const detalhe = await extrairMensagemErro(
+          res,
+          "Erro ao atualizar usuário.",
+        );
+        exibirMensagem(detalhe, "error");
+        return;
       }
-    });
+
+      const dadosAtualizados = await res.json();
+      atualizarUsuarioNaLista(dadosAtualizados);
+      setUsuarioSelecionado(dadosAtualizados);
+
+      if (dadosAtualizados.id === user?.id) {
+        updateUser(dadosAtualizados);
+      }
+
+      exibirMensagem(`Dados de ${dadosAtualizados.username} atualizados!`);
+    } catch {
+      exibirMensagem("Erro ao atualizar usuário.", "error");
+    }
   };
 
   const usuariosFiltrados = usuarios.filter((u) => {
@@ -168,11 +219,18 @@ export default function Membros() {
     return matchBusca && matchNivel && matchStatus;
   });
 
-  const renderBadgeNivel = (nivel) => {
-    if (nivel == 1)
-      return <span className="badge badge-primary">Administrador</span>;
-    if (nivel == 2)
+  const renderBadgeNivel = (usuario) => {
+    if (usuario.is_global_admin) {
+      return <span className="badge badge-primary">Admin Global</span>;
+    }
+    if (usuario.nivel_acesso == 1) {
+      return (
+        <span className="badge badge-primary">Administrador do Sistema</span>
+      );
+    }
+    if (usuario.nivel_acesso == 2) {
       return <span className="badge badge-secondary">Líder de Louvor</span>;
+    }
     return <span className="badge badge-gray">Membro</span>;
   };
 
@@ -328,6 +386,9 @@ export default function Membros() {
                     <option value={2}>Líder de Louvor</option>
                     <option value={3}>Membro Padrão</option>
                   </select>
+                  <span className="text-muted form-helper-text">
+                    Administrador libera acesso ao painel administrativo do sistema.
+                  </span>
                 </div>
                 <div className="form-col form-col-sm checkbox-inline">
                   <input
@@ -432,7 +493,7 @@ export default function Membros() {
                               {u.first_name} {u.last_name}
                             </span>
                           </td>
-                          <td data-label="Perfil">{renderBadgeNivel(u.nivel_acesso)}</td>
+                          <td data-label="Perfil">{renderBadgeNivel(u)}</td>
                           <td data-label="Status">
                             <span
                               className={`badge ${u.is_active ? "badge-primary" : "badge-gray"}`}
@@ -516,6 +577,13 @@ export default function Membros() {
                       <option value={2}>Líder de Louvor</option>
                       <option value={3}>Membro Padrão</option>
                     </select>
+                    <span className="text-muted form-helper-text">
+                      Alterar este nível atualiza também o acesso administrativo do usuário.
+                    </span>
+                  </div>
+                  <div className="user-access-summary">
+                    <span className="input-label">Acesso atual</span>
+                    {renderBadgeNivel(usuarioSelecionado)}
                   </div>
 
                   <div className="bloco-redefinir-senha">

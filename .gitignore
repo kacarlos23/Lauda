@@ -32,6 +32,10 @@ yarn-error.log*
 # Variáveis de Ambiente
 # =========================
 *.env
+.env.*
+!.env.example
+!.env.development.example
+!.env.production.example
 *.env.local
 *.env.development.local
 *.env.test.local
@@ -46,3 +50,8 @@ yarn-error.log*
 *.swo
 .DS_Store
 Thumbs.db
+
+# =========================
+# Local Infra / Tunnels
+# =========================
+cloudflared.exe

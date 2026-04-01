@@ -1,0 +1,148 @@
+.invite-page-wrapper {
+  min-height: 100vh;
+  padding: 48px 20px;
+  display: flex;
+  justify-content: center;
+  background:
+    radial-gradient(circle at top left, rgba(33, 106, 178, 0.18), transparent 32%),
+    linear-gradient(180deg, rgba(244, 247, 251, 0.96), rgba(232, 239, 247, 0.9));
+}
+
+.invite-panel {
+  width: min(1120px, 100%);
+  padding: 32px;
+  display: grid;
+  gap: 24px;
+}
+
+.invite-hero {
+  display: grid;
+  gap: 10px;
+}
+
+.invite-badge {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(21, 98, 178, 0.12);
+  color: var(--interactive-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.invite-lookup {
+  display: grid;
+  gap: 10px;
+}
+
+.invite-lookup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.invite-content-grid {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 24px;
+}
+
+.invite-summary,
+.invite-form {
+  display: grid;
+  gap: 18px;
+}
+
+.invite-ministry-card {
+  padding: 20px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(22, 93, 170, 0.14), rgba(22, 93, 170, 0.04));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.invite-ministry-card strong,
+.invite-meta-list strong {
+  color: var(--text-primary);
+}
+
+.invite-ministry-card span,
+.invite-meta-list span {
+  color: var(--text-secondary);
+}
+
+.invite-meta-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.invite-meta-list li {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--surface-subtle);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.input-with-icon {
+  position: relative;
+}
+
+.input-with-icon svg {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+}
+
+.input-with-icon .input-field {
+  padding-left: 42px;
+}
+
+.invite-submit-btn {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.invite-loading {
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+  .invite-content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .invite-page-wrapper {
+    padding: 20px 12px;
+  }
+
+  .invite-panel {
+    padding: 20px;
+  }
+
+  .invite-lookup-row {
+    grid-template-columns: 1fr;
+  }
+
+  .invite-submit-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

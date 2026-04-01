@@ -3,6 +3,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import ptBrLocale from "@fullcalendar/core/locales/pt-br";
 import { Calendar } from "lucide-react";
+import { getApiBaseUrl } from "../lib/api";
 import "./Dashboard.css";
 
 const dashboardDateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -26,8 +27,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-    const urlLimpa = baseUrl.replace(/\/$/, "");
+    const urlLimpa = getApiBaseUrl();
     const headers = {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
