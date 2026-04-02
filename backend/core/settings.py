@@ -34,7 +34,10 @@ SECRET_KEY = config('SECRET_KEY', default='chave-insegura-de-fallback-6sadf310f1
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = env_csv('ALLOWED_HOSTS', default='127.0.0.1,localhost')
+ALLOWED_HOSTS = env_csv(
+    'ALLOWED_HOSTS',
+    default='127.0.0.1,localhost,.trycloudflare.com,.workers.dev,.pages.dev',
+)
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
@@ -146,12 +149,12 @@ CORS_ALLOWED_ORIGINS = env_csv(
 
 CORS_ALLOWED_ORIGIN_REGEXES = env_csv(
     'CORS_ALLOWED_ORIGIN_REGEXES',
-    default=r'^https://.*\.trycloudflare\.com$'
+    default=r'^https://.*\.trycloudflare\.com$,^https://.*\.workers\.dev$,^https://.*\.pages\.dev$'
 )
 
 CSRF_TRUSTED_ORIGINS = env_csv(
     'CSRF_TRUSTED_ORIGINS',
-    default='http://localhost:5173,http://127.0.0.1:5173,https://*.trycloudflare.com'
+    default='http://localhost:5173,http://127.0.0.1:5173,https://*.trycloudflare.com,https://*.workers.dev,https://*.pages.dev'
 )
 
 from datetime import timedelta

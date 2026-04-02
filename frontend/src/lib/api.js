@@ -7,6 +7,7 @@ export async function parseApiResponse(response) {
   const contentType = response.headers.get("content-type") || "";
   const isJson = contentType.includes("application/json");
   const data = isJson ? await response.json() : null;
+  const fallbackText = isJson ? "" : (await response.text()).trim();
 
   if (response.ok) {
     return data;
@@ -18,6 +19,7 @@ export async function parseApiResponse(response) {
     Object.values(data || {})
       .flat()
       .find(Boolean) ||
+    fallbackText ||
     "Nao foi possivel concluir a requisicao.";
 
   throw new Error(detail);

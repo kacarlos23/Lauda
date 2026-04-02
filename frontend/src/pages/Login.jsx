@@ -18,9 +18,10 @@ export default function Login({ mode = "member" }) {
   const [formData, setFormData] = useState({ username: "", password: "" });
   const [erro, setErro] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isAdminMode = mode === "admin" || location.pathname.startsWith("/admin/");
 
   const config = useMemo(() => {
-    if (mode === "admin") {
+    if (isAdminMode) {
       return {
         endpoint: "/api/auth/admin/login/",
         badge: "Admin Console",
@@ -39,7 +40,7 @@ export default function Login({ mode = "member" }) {
       buttonLabel: "Entrar no Ministério",
       nextPath: "/app",
     };
-  }, [mode]);
+  }, [isAdminMode]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -52,14 +53,32 @@ export default function Login({ mode = "member" }) {
     setIsSubmitting(true);
 
     try {
-      const dados = await apiFetch(config.endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      let dados;
+
+      try {
+        dados = await apiFetch(config.endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
+      } catch (error) {
+        const shouldRetryAsAdmin =
+          !isAdminMode &&
+          error.message?.toLowerCase().includes("login admin");
+
+        if (!shouldRetryAsAdmin) {
+          throw error;
+        }
+
+        dados = await apiFetch("/api/auth/admin/login/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
+      }
 
       login(dados);
-      const redirectTo = location.state?.from || config.nextPath;
+      const redirectTo = location.state?.from || (dados.user?.is_global_admin ? "/admin" : config.nextPath);
       navigate(redirectTo, { replace: true });
     } catch (error) {
       setErro(error.message || "Nao foi possivel concluir o login.");
@@ -108,7 +127,7 @@ export default function Login({ mode = "member" }) {
                 <KeyRound size={20} />
               </div>
               <h3 className="text-primary">
-                {mode === "admin" ? "Painel global" : "Bem-vindo de volta"}
+                {isAdminMode ? "Painel global" : "Bem-vindo de volta"}
               </h3>
               <p className="text-muted">{config.description}</p>
             </header>
@@ -170,7 +189,7 @@ export default function Login({ mode = "member" }) {
               </button>
 
               <div className="login-footer login-footer-links">
-                {mode !== "admin" && (
+                {!isAdminMode && (
                   <button
                     type="button"
                     className="forgot-password-link"
@@ -179,7 +198,7 @@ export default function Login({ mode = "member" }) {
                     Sou admin global
                   </button>
                 )}
-                {mode === "admin" && (
+                {isAdminMode && (
                   <button
                     type="button"
                     className="forgot-password-link"

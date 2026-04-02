@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
         setSession(null);
       },
     }),
-    [],
+    [session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
