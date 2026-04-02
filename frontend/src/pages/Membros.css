@@ -33,6 +33,14 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.sec-header svg,
+.membros-page-title svg,
+.editar-titulo svg {
+  flex-shrink: 0;
 }
 
 .sec-header,
@@ -45,7 +53,7 @@
 
 .usuarios-grid {
   display: grid;
-  grid-template-columns: 1fr 340px; /* Tabela toma espaço livre, Formato fixo de 340px */
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 340px);
   align-items: flex-start;
   gap: 1.5rem;
 }
@@ -192,7 +200,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-width: 150px;
+  min-width: min(150px, 100%);
 }
 
 .filtro-item-busca {
@@ -207,6 +215,7 @@
 
 .celula-usuario-log {
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .tabela-vazia {
@@ -231,6 +240,42 @@
 
   .filtro-item-busca {
     flex: 1;
+  }
+
+  .form-actions {
+    width: 100%;
+  }
+
+  .checkbox-inline,
+  .checkbox-status-edicao {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .btn-editar-tabela,
+  .form-actions .lauda-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .usuarios-editar-header {
+    align-items: flex-start;
+  }
+
+  .editar-titulo {
+    align-items: flex-start;
+    font-size: 1rem;
+  }
+
+  .membros-page-title,
+  .sec-header {
+    align-items: flex-start;
+  }
+
+  .celula-nome-sub,
+  .celula-data-hora {
+    display: block;
+    line-height: 1.45;
   }
 }
 

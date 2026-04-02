@@ -21,6 +21,7 @@
 .view-toggle {
   display: flex;
   flex-wrap: wrap;
+  min-width: 0;
   gap: 0.5rem;
 }
 
@@ -32,7 +33,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  min-width: 220px;
+  min-width: min(220px, 100%);
 }
 
 .agenda-new-btn,
@@ -49,7 +50,7 @@
    ========================================== */
 .cultos-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: 1.5rem;
 }
 
@@ -87,16 +88,25 @@
   margin: 0;
   color: var(--text-primary);
   font-size: 1.15rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .culto-data {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
   margin: 0;
   color: var(--interactive-primary);
   font-size: 0.95rem;
   font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.culto-data svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
 }
 
 .culto-meta {
@@ -110,9 +120,16 @@
 
 .culto-meta-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
   color: var(--text-secondary);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.culto-meta-item svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
 }
 
 .culto-meta-item strong {
@@ -130,13 +147,16 @@
 
 .culto-actions-row {
   display: flex;
+  min-width: 0;
   gap: 0.75rem;
 }
 
 .culto-action-btn {
   flex: 1;
+  min-width: 0;
   min-height: 42px;
   font-size: 0.85rem;
+  line-height: 1.2;
   justify-content: center;
 }
 
@@ -166,7 +186,7 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0.65rem;
   border: 1px dashed var(--border-default);
   border-radius: var(--radius-md);
@@ -256,11 +276,18 @@
 
 .dnd-column-title {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
   margin-bottom: 1.25rem;
   color: var(--text-primary);
   font-size: 1.1rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.dnd-column-title svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
 }
 
 .dnd-column-title-primary {
@@ -303,12 +330,16 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .dnd-item-subtitle {
   color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 500;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .setlist-item-top {
@@ -355,6 +386,8 @@
 }
 
 .setlist-input-note {
+  flex: 1 1 140px;
+  min-width: 0;
   width: 140px;
   font-size: 0.85rem;
 }
@@ -541,8 +574,11 @@ body.dark-mode .culto-actions-summary {
   }
   .view-toggle {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
+  }
+  .agenda-view-btn {
+    min-width: 0;
   }
   .agenda-new-btn {
     width: 100%;
@@ -554,9 +590,19 @@ body.dark-mode .culto-actions-summary {
 
   .cultos-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
   .culto-actions-disclosure {
     display: block;
+  }
+
+  .culto-actions-row-secondary {
+    flex-direction: column;
+  }
+
+  .culto-meta {
+    font-size: 0.84rem;
+    line-height: 1.45;
   }
 
   /* Impede que os inputs de Tom/Obs quebrem o layout da Setlist no celular */
@@ -592,7 +638,13 @@ body.dark-mode .culto-actions-summary {
   }
   .dnd-column {
     width: 100%;
-    max-height: 50vh;
+    max-height: min(50svh, 420px);
+    padding: 1rem;
+  }
+
+  .culto-setlist-modal {
+    width: 100%;
+    max-width: none;
   }
 
   .calendar-wrapper {
@@ -604,6 +656,7 @@ body.dark-mode .culto-actions-summary {
   }
   .fc .fc-toolbar-title {
     font-size: 1rem !important;
+    line-height: 1.2;
     text-align: center;
   }
   .fc .fc-toolbar-chunk {
@@ -611,5 +664,28 @@ body.dark-mode .culto-actions-summary {
     justify-content: center;
     flex-wrap: wrap;
     gap: 0.5rem;
+  }
+
+  .fc .fc-button {
+    min-height: 40px;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .fc .fc-col-header-cell-cushion {
+    padding: 0.7rem 0.35rem;
+    font-size: 0.72rem;
+  }
+
+  .fc .fc-daygrid-day-frame {
+    min-height: 96px;
+  }
+
+  .fc-event-title {
+    font-size: 0.78rem;
+  }
+
+  .fc-event-time {
+    font-size: 0.7rem;
   }
 }

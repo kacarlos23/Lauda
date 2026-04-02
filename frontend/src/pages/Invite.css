@@ -1,5 +1,5 @@
 .invite-page-wrapper {
-  min-height: 100vh;
+  min-height: 100svh;
   padding: 48px 20px;
   display: flex;
   justify-content: center;
@@ -18,6 +18,18 @@
 .invite-hero {
   display: grid;
   gap: 10px;
+}
+
+.invite-hero h1 {
+  font-size: clamp(1.85rem, 4vw, 2.4rem);
+  line-height: 1.1;
+}
+
+.invite-hero p {
+  max-width: 62ch;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .invite-badge {
@@ -61,18 +73,28 @@
   border-radius: 20px;
   background: linear-gradient(135deg, rgba(22, 93, 170, 0.14), rgba(22, 93, 170, 0.04));
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
+}
+
+.invite-ministry-card svg {
+  flex-shrink: 0;
+}
+
+.invite-ministry-card div {
+  min-width: 0;
 }
 
 .invite-ministry-card strong,
 .invite-meta-list strong {
   color: var(--text-primary);
+  overflow-wrap: anywhere;
 }
 
 .invite-ministry-card span,
 .invite-meta-list span {
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }
 
 .invite-meta-list {
@@ -86,9 +108,10 @@
 .invite-meta-list li {
   padding: 14px 16px;
   border-radius: 16px;
-  background: var(--surface-subtle);
+  background: var(--bg-surface-subtle);
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 16px;
 }
 
@@ -118,7 +141,7 @@
 .invite-loading {
   padding: 20px;
   border-radius: 16px;
-  background: var(--surface-subtle);
+  background: var(--bg-surface-subtle);
   color: var(--text-secondary);
 }
 
@@ -131,10 +154,12 @@
 @media (max-width: 640px) {
   .invite-page-wrapper {
     padding: 20px 12px;
+    align-items: flex-start;
   }
 
   .invite-panel {
-    padding: 20px;
+    gap: 20px;
+    padding: 20px 16px;
   }
 
   .invite-lookup-row {
@@ -144,5 +169,32 @@
   .invite-submit-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .invite-hero {
+    gap: 12px;
+  }
+
+  .invite-hero h1 {
+    font-size: 1.75rem;
+  }
+
+  .invite-hero p {
+    font-size: 0.92rem;
+  }
+
+  .invite-ministry-card {
+    padding: 16px;
+  }
+
+  .invite-meta-list li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 14px;
+  }
+
+  .invite-lookup-row .lauda-btn {
+    width: 100%;
   }
 }

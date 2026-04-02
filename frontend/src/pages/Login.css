@@ -6,10 +6,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  min-height: 100svh;
   width: 100%;
   padding: 2rem;
-  overflow: hidden;
+  overflow: hidden auto;
   background:
     radial-gradient(
       circle at top left,
@@ -154,6 +154,7 @@
   font-size: 3rem;
   font-weight: 800;
   font-family: var(--font-display);
+  line-height: 1;
 }
 
 .login-branding-panel h2 {
@@ -168,6 +169,7 @@
   font-size: 1.05rem;
   line-height: 1.6;
   margin-bottom: 2.5rem;
+  overflow-wrap: anywhere;
 }
 
 .login-features {
@@ -186,6 +188,7 @@
   background: rgba(255, 255, 255, 0.08);
   width: fit-content;
   font-size: 0.95rem;
+  line-height: 1.35;
 }
 
 /* ==========================================
@@ -225,6 +228,10 @@
 .login-header h3 {
   font-size: 1.75rem;
   margin-bottom: 0.5rem;
+}
+
+.login-header p {
+  line-height: 1.5;
 }
 
 /* ==========================================
@@ -335,6 +342,7 @@ input:-webkit-autofill {
   .login-glass-panel {
     flex-direction: column;
     max-width: 500px;
+    min-height: auto;
   }
   .login-branding-panel {
     padding: 3rem 2rem;
@@ -347,11 +355,70 @@ input:-webkit-autofill {
 @media (max-width: 600px) {
   .login-page-wrapper {
     padding: 1rem;
+    align-items: flex-start;
   }
   .login-branding-panel {
-    display: none; /* Esconde o painel esquerdo em telas muito pequenas para focar no login */
+    display: flex;
+    padding: 2rem 1.5rem 1.75rem;
   }
   .login-glass-panel {
     border-radius: 16px;
+  }
+
+  .login-badge {
+    margin-bottom: 1.5rem;
+    font-size: 0.72rem;
+  }
+
+  .login-logo {
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    font-size: 2.2rem;
+  }
+
+  .login-logo svg {
+    width: 44px;
+    height: 44px;
+  }
+
+  .login-branding-panel h2 {
+    font-size: 1.45rem;
+    line-height: 1.2;
+    margin-bottom: 0.75rem;
+  }
+
+  .login-branding-panel p {
+    margin-bottom: 0;
+    font-size: 0.94rem;
+    line-height: 1.5;
+  }
+
+  .login-features {
+    display: none;
+  }
+
+  .login-form-panel {
+    padding: 1.5rem;
+  }
+
+  .login-header {
+    margin-bottom: 1.75rem;
+  }
+
+  .login-header h3 {
+    font-size: 1.4rem;
+  }
+
+  .login-form {
+    gap: 1rem;
+  }
+
+  .btn-submit {
+    padding: 0.95rem 1rem;
+    font-size: 0.98rem;
+  }
+
+  .forgot-password-link {
+    line-height: 1.45;
   }
 }

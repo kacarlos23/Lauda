@@ -1,6 +1,6 @@
 ﻿.lauda-wrapper {
   display: flex;
-  min-height: 100vh;
+  min-height: 100svh;
   width: 100%;
   overflow: hidden;
   background: var(--bg-page);
@@ -11,7 +11,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100svh;
   padding-top: calc(68px + 2.75rem);
 }
 
@@ -46,6 +46,7 @@ body.dark-mode .lauda-header {
   display: flex;
   align-items: center;
   gap: 0.625rem;
+  min-width: 0;
 }
 
 .lauda-header-brand {
@@ -91,8 +92,8 @@ body.dark-mode .lauda-header {
 
 /* 2. Ajusta o H1 para alinhar o ícone e o texto lado a lado */
 .lauda-header h1 {
-  font-size: 1.1rem;
-  line-height: 1.1;
+  font-size: clamp(1rem, 2vw, 1.1rem);
+  line-height: 1.15;
   color: var(--text-primary);
   display: flex;
   align-items: center;
@@ -108,6 +109,7 @@ body.dark-mode .lauda-header {
 
 /* 4. A mágica do texto: força 1 linha e coloca "..." se não couber */
 .header-title-text {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -200,7 +202,7 @@ body.dark-mode .dashboard-title.text-primary {
 .lauda-sidebar {
   width: 188px;
   min-width: 188px;
-  height: calc(100vh - 3rem);
+  height: calc(100svh - 3rem);
   position: fixed;
   top: 1.5rem;
   left: 1.5rem;
@@ -307,7 +309,7 @@ button.lauda-nav-item {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1.25rem;
 }
 
@@ -614,7 +616,9 @@ button.lauda-nav-item {
     position: fixed;
     top: 1rem;
     left: 1rem;
-    height: calc(100vh - 2rem);
+    width: min(300px, calc(100vw - 2rem));
+    min-width: 0;
+    height: calc(100svh - 2rem);
     margin: 0;
     z-index: 100;
     transform: translateX(calc(-100% - 2rem));
@@ -633,8 +637,8 @@ button.lauda-nav-item {
     top: 1rem;
     left: 1rem;
     right: 1rem;
-    min-height: 62px;
-    padding: 0 0.85rem;
+    min-height: auto;
+    padding: 0.65rem 0.85rem;
   }
 
   .lauda-header-brand {
@@ -652,7 +656,7 @@ button.lauda-nav-item {
   }
 
   .lauda-header h1 {
-    font-size: 0.96rem;
+    font-size: clamp(0.92rem, 4vw, 0.98rem);
   }
 
   .lauda-user-profile {
@@ -660,13 +664,18 @@ button.lauda-nav-item {
   }
 
   .header-title-text {
-    position: relative;
-    color: transparent;
+    max-width: min(42vw, 12rem);
+    color: var(--text-primary);
   }
 
-  .header-title-text::after {
-    content: attr(data-short);
-    color: var(--text-primary);
+  .header-context-line {
+    max-width: min(42vw, 12rem);
+  }
+
+  .menu-toggle-btn,
+  .theme-toggle-btn {
+    min-width: 42px;
+    min-height: 42px;
   }
 
   .header-logout-btn {
@@ -712,6 +721,24 @@ button.lauda-nav-item {
     justify-content: center;
   }
 
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .stat-card {
+    padding: 1rem;
+  }
+
+  .stat-card h3 {
+    font-size: clamp(1.75rem, 8vw, 2.2rem);
+  }
+
+  .stat-card p {
+    font-size: 0.84rem;
+    line-height: 1.35;
+  }
+
   .settings-row {
     flex-direction: column;
     align-items: stretch;
@@ -741,12 +768,17 @@ button.lauda-nav-item {
 .header-brand-stack {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .header-context-line {
   color: var(--text-secondary);
   font-size: 0.86rem;
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-brand-block {
@@ -766,18 +798,28 @@ button.lauda-nav-item {
 .sidebar-brand-block strong {
   color: var(--text-primary);
   font-size: 1rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .sidebar-ministry-chip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   margin-bottom: 12px;
   padding: 10px 12px;
   border-radius: 14px;
-  background: var(--surface-subtle);
+  background: var(--bg-surface-subtle);
   color: var(--text-secondary);
   font-size: 0.88rem;
+}
+
+.sidebar-ministry-chip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-session-chip {
@@ -803,5 +845,15 @@ button.lauda-nav-item {
 
   .header-context-line {
     font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-context-line {
+    display: none;
+  }
+
+  .header-title-text {
+    max-width: min(48vw, 9rem);
   }
 }
