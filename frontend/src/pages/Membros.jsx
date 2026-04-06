@@ -11,7 +11,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { getApiBaseUrl } from "../lib/api";
+import { authFetch } from "../lib/api";
 import "./Membros.css";
 
 const ESTADO_INICIAL_USUARIO = {
@@ -22,12 +22,13 @@ const ESTADO_INICIAL_USUARIO = {
   password: "",
   telefone: "",
   funcao_principal: "",
+  funcoes: [],
   nivel_acesso: 3,
   is_active: true,
 };
 
 export default function Membros() {
-  const { user, updateUser } = useAuth();
+  const { token, user, updateUser, logout } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
   const [logs, setLogs] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -47,10 +48,11 @@ export default function Membros() {
     status: "ativos",
   });
 
-  const urlLimpa = getApiBaseUrl();
+  const canManageUsers =
+    isAdmin || user?.is_global_admin || Number(user?.nivel_acesso) === 1;
 
-  const extrairMensagemErro = async (res, fallback) => {
-    const dados = await res.json().catch(() => null);
+  const extrairMensagemErro = async (error, fallback) => {
+    const dados = error?.data || null;
     return (
       dados?.detail ||
       Object.values(dados || {})
@@ -69,31 +71,57 @@ export default function Membros() {
     });
   };
 
-  const carregarDados = useCallback(() => {
-    const token = localStorage.getItem("token");
-    const headers = { Authorization: `Bearer ${token}` };
+  const carregarDados = useCallback(async () => {
+    if (!token) {
+      return;
+    }
 
-    fetch(`${urlLimpa}/api/usuarios/`, { headers })
-      .then((res) => {
-        setIsAdmin(res.ok);
-        return res.ok ? res.json() : [];
-      })
-      .then((dados) => {
-        setUsuarios(dados);
+    const [usuariosResult, logsResult] = await Promise.allSettled([
+      authFetch("/api/usuarios/", token),
+      authFetch("/api/auditoria/?page_size=5", token),
+    ]);
 
-        if (!painelInicializadoRef.current && dados.length > 0) {
-          setUsuarioSelecionado(dados[0]);
-          painelInicializadoRef.current = true;
-        }
-      });
+    const failedAuthRequest = [usuariosResult, logsResult].find(
+      (result) => result.status === "rejected" && result.reason?.status === 401,
+    );
+    if (failedAuthRequest) {
+      logout();
+      return;
+    }
 
-    fetch(`${urlLimpa}/api/auditoria/?page_size=5`, { headers })
-      .then((res) => (res.ok ? res.json() : { results: [] }))
-      .then((dados) => setLogs(dados.results || dados));
-  }, [urlLimpa]);
+    if (usuariosResult.status === "fulfilled") {
+      setIsAdmin(true);
+      setUsuarios(usuariosResult.value);
+
+      if (!painelInicializadoRef.current && usuariosResult.value.length > 0) {
+        setUsuarioSelecionado(usuariosResult.value[0]);
+        painelInicializadoRef.current = true;
+      }
+    } else {
+      setIsAdmin(false);
+      setUsuarios([]);
+      setUsuarioSelecionado(null);
+    }
+
+    if (logsResult.status === "fulfilled") {
+      setLogs(logsResult.value.results || logsResult.value);
+    } else {
+      setLogs([]);
+      if (usuariosResult.status === "fulfilled") {
+        setMensagem({
+          texto: "Os usuarios foram carregados, mas a auditoria recente nao respondeu.",
+          tipo: "error",
+        });
+      }
+    }
+  }, [logout, token]);
 
   useEffect(() => {
-    carregarDados();
+    const timer = window.setTimeout(() => {
+      carregarDados();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [carregarDados]);
 
   const exibirMensagem = (texto, tipo = "success") => {
@@ -107,89 +135,85 @@ export default function Membros() {
       exibirMensagem("As senhas não coincidem!", "error");
       return;
     }
-    const token = localStorage.getItem("token");
-    fetch(`${urlLimpa}/api/usuarios/me/`, {
+    authFetch("/api/usuarios/me/", token, {
       method: "PATCH",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ password: senhaData.password }),
-    }).then((res) => {
-      if (res.ok) {
+    })
+      .then((dadosAtualizados) => {
+        if (dadosAtualizados && dadosAtualizados.id === user?.id) {
+          updateUser(dadosAtualizados);
+        }
+
         exibirMensagem("Sua senha foi atualizada com sucesso!");
         setSenhaData({ password: "", confirm_password: "" });
-      } else {
+      })
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+          return;
+        }
+
         exibirMensagem("Erro ao atualizar senha.", "error");
-      }
-    });
+      });
   };
 
   const handleCriarUsuario = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem("token");
     const payload = {
       ...novoUsuario,
-      funcao_principal: novoUsuario.funcao_principal?.trim() || "Membro",
+      funcao_principal: novoUsuario.funcao_principal?.trim() || "",
     };
 
     try {
-      const res = await fetch(`${urlLimpa}/api/usuarios/`, {
+      const dados = await authFetch("/api/usuarios/", token, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) {
-        const detalhe = await extrairMensagemErro(
-          res,
-          "Erro ao cadastrar. Verifique se o login já existe.",
-        );
-        exibirMensagem(detalhe, "error");
-        return;
-      }
-
-      const dados = await res.json();
       atualizarUsuarioNaLista(dados);
       setUsuarioSelecionado(dados);
       painelInicializadoRef.current = true;
       exibirMensagem("Novo usuário cadastrado com sucesso!");
       setNovoUsuario(ESTADO_INICIAL_USUARIO);
-    } catch {
-      exibirMensagem("Erro ao cadastrar usuário.", "error");
+    } catch (error) {
+      if (error.status === 401) {
+        logout();
+        return;
+      }
+
+      const detalhe = await extrairMensagemErro(
+        error,
+        "Erro ao cadastrar. Verifique se o login já existe.",
+      );
+      exibirMensagem(detalhe, "error");
     }
   };
 
   const handleSalvarEdicao = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem("token");
 
     const dadosEnvio = { ...usuarioSelecionado };
     if (!dadosEnvio.password) delete dadosEnvio.password;
 
     try {
-      const res = await fetch(`${urlLimpa}/api/usuarios/${usuarioSelecionado.id}/`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const dadosAtualizados = await authFetch(
+        `/api/usuarios/${usuarioSelecionado.id}/`,
+        token,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(dadosEnvio),
         },
-        body: JSON.stringify(dadosEnvio),
-      });
+      );
 
-      if (!res.ok) {
-        const detalhe = await extrairMensagemErro(
-          res,
-          "Erro ao atualizar usuário.",
-        );
-        exibirMensagem(detalhe, "error");
-        return;
-      }
-
-      const dadosAtualizados = await res.json();
       atualizarUsuarioNaLista(dadosAtualizados);
       setUsuarioSelecionado(dadosAtualizados);
 
@@ -198,7 +222,12 @@ export default function Membros() {
       }
 
       exibirMensagem(`Dados de ${dadosAtualizados.username} atualizados!`);
-    } catch {
+    } catch (error) {
+      if (error.status === 401) {
+        logout();
+        return;
+      }
+
       exibirMensagem("Erro ao atualizar usuário.", "error");
     }
   };
@@ -221,17 +250,17 @@ export default function Membros() {
 
   const renderBadgeNivel = (usuario) => {
     if (usuario.is_global_admin) {
-      return <span className="badge badge-primary">Admin Global</span>;
+      return <span className="badge badge-primary">{usuario.papel_display || "Admin Global"}</span>;
     }
     if (usuario.nivel_acesso == 1) {
       return (
-        <span className="badge badge-primary">Administrador do Sistema</span>
+        <span className="badge badge-primary">{usuario.papel_display || usuario.nivel_acesso_label || "Administrador"}</span>
       );
     }
     if (usuario.nivel_acesso == 2) {
-      return <span className="badge badge-secondary">Líder de Louvor</span>;
+      return <span className="badge badge-secondary">{usuario.papel_display || usuario.nivel_acesso_label || "Líder de Louvor"}</span>;
     }
-    return <span className="badge badge-gray">Membro</span>;
+    return <span className="badge badge-gray">{usuario.papel_display || usuario.nivel_acesso_label || "Membro"}</span>;
   };
 
   return (
@@ -302,7 +331,7 @@ export default function Membros() {
         </form>
       </section>
 
-      {isAdmin && (
+      {canManageUsers && (
         <>
           {/* SEÇÃO 2: NOVO USUÁRIO */}
           <section className="lauda-card usuarios-secao">
@@ -382,12 +411,12 @@ export default function Membros() {
                     }
                     required
                   >
-                    <option value={1}>Administrador</option>
+                    <option value={1}>Administrador do Ministério</option>
                     <option value={2}>Líder de Louvor</option>
                     <option value={3}>Membro Padrão</option>
                   </select>
                   <span className="text-muted form-helper-text">
-                    Administrador libera acesso ao painel administrativo do sistema.
+                    Administrador do ministério libera acesso ao painel administrativo local.
                   </span>
                 </div>
                 <div className="form-col form-col-sm checkbox-inline">
@@ -573,12 +602,12 @@ export default function Membros() {
                         })
                       }
                     >
-                      <option value={1}>Administrador</option>
+                      <option value={1}>Administrador do Ministério</option>
                       <option value={2}>Líder de Louvor</option>
                       <option value={3}>Membro Padrão</option>
                     </select>
                     <span className="text-muted form-helper-text">
-                      Alterar este nível atualiza também o acesso administrativo do usuário.
+                      Alterar este nível atualiza também o acesso administrativo local do usuário.
                     </span>
                   </div>
                   <div className="user-access-summary">

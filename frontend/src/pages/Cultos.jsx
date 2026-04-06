@@ -17,7 +17,8 @@ import {
   Minus,
   LayoutGrid,
 } from "lucide-react";
-import { getApiBaseUrl } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
+import { authFetch } from "../lib/api";
 import "./Cultos.css";
 
 const ESTADO_INICIAL_CULTO = {
@@ -30,6 +31,7 @@ const ESTADO_INICIAL_CULTO = {
 };
 
 export default function Cultos() {
+  const { token, user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [cultos, setCultos] = useState([]);
@@ -51,47 +53,67 @@ export default function Cultos() {
   const [filtroStatus, setFiltroStatus] = useState("TODOS");
   const [mobileActionsCultoId, setMobileActionsCultoId] = useState(null);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [pageNotice, setPageNotice] = useState("");
+  const canManageCultos =
+    user?.is_global_admin || Number(user?.nivel_acesso) === 1;
 
-  const urlLimpa = getApiBaseUrl();
+  const carregarDados = useCallback(async () => {
+    if (!token) {
+      return;
+    }
 
-  const carregarDados = useCallback(() => {
-    const token = localStorage.getItem("token");
-    const headers = {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
+    setPageNotice("");
 
-    Promise.all([
-      fetch(`${urlLimpa}/api/cultos/`, { headers }).then((r) =>
-        r.ok ? r.json() : [],
-      ),
-      fetch(`${urlLimpa}/api/usuarios/`, { headers }).then((r) =>
-        r.ok ? r.json() : [],
-      ),
-      fetch(`${urlLimpa}/api/escalas/`, { headers }).then((r) =>
-        r.ok ? r.json() : [],
-      ),
-      fetch(`${urlLimpa}/api/musicas/`, { headers }).then((r) =>
-        r.ok ? r.json() : [],
-      ),
-      fetch(`${urlLimpa}/api/setlists/`, { headers }).then((r) =>
-        r.ok ? r.json() : [],
-      ),
-    ])
-      .then(
-        ([cultosData, membrosData, escalasData, musicasData, setlistsData]) => {
-          setCultos(cultosData);
-          setMembros(membrosData);
-          setEscalas(escalasData);
-          setMusicasGlobais(musicasData);
-          setItensSetlist(setlistsData);
-        },
-      )
-      .catch((erro) => console.error("Erro na busca:", erro));
-  }, [urlLimpa]);
+    const [cultosResult, membrosResult, escalasResult, musicasResult, setlistsResult] =
+      await Promise.allSettled([
+        authFetch("/api/cultos/", token),
+        canManageCultos ? authFetch("/api/usuarios/", token) : Promise.resolve([]),
+        authFetch("/api/escalas/", token),
+        authFetch("/api/musicas/", token),
+        authFetch("/api/setlists/", token),
+      ]);
+
+    const failedAuthRequest = [
+      cultosResult,
+      membrosResult,
+      escalasResult,
+      musicasResult,
+      setlistsResult,
+    ].find((result) => result.status === "rejected" && result.reason?.status === 401);
+    if (failedAuthRequest) {
+      logout();
+      return;
+    }
+
+    const failedRequests = [
+      ["cultos", cultosResult],
+      ["usuarios", membrosResult],
+      ["escalas", escalasResult],
+      ["musicas", musicasResult],
+      ["setlists", setlistsResult],
+    ].filter(([, result]) => result.status === "rejected");
+
+    failedRequests.forEach(([resource, result]) => {
+      console.error(`Erro ao carregar ${resource} na agenda de cultos:`, result.reason);
+    });
+
+    setCultos(cultosResult.status === "fulfilled" ? cultosResult.value : []);
+    setMembros(membrosResult.status === "fulfilled" ? membrosResult.value : []);
+    setEscalas(escalasResult.status === "fulfilled" ? escalasResult.value : []);
+    setMusicasGlobais(musicasResult.status === "fulfilled" ? musicasResult.value : []);
+    setItensSetlist(setlistsResult.status === "fulfilled" ? setlistsResult.value : []);
+
+    if (failedRequests.length > 0) {
+      setPageNotice("Parte da agenda nao foi carregada. Verifique os endpoints com erro.");
+    }
+  }, [canManageCultos, logout, token]);
 
   useEffect(() => {
-    carregarDados();
+    const timer = window.setTimeout(() => {
+      carregarDados();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [carregarDados]);
 
   useEffect(() => {
@@ -161,12 +183,20 @@ export default function Cultos() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleNovoCulto = () => {
+    if (!canManageCultos) {
+      return;
+    }
+
     setFormData(ESTADO_INICIAL_CULTO);
     setEditingCultoId(null);
     setIsCultoModalOpen(true);
   };
 
   const handleEditarCulto = (culto) => {
+    if (!canManageCultos) {
+      return;
+    }
+
     setFormData({
       nome: culto.nome || "",
       data: culto.data || "",
@@ -183,45 +213,85 @@ export default function Cultos() {
     setIsCultoModalOpen(true);
   };
 
+  const formatApiError = (error) => {
+    if (typeof error?.message === "string" && error.message.trim()) {
+      return error.message;
+    }
+
+    const data = error?.data;
+    if (data && typeof data === "object") {
+      return Object.entries(data)
+        .map(
+          ([field, value]) =>
+            `${field}: ${Array.isArray(value) ? value.join(", ") : value}`,
+        )
+        .join(" | ");
+    }
+
+    return "Erro ao salvar o culto. Verifique os dados.";
+  };
+
+  const sanitizeCultoPayload = (payload) => ({
+    ...payload,
+    horario_termino: payload.horario_termino || null,
+    local: payload.local?.trim() || null,
+  });
+
   const handleSalvarCulto = (e) => {
     e.preventDefault();
-    const token = localStorage.getItem("token");
-    const url = editingCultoId
-      ? `${urlLimpa}/api/cultos/${editingCultoId}/`
-      : `${urlLimpa}/api/cultos/`;
-    const method = editingCultoId ? "PUT" : "POST";
+    if (!canManageCultos) {
+      return;
+    }
 
-    fetch(url, {
+    const url = editingCultoId
+      ? `/api/cultos/${editingCultoId}/`
+      : "/api/cultos/";
+    const method = editingCultoId ? "PUT" : "POST";
+    const dadosEnvio = sanitizeCultoPayload(formData);
+
+    authFetch(url, token, {
       method,
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(formData),
-    }).then((res) => {
-      if (res.ok) {
+      body: JSON.stringify(dadosEnvio),
+    })
+      .then(() => {
         setIsCultoModalOpen(false);
         carregarDados();
-      } else {
-        alert("Erro ao salvar o culto. Verifique os dados.");
-      }
-    });
+      })
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+          return;
+        }
+
+        alert(formatApiError(error));
+      });
   };
 
   const handleExcluirCulto = (id) => {
+    if (!canManageCultos) {
+      return;
+    }
+
     if (
       !window.confirm(
         "Certeza que deseja excluir este culto? Escalas e setlists serão perdidas!",
       )
     )
       return;
-    const token = localStorage.getItem("token");
-    fetch(`${urlLimpa}/api/cultos/${id}/`, {
+    authFetch(`/api/cultos/${id}/`, token, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    }).then((res) => {
-      if (res.ok) carregarDados();
-    });
+    })
+      .then(() => {
+        carregarDados();
+      })
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+        }
+      });
   };
 
   const abrirModalEscala = (culto) => {
@@ -237,12 +307,14 @@ export default function Cultos() {
 
   const handleAdicionarEscala = (e) => {
     e.preventDefault();
+    if (!canManageCultos) {
+      return;
+    }
+
     if (!novoMembroId || !cultoSelecionado) return;
-    const token = localStorage.getItem("token");
-    fetch(`${urlLimpa}/api/escalas/`, {
+    authFetch("/api/escalas/", token, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -250,22 +322,34 @@ export default function Cultos() {
         membro: novoMembroId,
         status_confirmacao: "PENDENTE",
       }),
-    }).then((res) => {
-      if (res.ok) {
+    })
+      .then(() => {
         carregarDados();
         setNovoMembroId("");
-      }
-    });
+      })
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+        }
+      });
   };
 
   const handleRemoverEscala = (escalaId) => {
-    const token = localStorage.getItem("token");
-    fetch(`${urlLimpa}/api/escalas/${escalaId}/`, {
+    if (!canManageCultos) {
+      return;
+    }
+
+    authFetch(`/api/escalas/${escalaId}/`, token, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    }).then((res) => {
-      if (res.ok) carregarDados();
-    });
+    })
+      .then(() => {
+        carregarDados();
+      })
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+        }
+      });
   };
 
   const abrirModalSetlist = (culto) => {
@@ -274,12 +358,14 @@ export default function Cultos() {
   };
 
   const adicionarMusicaNaSetlist = (musica) => {
+    if (!canManageCultos) {
+      return;
+    }
+
     if (!cultoSelecionado) return;
-    const token = localStorage.getItem("token");
-    fetch(`${urlLimpa}/api/setlists/`, {
+    authFetch("/api/setlists/", token, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -289,19 +375,33 @@ export default function Cultos() {
         tom_execucao: musica.tom_original,
         observacoes: "",
       }),
-    }).then((res) => {
-      if (res.ok) carregarDados();
-    });
+    })
+      .then(() => {
+        carregarDados();
+      })
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+        }
+      });
   };
 
   const removerMusicaDaSetlist = (itemId) => {
-    const token = localStorage.getItem("token");
-    fetch(`${urlLimpa}/api/setlists/${itemId}/`, {
+    if (!canManageCultos) {
+      return;
+    }
+
+    authFetch(`/api/setlists/${itemId}/`, token, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    }).then((res) => {
-      if (res.ok) carregarDados();
-    });
+    })
+      .then(() => {
+        carregarDados();
+      })
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+        }
+      });
   };
 
   const handleDragStart = (e, item, source) => {
@@ -318,6 +418,10 @@ export default function Cultos() {
 
   const handleDropToSetlist = (e) => {
     e.preventDefault();
+    if (!canManageCultos) {
+      return;
+    }
+
     e.currentTarget.classList.remove("drag-over");
     if (draggedItem && draggedItem.source === "repertorio") {
       adicionarMusicaNaSetlist(draggedItem.item);
@@ -327,6 +431,10 @@ export default function Cultos() {
 
   const handleDropToRepertorio = (e) => {
     e.preventDefault();
+    if (!canManageCultos) {
+      return;
+    }
+
     e.currentTarget.classList.remove("drag-over");
     if (draggedItem && draggedItem.source === "setlist") {
       removerMusicaDaSetlist(draggedItem.item.id);
@@ -343,16 +451,22 @@ export default function Cultos() {
   };
 
   const handleAtualizarItemSetlistBanco = (itemId, campo, valor) => {
-    if (!itemId) return;
-    const token = localStorage.getItem("token");
-    fetch(`${urlLimpa}/api/setlists/${itemId}/`, {
+    if (!itemId || !canManageCultos) return;
+
+    authFetch(`/api/setlists/${itemId}/`, token, {
       method: "PATCH",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ [campo]: valor }),
-    }).catch((err) => console.error("Erro ao atualizar setlist:", err));
+    }).catch((err) => {
+      if (err.status === 401) {
+        logout();
+        return;
+      }
+
+      console.error("Erro ao atualizar setlist:", err);
+    });
   };
 
   const escalasDoCulto = cultoSelecionado
@@ -374,17 +488,23 @@ export default function Cultos() {
 
   return (
     <div className="cultos-page">
+      {pageNotice && (
+        <div className="status-alert status-alert--error">{pageNotice}</div>
+      )}
+
       <div className="lauda-page-header">
         <div>
           <h2 className="text-primary">Agenda de Cultos</h2>
           <p className="text-muted">Gerencie eventos, escalas e setlists</p>
         </div>
-        <button
-          className="lauda-btn lauda-btn-primary agenda-new-btn"
-          onClick={handleNovoCulto}
-        >
-          <Plus size={18} /> Novo Culto
-        </button>
+        {canManageCultos && (
+          <button
+            className="lauda-btn lauda-btn-primary agenda-new-btn"
+            onClick={handleNovoCulto}
+          >
+            <Plus size={18} /> Novo Culto
+          </button>
+        )}
       </div>
 
       <div className="view-controls">
@@ -439,8 +559,9 @@ export default function Cultos() {
                   </div>
                 </div>
                 <div className="culto-meta text-muted">
-                  <div className="culto-meta-item">
-                    <MapPin size={16} /> <strong>Local:</strong> {culto.local}
+                <div className="culto-meta-item">
+                    <MapPin size={16} /> <strong>Local:</strong>{" "}
+                    {culto.local || "Nao informado"}
                   </div>
                   <div className="culto-meta-item">
                     <Tag size={16} /> <strong>Status:</strong>
@@ -461,7 +582,7 @@ export default function Cultos() {
                   >
                     <Music size={16} /> Setlist
                   </button>
-                  {!isMobile && (
+                  {canManageCultos && !isMobile && (
                     <button
                       className="lauda-btn lauda-btn-secondary culto-action-btn"
                       onClick={() => abrirModalEscala(culto)}
@@ -472,6 +593,7 @@ export default function Cultos() {
                 </div>
 
                 {isMobile ? (
+                  canManageCultos ? (
                   <details
                     className="culto-actions-disclosure"
                     open={mobileActionsCultoId === culto.id}
@@ -485,40 +607,49 @@ export default function Cultos() {
                       Opções avançadas
                     </summary>
                     <div className="culto-actions-row culto-actions-row-secondary">
-                      <button
-                        className="lauda-btn lauda-btn-secondary culto-action-btn"
-                        onClick={() => abrirModalEscala(culto)}
-                      >
-                        <Users size={16} /> Escala
-                      </button>
-                      <button
-                        className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost"
-                        onClick={() => handleEditarCulto(culto)}
-                      >
-                        <Edit2 size={16} /> Editar
-                      </button>
-                      <button
-                        className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost-danger"
-                        onClick={() => handleExcluirCulto(culto.id)}
-                      >
-                        <Trash2 size={16} /> Excluir
-                      </button>
+                      {canManageCultos && (
+                        <>
+                          <button
+                            className="lauda-btn lauda-btn-secondary culto-action-btn"
+                            onClick={() => abrirModalEscala(culto)}
+                          >
+                            <Users size={16} /> Escala
+                          </button>
+                          <button
+                            className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost"
+                            onClick={() => handleEditarCulto(culto)}
+                          >
+                            <Edit2 size={16} /> Editar
+                          </button>
+                          <button
+                            className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost-danger"
+                            onClick={() => handleExcluirCulto(culto.id)}
+                          >
+                            <Trash2 size={16} /> Excluir
+                          </button>
+                        </>
+                      )}
                     </div>
                   </details>
+                  ) : null
                 ) : (
                   <div className="culto-actions-row">
-                    <button
-                      className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost"
-                      onClick={() => handleEditarCulto(culto)}
-                    >
-                      <Edit2 size={16} /> Editar
-                    </button>
-                    <button
-                      className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost-danger"
-                      onClick={() => handleExcluirCulto(culto.id)}
-                    >
-                      <Trash2 size={16} /> Excluir
-                    </button>
+                    {canManageCultos && (
+                      <>
+                        <button
+                          className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost"
+                          onClick={() => handleEditarCulto(culto)}
+                        >
+                          <Edit2 size={16} /> Editar
+                        </button>
+                        <button
+                          className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost-danger"
+                          onClick={() => handleExcluirCulto(culto.id)}
+                        >
+                          <Trash2 size={16} /> Excluir
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -625,28 +756,26 @@ export default function Cultos() {
                   />
                 </div>
                 <div className="form-col form-col-sm">
-                  <label className="input-label">Término *</label>
+                  <label className="input-label">Término</label>
                   <input
                     type="time"
                     name="horario_termino"
                     className="input-field"
                     value={formData.horario_termino}
                     onChange={handleChangeCulto}
-                    required
                   />
                 </div>
               </div>
 
               <div className="form-row">
                 <div className="form-col form-col-lg">
-                  <label className="input-label">Local *</label>
+                  <label className="input-label">Local</label>
                   <input
                     type="text"
                     name="local"
                     className="input-field"
                     value={formData.local}
                     onChange={handleChangeCulto}
-                    required
                     placeholder="Ex: Templo Principal"
                   />
                 </div>
@@ -674,9 +803,11 @@ export default function Cultos() {
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="lauda-btn lauda-btn-primary">
-                  Salvar
-                </button>
+                {canManageCultos && (
+                  <button type="submit" className="lauda-btn lauda-btn-primary">
+                    Salvar
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -694,37 +825,39 @@ export default function Cultos() {
               </button>
             </div>
 
-            <div className="modal-body form-container">
-              <form onSubmit={handleAdicionarEscala} className="escala-toolbar">
-                <div className="form-group escala-toolbar-select">
-                  <label className="input-label">
-                    Adicionar Membro na Equipe
-                  </label>
-                  <select
-                    value={novoMembroId}
-                    onChange={(e) => setNovoMembroId(e.target.value)}
-                    required
-                    className="input-field"
-                  >
-                    <option value="">
-                      Selecione um membro para escalar...
-                    </option>
-                    {membrosDisponiveis.map((membro) => (
-                      <option key={membro.id} value={membro.id}>
-                        {membro.first_name || membro.username} -{" "}
-                        {membro.funcao_principal}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <button
-                  type="submit"
-                  className="lauda-btn lauda-btn-primary"
-                  style={{ height: "42px" }}
-                >
-                  Adicionar
-                </button>
-              </form>
+              <div className="modal-body form-container">
+                {canManageCultos && (
+                  <form onSubmit={handleAdicionarEscala} className="escala-toolbar">
+                    <div className="form-group escala-toolbar-select">
+                      <label className="input-label">
+                        Adicionar Membro na Equipe
+                      </label>
+                      <select
+                        value={novoMembroId}
+                        onChange={(e) => setNovoMembroId(e.target.value)}
+                        required
+                        className="input-field"
+                      >
+                        <option value="">
+                          Selecione um membro para escalar...
+                        </option>
+                        {membrosDisponiveis.map((membro) => (
+                          <option key={membro.id} value={membro.id}>
+                            {membro.first_name || membro.username} -{" "}
+                            {membro.funcao_principal}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="submit"
+                      className="lauda-btn lauda-btn-primary"
+                      style={{ height: "42px" }}
+                    >
+                      Adicionar
+                    </button>
+                  </form>
+                )}
 
               <div className="lauda-table-container">
                 <table className="lauda-table">
@@ -733,7 +866,7 @@ export default function Cultos() {
                       <th>Membro</th>
                       <th>Função</th>
                       <th>Status</th>
-                      <th>Ação</th>
+                      {canManageCultos && <th>Ação</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -758,20 +891,22 @@ export default function Cultos() {
                               {escala.status_confirmacao}
                             </span>
                           </td>
-                          <td data-label="Ação">
-                            <button
-                              onClick={() => handleRemoverEscala(escala.id)}
-                              className="lauda-btn lauda-btn-secondary culto-remove-btn"
-                            >
-                              Remover
-                            </button>
-                          </td>
+                          {canManageCultos && (
+                            <td data-label="Ação">
+                              <button
+                                onClick={() => handleRemoverEscala(escala.id)}
+                                className="lauda-btn lauda-btn-secondary culto-remove-btn"
+                              >
+                                Remover
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
                     {escalasDoCulto.length === 0 && (
                       <tr>
-                        <td colSpan="4" className="table-empty">
+                        <td colSpan={canManageCultos ? 4 : 3} className="table-empty">
                           Nenhum membro escalado.
                         </td>
                       </tr>
@@ -798,52 +933,55 @@ export default function Cultos() {
               </button>
             </div>
 
-            <div className="modal-body">
-              <p className="text-muted culto-setlist-helper">
-                Arraste as músicas do repertório (esquerda) para a setlist do
-                culto (direita).
-              </p>
+              <div className="modal-body">
+                <p className="text-muted culto-setlist-helper">
+                {canManageCultos
+                  ? "Arraste as músicas do repertório (esquerda) para a setlist do culto (direita)."
+                  : "Visualização apenas leitura da setlist do culto."}
+                </p>
 
-              <div className="dnd-container">
-                <div
-                  className="dnd-column"
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDropToRepertorio}
-                >
-                  <h4 className="dnd-column-title">Repertório Disponível</h4>
-                  {repertorioDisponivel.map((musica) => (
+                <div className="dnd-container">
+                  {canManageCultos && (
                     <div
-                      key={musica.id}
-                      className="dnd-item"
-                      draggable
-                      onDragStart={(e) =>
-                        handleDragStart(e, musica, "repertorio")
-                      }
+                      className="dnd-column"
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDropToRepertorio}
                     >
-                      <div className="dnd-item-title">{musica.titulo}</div>
-                      <div className="dnd-item-subtitle">
-                        {musica.artista} • Tom original: {musica.tom_original}
-                      </div>
-                      <button
-                        type="button"
-                        className="lauda-btn lauda-btn-secondary dnd-touch-btn"
-                        onClick={() => adicionarMusicaNaSetlist(musica)}
-                      >
-                        <Plus size={16} /> Adicionar
-                      </button>
+                      <h4 className="dnd-column-title">Repertório Disponível</h4>
+                      {repertorioDisponivel.map((musica) => (
+                        <div
+                          key={musica.id}
+                          className="dnd-item"
+                          draggable
+                          onDragStart={(e) =>
+                            handleDragStart(e, musica, "repertorio")
+                          }
+                        >
+                          <div className="dnd-item-title">{musica.titulo}</div>
+                          <div className="dnd-item-subtitle">
+                            {musica.artista} • Tom original: {musica.tom_original}
+                          </div>
+                          <button
+                            type="button"
+                            className="lauda-btn lauda-btn-secondary dnd-touch-btn"
+                            onClick={() => adicionarMusicaNaSetlist(musica)}
+                          >
+                            <Plus size={16} /> Adicionar
+                          </button>
+                        </div>
+                      ))}
+                      {repertorioDisponivel.length === 0 && (
+                        <p className="text-muted">Nenhuma música disponível.</p>
+                      )}
                     </div>
-                  ))}
-                  {repertorioDisponivel.length === 0 && (
-                    <p className="text-muted">Nenhuma música disponível.</p>
                   )}
-                </div>
 
                 <div
                   className="dnd-column dnd-column-highlight"
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDropToSetlist}
+                  onDragOver={canManageCultos ? handleDragOver : undefined}
+                  onDragLeave={canManageCultos ? handleDragLeave : undefined}
+                  onDrop={canManageCultos ? handleDropToSetlist : undefined}
                 >
                   <h4 className="dnd-column-title dnd-column-title-primary">
                     <Music size={18} /> Músicas do Culto
@@ -857,8 +995,12 @@ export default function Cultos() {
                     return (
                       <div
                         key={item.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, item, "setlist")}
+                        draggable={canManageCultos}
+                        onDragStart={
+                          canManageCultos
+                            ? (e) => handleDragStart(e, item, "setlist")
+                            : undefined
+                        }
                         className="dnd-item dnd-item-setlist"
                       >
                         <div className="setlist-item-top">
@@ -889,16 +1031,20 @@ export default function Cultos() {
                                   e.target.value,
                                 )
                               }
-                              onBlur={(e) =>
-                                handleAtualizarItemSetlistBanco(
-                                  item.id,
-                                  "tom_execucao",
-                                  e.target.value,
-                                )
+                              onBlur={
+                                canManageCultos
+                                  ? (e) =>
+                                      handleAtualizarItemSetlistBanco(
+                                        item.id,
+                                        "tom_execucao",
+                                        e.target.value,
+                                      )
+                                  : undefined
                               }
                               className="setlist-input setlist-input-tone input-field"
                               title="Tom de Execução"
                               placeholder="Tom"
+                              disabled={!canManageCultos}
                             />
                             <input
                               type="text"
@@ -910,25 +1056,31 @@ export default function Cultos() {
                                   e.target.value,
                                 )
                               }
-                              onBlur={(e) =>
-                                handleAtualizarItemSetlistBanco(
-                                  item.id,
-                                  "observacoes",
-                                  e.target.value,
-                                )
+                              onBlur={
+                                canManageCultos
+                                  ? (e) =>
+                                      handleAtualizarItemSetlistBanco(
+                                        item.id,
+                                        "observacoes",
+                                        e.target.value,
+                                      )
+                                  : undefined
                               }
                               placeholder="Obs: Ex: Acústico"
                               className="setlist-input setlist-input-note input-field"
+                              disabled={!canManageCultos}
                             />
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          className="lauda-btn lauda-btn-secondary dnd-touch-btn dnd-touch-btn-remove"
-                          onClick={() => removerMusicaDaSetlist(item.id)}
-                        >
-                          <Minus size={16} /> Remover
-                        </button>
+                        {canManageCultos && (
+                          <button
+                            type="button"
+                            className="lauda-btn lauda-btn-secondary dnd-touch-btn dnd-touch-btn-remove"
+                            onClick={() => removerMusicaDaSetlist(item.id)}
+                          >
+                            <Minus size={16} /> Remover
+                          </button>
+                        )}
                       </div>
                     );
                   })}

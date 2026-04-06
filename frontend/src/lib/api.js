@@ -1,6 +1,31 @@
-﻿export function getApiBaseUrl() {
+export function getApiBaseUrl() {
   const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8001";
   return baseUrl.replace(/\/$/, "");
+}
+
+function normalizeFallbackError(response, text) {
+  const normalizedText = text
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalizedText) {
+    return `Erro HTTP ${response.status}.`;
+  }
+
+  if (/server error/i.test(normalizedText)) {
+    return `Erro HTTP ${response.status}: erro interno do servidor.`;
+  }
+
+  if (/bad request/i.test(normalizedText)) {
+    return `Erro HTTP ${response.status}: requisicao invalida.`;
+  }
+
+  if (/unauthorized/i.test(normalizedText)) {
+    return `Erro HTTP ${response.status}: autenticacao invalida ou expirada.`;
+  }
+
+  return normalizedText;
 }
 
 export async function parseApiResponse(response) {
@@ -19,15 +44,23 @@ export async function parseApiResponse(response) {
     Object.values(data || {})
       .flat()
       .find(Boolean) ||
-    fallbackText ||
+    normalizeFallbackError(response, fallbackText) ||
     "Nao foi possivel concluir a requisicao.";
 
-  throw new Error(detail);
+  const error = new Error(detail);
+  error.status = response.status;
+  error.data = data;
+  throw error;
 }
 
 export async function apiFetch(path, options = {}) {
   const response = await fetch(`${getApiBaseUrl()}${path}`, options);
-  return parseApiResponse(response);
+  try {
+    return await parseApiResponse(response);
+  } catch (error) {
+    error.path = path;
+    throw error;
+  }
 }
 
 export async function authFetch(path, token, options = {}) {

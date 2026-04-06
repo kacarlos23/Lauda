@@ -2,8 +2,14 @@ import secrets
 import string
 
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
+
+from .constants import (
+    MUSIC_CLASSIFICATION_CHOICES,
+    USER_FUNCTION_SET,
+)
 
 
 def generate_invite_token():
@@ -18,6 +24,9 @@ def generate_access_code(length=10):
 class Ministerio(models.Model):
     nome = models.CharField(max_length=150)
     slug = models.SlugField(unique=True)
+    access_code = models.CharField(max_length=20, unique=True, default=generate_access_code)
+    logo_url = models.URLField(blank=True, null=True)
+    is_open = models.BooleanField(default=True)
     configuracoes = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -48,12 +57,13 @@ class Usuario(AbstractUser):
         blank=True,
         null=True,
     )
-    funcao_principal = models.CharField(max_length=50)
+    funcao_principal = models.CharField(max_length=50, blank=True, default="")
     funcoes_secundarias = models.TextField(
         blank=True,
         null=True,
         help_text="Ex: Violao, Teclado",
     )
+    funcoes = models.JSONField(default=list, blank=True)
     nivel_acesso = models.IntegerField(choices=NIVEL_ACESSO_CHOICES, default=3)
     is_global_admin = models.BooleanField(default=False)
     invite_accepted_at = models.DateTimeField(blank=True, null=True)
@@ -61,6 +71,28 @@ class Usuario(AbstractUser):
         default=True,
         help_text="Desmarque para inativar o membro em vez de deletar",
     )
+
+    def get_normalized_funcoes(self):
+        normalized = []
+        for value in self.funcoes or []:
+            if not isinstance(value, str):
+                continue
+            cleaned = value.strip()
+            if cleaned and cleaned in USER_FUNCTION_SET and cleaned not in normalized:
+                normalized.append(cleaned)
+
+        legacy_values = []
+        if self.funcao_principal:
+            legacy_values.append(self.funcao_principal)
+        if self.funcoes_secundarias:
+            legacy_values.extend(self.funcoes_secundarias.split(","))
+
+        for value in legacy_values:
+            cleaned = value.strip()
+            if cleaned and cleaned in USER_FUNCTION_SET and cleaned not in normalized:
+                normalized.append(cleaned)
+
+        return normalized
 
     def sync_access_flags(self):
         if self.is_global_admin or self.is_superuser:
@@ -72,6 +104,9 @@ class Usuario(AbstractUser):
     def save(self, *args, **kwargs):
         if self.is_global_admin:
             self.ministerio = None
+        self.funcoes = self.get_normalized_funcoes()
+        self.funcao_principal = self.funcoes[0] if self.funcoes else ""
+        self.funcoes_secundarias = ", ".join(self.funcoes[1:]) if len(self.funcoes) > 1 else ""
         self.sync_access_flags()
         super().save(*args, **kwargs)
 
@@ -82,7 +117,7 @@ class Usuario(AbstractUser):
 class Musica(models.Model):
     ministerio = models.ForeignKey(
         Ministerio,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="musicas",
         blank=True,
         null=True,
@@ -91,6 +126,18 @@ class Musica(models.Model):
     artista = models.CharField(max_length=200)
     tom_original = models.CharField(max_length=10)
     bpm = models.IntegerField(blank=True, null=True)
+    duracao = models.CharField(
+        max_length=5,
+        blank=True,
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r"^\d{2}:[0-5]\d$",
+                message="Use o formato mm:ss.",
+            ),
+        ],
+        help_text="Duracao no formato mm:ss",
+    )
     compasso = models.CharField(max_length=10, blank=True, null=True)
     link_youtube = models.URLField(blank=True, null=True, help_text="Link do YouTube")
     link_audio = models.URLField(
@@ -112,6 +159,12 @@ class Musica(models.Model):
         blank=True,
         null=True,
         help_text="Separe as tags por virgula. Ex: Adoracao, Ceia",
+    )
+    classificacao = models.CharField(
+        max_length=32,
+        choices=MUSIC_CLASSIFICATION_CHOICES,
+        blank=True,
+        null=True,
     )
 
     spotify_id = models.CharField(max_length=120, blank=True, null=True)
@@ -146,8 +199,8 @@ class Culto(models.Model):
     nome = models.CharField(max_length=150)
     data = models.DateField()
     horario_inicio = models.TimeField()
-    horario_termino = models.TimeField()
-    local = models.CharField(max_length=255)
+    horario_termino = models.TimeField(blank=True, null=True)
+    local = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="AGENDADO")
 
     def __str__(self):
@@ -324,3 +377,19 @@ class ConviteMinisterio(models.Model):
         if self.uses_count >= self.max_uses:
             self.status = "ACEITO"
         self.save(update_fields=["accepted_by", "accepted_at", "uses_count", "status", "updated_at"])
+
+
+class Team(models.Model):
+    name = models.CharField(max_length=150)
+    ministerio = models.ForeignKey(
+        Ministerio,
+        on_delete=models.CASCADE,
+        related_name="teams",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} - {self.ministerio.nome}"

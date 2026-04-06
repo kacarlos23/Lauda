@@ -11,7 +11,13 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { getApiBaseUrl } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
+import {
+  MUSIC_CLASSIFICATION_MAP,
+  MUSIC_CLASSIFICATION_OPTIONS,
+} from "../lib/constants";
+import { authFetch } from "../lib/api";
+import { musicFormSchema } from "../lib/schemas";
 import "./Musicas.css";
 
 const ESTADO_INICIAL_MUSICA = {
@@ -19,6 +25,7 @@ const ESTADO_INICIAL_MUSICA = {
   artista: "",
   tom_original: "C",
   bpm: "",
+  duracao: "",
   compasso: "",
   link_youtube: "",
   link_audio: "",
@@ -26,7 +33,7 @@ const ESTADO_INICIAL_MUSICA = {
   link_cifra: "",
   cifra_texto: "",
   observacoes: "",
-  tags: "",
+  classificacao: "",
   spotify_id: "",
   genius_id: "",
   isrc: "",
@@ -42,7 +49,7 @@ const ESTADO_INICIAL_FILTROS = {
   nome: "",
   artista: "",
   tom: "",
-  tag: "",
+  classificacao: "",
 };
 
 const normalizarTexto = (valor = "") =>
@@ -53,17 +60,12 @@ const normalizarTexto = (valor = "") =>
     .toLowerCase()
     .trim();
 
-const extrairTags = (tags = "") =>
-  tags
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-
 const mapearMusicaParaFormulario = (musica = {}) => ({
   titulo: musica.titulo || "",
   artista: musica.artista || "",
   tom_original: musica.tom_original || "C",
   bpm: musica.bpm || "",
+  duracao: musica.duracao || "",
   compasso: musica.compasso || "",
   link_youtube: musica.link_youtube || "",
   link_audio: musica.link_audio || "",
@@ -71,7 +73,7 @@ const mapearMusicaParaFormulario = (musica = {}) => ({
   link_cifra: musica.link_cifra || "",
   cifra_texto: musica.cifra_texto || "",
   observacoes: musica.observacoes || "",
-  tags: musica.tags || "",
+  classificacao: musica.classificacao || "",
   spotify_id: musica.spotify_id || "",
   genius_id: musica.genius_id || "",
   isrc: musica.isrc || "",
@@ -96,6 +98,7 @@ const criarSnapshotEnriquecimento = (musica = {}) => ({
 });
 
 export default function Musicas() {
+  const { token, user, logout } = useAuth();
   const [musicas, setMusicas] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -109,31 +112,31 @@ export default function Musicas() {
   });
   const [enrichmentSnapshot, setEnrichmentSnapshot] = useState(null);
 
-  const urlLimpa = getApiBaseUrl();
   const isReadOnly = modalMode === "view";
+  const canManageMusic =
+    user?.is_global_admin || [1, 2].includes(Number(user?.nivel_acesso));
 
   const carregarMusicas = useCallback(() => {
-    const token = localStorage.getItem("token");
+    if (!token) {
+      return;
+    }
 
-    fetch(`${urlLimpa}/api/musicas/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (res.status === 401) throw new Error("Não autorizado");
-        return res.json();
-      })
+    authFetch("/api/musicas/", token)
       .then((dados) => {
         const musicasAtivas = dados
           .filter((musica) => musica.is_active !== false)
           .sort((a, b) => a.titulo.localeCompare(b.titulo, "pt-BR"));
         setMusicas(musicasAtivas);
       })
-      .catch((erro) => {
-        console.error(erro);
-        localStorage.removeItem("token");
-        window.location.href = "/";
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+          return;
+        }
+
+        console.error(error);
       });
-  }, [urlLimpa]);
+  }, [logout, token]);
 
   useEffect(() => {
     carregarMusicas();
@@ -157,28 +160,19 @@ export default function Musicas() {
     [musicas],
   );
 
-  const tagOptions = useMemo(
-    () =>
-      [...new Set(musicas.flatMap((musica) => extrairTags(musica.tags)))].sort(
-        (a, b) => a.localeCompare(b, "pt-BR"),
-      ),
-    [musicas],
-  );
-
   const musicasFiltradas = useMemo(() => {
     const nomeBusca = normalizarTexto(filtros.nome);
     const artistaBusca = normalizarTexto(filtros.artista);
     const tomBusca = normalizarTexto(filtros.tom);
-    const tagBusca = normalizarTexto(filtros.tag);
+    const classificacaoBusca = normalizarTexto(filtros.classificacao);
 
     return musicas.filter((musica) => {
-      const tagsMusica = extrairTags(musica.tags).map(normalizarTexto);
-
       return (
         (!nomeBusca || normalizarTexto(musica.titulo).includes(nomeBusca)) &&
         (!artistaBusca || normalizarTexto(musica.artista) === artistaBusca) &&
         (!tomBusca || normalizarTexto(musica.tom_original) === tomBusca) &&
-        (!tagBusca || tagsMusica.includes(tagBusca))
+        (!classificacaoBusca ||
+          normalizarTexto(musica.classificacao || "") === classificacaoBusca)
       );
     });
   }, [musicas, filtros]);
@@ -194,6 +188,10 @@ export default function Musicas() {
   };
 
   const handleNovaMusica = () => {
+    if (!canManageMusic) {
+      return;
+    }
+
     setFormData(ESTADO_INICIAL_MUSICA);
     setEditingId(null);
     setModalMode("create");
@@ -212,6 +210,10 @@ export default function Musicas() {
   };
 
   const handleEditarMusica = (musica) => {
+    if (!canManageMusic) {
+      return;
+    }
+
     handleAbrirMusica(musica, "edit");
   };
 
@@ -220,31 +222,36 @@ export default function Musicas() {
   };
 
   const handleExcluirMusica = (id) => {
+    if (!canManageMusic) {
+      return;
+    }
+
     if (
       !window.confirm(
-        "Tem certeza que deseja remover esta música do repertório?",
+        "Tem certeza que deseja remover esta música do repertório atual?",
       )
     ) {
       return;
     }
 
-    const token = localStorage.getItem("token");
-
-    fetch(`${urlLimpa}/api/musicas/${id}/`, {
+    authFetch(`/api/musicas/${id}/`, token, {
       method: "PATCH",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ is_active: false }),
-    }).then((res) => {
-      if (res.ok) {
+    })
+      .then(() => {
         carregarMusicas();
-        return;
-      }
+      })
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+          return;
+        }
 
-      alert("Não foi possível excluir a música. Verifique sua conexão.");
-    });
+        alert("Nao foi possivel excluir a musica. Verifique sua conexao.");
+      });
   };
   const applyEnrichment = (data) => {
     setEnrichmentSnapshot({
@@ -284,6 +291,7 @@ export default function Musicas() {
     const sanitized = { ...payload };
     const nullableFields = [
       "bpm",
+      "duracao",
       "spotify_popularidade",
       "genius_popularidade",
       "metadata_last_synced_at",
@@ -293,6 +301,7 @@ export default function Musicas() {
       "link_audio",
       "link_letra",
       "link_cifra",
+      "classificacao",
     ];
 
     nullableFields.forEach((field) => {
@@ -322,7 +331,10 @@ export default function Musicas() {
   };
 
   const handleEnriquecerMusica = async () => {
-    const token = localStorage.getItem("token");
+    if (!canManageMusic) {
+      return;
+    }
+
     const payload = {
       title: formData.titulo,
       artist: formData.artista,
@@ -342,21 +354,13 @@ export default function Musicas() {
       setEnrichmentFeedback({ text: "", type: "" });
       setEnrichmentSnapshot(null);
 
-      const response = await fetch(`${urlLimpa}/api/musicas/enriquecer/`, {
+      const data = await authFetch("/api/musicas/enriquecer/", token, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(
-          data.detail || "Não foi possível enriquecer os metadados.",
-        );
-      }
 
       applyEnrichment(data);
       setEnrichmentFeedback({
@@ -364,6 +368,11 @@ export default function Musicas() {
         type: "success",
       });
     } catch (error) {
+      if (error.status === 401) {
+        logout();
+        return;
+      }
+
       setEnrichmentFeedback({
         text: error.message || "Falha ao consultar Spotify/Genius.",
         type: "error",
@@ -375,32 +384,52 @@ export default function Musicas() {
 
   const handleSalvarMusica = (event) => {
     event.preventDefault();
-    const token = localStorage.getItem("token");
+    if (!canManageMusic) {
+      return;
+    }
+
+    const validation = musicFormSchema.safeParse(formData);
+    if (!validation.success) {
+      setEnrichmentFeedback({
+        text: validation.error.issues[0]?.message || "Dados invalidos para a musica.",
+        type: "error",
+      });
+      return;
+    }
+
     const url = editingId
-      ? `${urlLimpa}/api/musicas/${editingId}/`
-      : `${urlLimpa}/api/musicas/`;
+      ? `/api/musicas/${editingId}/`
+      : "/api/musicas/";
     const method = editingId ? "PATCH" : "POST";
 
-    const dadosEnvio = sanitizeMusicPayload(formData);
+    const dadosEnvio = sanitizeMusicPayload(validation.data);
 
-    fetch(url, {
+    authFetch(url, token, {
       method,
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(dadosEnvio),
-    }).then(async (res) => {
-      if (res.ok) {
+    })
+      .then(() => {
         setEnrichmentFeedback({ text: "", type: "" });
         setIsModalOpen(false);
         carregarMusicas();
-        return;
-      }
+      })
+      .catch(async (error) => {
+        if (error.status === 401) {
+          logout();
+          return;
+        }
 
-      const message = await formatApiError(res);
-      setEnrichmentFeedback({ text: message, type: "error" });
-    });
+        const message = await formatApiError({
+          json: async () => error.data || {},
+        });
+        setEnrichmentFeedback({
+          text: error.message || message,
+          type: "error",
+        });
+      });
   };
 
   return (
@@ -412,13 +441,15 @@ export default function Musicas() {
             Gerencie canções, tons, links e cifras do ministério.
           </p>
         </div>
-        <button
-          type="button"
-          className="lauda-btn lauda-btn-primary"
-          onClick={handleNovaMusica}
-        >
-          <Plus size={18} aria-hidden="true" /> Nova Música
-        </button>
+        {canManageMusic && (
+          <button
+            type="button"
+            className="lauda-btn lauda-btn-primary"
+            onClick={handleNovaMusica}
+          >
+            <Plus size={18} aria-hidden="true" /> Nova Música
+          </button>
+        )}
       </div>
 
       <section className="lauda-card musicas-filtros-card">
@@ -491,19 +522,19 @@ export default function Musicas() {
             </select>
           </label>
 
-          <label className="musicas-filtro-field" htmlFor="filtro-tag">
-            <span className="input-label">Tag</span>
+          <label className="musicas-filtro-field" htmlFor="filtro-classificacao">
+            <span className="input-label">Classificacao</span>
             <select
-              id="filtro-tag"
-              name="tag"
-              value={filtros.tag}
+              id="filtro-classificacao"
+              name="classificacao"
+              value={filtros.classificacao}
               onChange={handleFiltroChange}
               className="input-field"
             >
               <option value="">Todas</option>
-              {tagOptions.map((tag) => (
-                <option key={tag} value={tag}>
-                  {tag}
+              {MUSIC_CLASSIFICATION_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
                 </option>
               ))}
             </select>
@@ -525,30 +556,28 @@ export default function Musicas() {
           </thead>
           <tbody>
             {musicasFiltradas.map((musica) => {
-              const tags = extrairTags(musica.tags);
+              const classificacao = musica.classificacao_meta || MUSIC_CLASSIFICATION_MAP[musica.classificacao];
 
               return (
                 <tr key={musica.id}>
-                  {/* COLUNA 1: TÍTULO, ARTISTA E TAGS */}
+                  {/* COLUNA 1: TITULO, ARTISTA E CLASSIFICACAO */}
                   <td data-label="Música e Artista">
                     <div className="musica-table-main">
                       <div className="musica-table-title">{musica.titulo}</div>
                       <div className="musica-table-artist">
-                        {musica.artista || "Artista não informado"}
+                        {musica.artista || "Artista nao informado"}
                       </div>
-
-                      {tags.length > 0 && (
+                      {classificacao ? (
                         <div className="musica-table-tags">
-                          {tags.map((tag) => (
-                            <span
-                              key={`${musica.id}-${tag}`}
-                              className="musica-tag"
-                            >
-                              {tag}
-                            </span>
-                          ))}
+                          <span
+                            className="musica-tag"
+                            title={classificacao.description}
+                            aria-label={`${classificacao.label}: ${classificacao.description}`}
+                          >
+                            {classificacao.label}
+                          </span>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </td>
 
@@ -623,24 +652,28 @@ export default function Musicas() {
                       >
                         <Eye size={16} aria-hidden="true" />
                       </button>
-                      <button
-                        type="button"
-                        className="lauda-btn lauda-btn-secondary musica-table-btn musica-table-icon-btn"
-                        onClick={() => handleEditarMusica(musica)}
-                        aria-label={`Editar ${musica.titulo}`}
-                        title="Editar"
-                      >
-                        <Edit2 size={16} aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        className="lauda-btn lauda-btn-secondary musica-table-btn musica-table-icon-btn musica-delete-btn"
-                        onClick={() => handleExcluirMusica(musica.id)}
-                        aria-label={`Excluir ${musica.titulo}`}
-                        title="Excluir"
-                      >
-                        <Trash2 size={16} aria-hidden="true" />
-                      </button>
+                      {canManageMusic && (
+                        <>
+                          <button
+                            type="button"
+                            className="lauda-btn lauda-btn-secondary musica-table-btn musica-table-icon-btn"
+                            onClick={() => handleEditarMusica(musica)}
+                            aria-label={`Editar ${musica.titulo}`}
+                            title="Editar"
+                          >
+                            <Edit2 size={16} aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            className="lauda-btn lauda-btn-secondary musica-table-btn musica-table-icon-btn musica-delete-btn"
+                            onClick={() => handleExcluirMusica(musica.id)}
+                            aria-label={`Excluir ${musica.titulo}`}
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} aria-hidden="true" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -685,7 +718,7 @@ export default function Musicas() {
 
             <form onSubmit={handleSalvarMusica}>
               <div className="modal-body modal-form">
-                {!isReadOnly && (
+                {!isReadOnly && canManageMusic && (
                   <div className="musica-enrichment-toolbar">
                     <div>
                       <h4 className="musica-links-title">
@@ -899,6 +932,26 @@ export default function Musicas() {
                     />
                   </div>
                   <div className="form-field-small">
+                    <label className="input-label" htmlFor="musica-duracao">
+                      Duração
+                    </label>
+                    <input
+                      id="musica-duracao"
+                      type="text"
+                      name="duracao"
+                      className="input-field"
+                      value={formData.duracao}
+                      onChange={handleChange}
+                      autoComplete="off"
+                      inputMode="numeric"
+                      maxLength={5}
+                      pattern="[0-9]{2}:[0-5][0-9]"
+                      title="Use o formato mm:ss"
+                      placeholder="Ex: 05:32"
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="form-field-small">
                     <label className="input-label" htmlFor="musica-compasso">
                       Compasso
                     </label>
@@ -1022,20 +1075,29 @@ export default function Musicas() {
                 </div>
 
                 <div>
-                  <label className="input-label" htmlFor="musica-tags">
-                    Tags (Separe por vírgula)
+                  <label className="input-label" htmlFor="musica-classificacao">
+                    Classificacao da musica
                   </label>
-                  <input
-                    id="musica-tags"
-                    type="text"
-                    name="tags"
+                  <select
+                    id="musica-classificacao"
+                    name="classificacao"
                     className="input-field"
-                    value={formData.tags}
+                    value={formData.classificacao}
                     onChange={handleChange}
-                    autoComplete="off"
-                    placeholder="Adoração, Ceia, Animada..."
                     disabled={isReadOnly}
-                  />
+                  >
+                    <option value="">Selecione</option>
+                    {MUSIC_CLASSIFICATION_OPTIONS.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                  {formData.classificacao && (
+                    <p className="text-muted musica-classificacao-help">
+                      {MUSIC_CLASSIFICATION_MAP[formData.classificacao]?.description}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1063,7 +1125,7 @@ export default function Musicas() {
                 >
                   {isReadOnly ? "Fechar" : "Cancelar"}
                 </button>
-                {!isReadOnly && (
+                {!isReadOnly && canManageMusic && (
                   <button type="submit" className="lauda-btn lauda-btn-primary">
                     Salvar Música
                   </button>

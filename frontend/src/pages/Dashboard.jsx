@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import ptBrLocale from "@fullcalendar/core/locales/pt-br";
-import { Calendar } from "lucide-react";
-import { getApiBaseUrl } from "../lib/api";
+import { Calendar, KeyRound } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { authFetch } from "../lib/api";
 import "./Dashboard.css";
 
 const dashboardDateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -14,40 +15,69 @@ const dashboardDateFormatter = new Intl.DateTimeFormat("pt-BR", {
 });
 
 export default function Dashboard() {
+  const { token, user, logout } = useAuth();
   const [stats, setStats] = useState({
     musicas: 0,
     membros: 0,
     cultos: 0,
     minhasEscalas: 0,
   });
+  const [ministerioAtual, setMinisterioAtual] = useState(null);
   const [proximosCultos, setProximosCultos] = useState([]);
   const [calendarTooltip, setCalendarTooltip] = useState(null);
   const [selectedCulto, setSelectedCulto] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [codeNotice, setCodeNotice] = useState("");
+  const [dashboardNotice, setDashboardNotice] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const urlLimpa = getApiBaseUrl();
-    const headers = {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
-    Promise.all([
-      fetch(`${urlLimpa}/api/musicas/`, { headers }),
-      fetch(`${urlLimpa}/api/usuarios/`, { headers }),
-      fetch(`${urlLimpa}/api/cultos/`, { headers }),
-    ])
-      .then(async (responses) => {
-        if (responses[0].status === 401) {
-          localStorage.removeItem("token");
-          window.location.href = "/";
-          throw new Error("Sessão expirada");
+    let isMounted = true;
+
+    const loadDashboard = async () => {
+      try {
+        setDashboardNotice("");
+        const canReadMembers = user?.is_global_admin || Number(user?.nivel_acesso) === 1;
+        const [musicasResult, membrosResult, cultosResult] = await Promise.allSettled([
+          authFetch("/api/musicas/", token),
+          canReadMembers ? authFetch("/api/usuarios/", token) : Promise.resolve([]),
+          authFetch("/api/cultos/", token),
+        ]);
+
+        const failedAuthRequest = [musicasResult, membrosResult, cultosResult].find(
+          (result) => result.status === "rejected" && result.reason?.status === 401,
+        );
+        if (failedAuthRequest) {
+          logout();
+          return;
         }
 
-        return Promise.all(responses.map((res) => (res.ok ? res.json() : [])));
-      })
-      .then(([musicas, membros, cultos]) => {
+        const musicas = musicasResult.status === "fulfilled" ? musicasResult.value : [];
+        const membros = membrosResult.status === "fulfilled" ? membrosResult.value : [];
+        const cultos = cultosResult.status === "fulfilled" ? cultosResult.value : [];
+
+        const failedRequests = [
+          ["musicas", musicasResult],
+          ["usuarios", membrosResult],
+          ["cultos", cultosResult],
+        ].filter(([, result]) => result.status === "rejected");
+
+        failedRequests.forEach(([resource, result]) => {
+          console.error(`Erro ao carregar ${resource} do dashboard:`, result.reason);
+        });
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (failedRequests.length > 0) {
+          setDashboardNotice("Parte do painel nao foi carregada. Atualize a pagina apos corrigir o backend.");
+        }
+
         setStats({
           musicas: musicas.length || 0,
           membros: membros.length || 0,
@@ -63,14 +93,75 @@ export default function Dashboard() {
           .sort((a, b) => new Date(a.data) - new Date(b.data));
 
         setProximosCultos(futuros.slice(0, 5));
-      })
-      .catch((error) => console.error("Erro ao carregar dashboard:", error))
-      .finally(() => setLoading(false));
-  }, []);
+
+        if (Number(user?.nivel_acesso) === 1) {
+          try {
+            const ministerioData = await authFetch("/api/ministerios/current/", token);
+            if (isMounted) {
+              setMinisterioAtual(ministerioData);
+            }
+          } catch (error) {
+            if (error.status === 401) {
+              logout();
+              return;
+            }
+
+            console.error("Erro ao carregar ministerio atual no dashboard:", error);
+            if (isMounted) {
+              setMinisterioAtual(null);
+              setDashboardNotice(
+                "O painel carregou parcialmente. Nao foi possivel buscar os dados do ministerio.",
+              );
+            }
+          }
+        }
+      } catch (error) {
+        if (error.status === 401) {
+          logout();
+          return;
+        }
+
+        console.error("Erro ao carregar dashboard:", error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadDashboard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [logout, token, user?.is_global_admin, user?.nivel_acesso]);
 
   if (loading) {
-    return <div className="dashboard-loading">Carregando painel…</div>;
+    return <div className="dashboard-loading">Carregando painel...</div>;
   }
+
+  const handleRegenerateAccessCode = async () => {
+    if (!ministerioAtual?.id) {
+      return;
+    }
+
+    try {
+      const ministerioData = await authFetch(
+        `/api/ministerios/${ministerioAtual.id}/regenerate-access-code/`,
+        token,
+        { method: "POST" },
+      );
+      setMinisterioAtual(ministerioData);
+      setCodeNotice("Codigo fixo regenerado com sucesso.");
+    } catch (error) {
+      if (error.status === 401) {
+        logout();
+        return;
+      }
+
+      setCodeNotice(error.message || "Nao foi possivel regenerar o codigo.");
+    }
+  };
 
   const eventosCultos = proximosCultos.map((culto) => ({
     id: String(culto.id),
@@ -96,6 +187,10 @@ export default function Dashboard() {
 
   return (
     <div className="stack-lg">
+      {dashboardNotice && (
+        <div className="status-alert status-alert--error">{dashboardNotice}</div>
+      )}
+
       <div className="dashboard-grid">
         <div className="lauda-card stat-card">
           <h3>{stats.cultos}</h3>
@@ -115,6 +210,31 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {ministerioAtual?.access_code && (
+        <section className="lauda-card">
+          <h3 className="text-primary">
+            <KeyRound size={18} aria-hidden="true" /> Codigo Fixo do Ministerio
+          </h3>
+          <p className="text-muted">
+            Compartilhe este codigo com novos membros quando quiser usar a entrada padrao do ministerio.
+          </p>
+          <div className="dashboard-calendar-highlight">
+            <strong>{ministerioAtual.access_code}</strong>
+            <span>{ministerioAtual.nome}</span>
+          </div>
+          {codeNotice && <p className="text-muted">{codeNotice}</p>}
+          <div className="modal-footer">
+            <button
+              type="button"
+              className="lauda-btn lauda-btn-secondary"
+              onClick={handleRegenerateAccessCode}
+            >
+              Regenerar codigo
+            </button>
+          </div>
+        </section>
+      )}
+
       <section className="agenda-section">
         <h2 className="dashboard-title text-primary">
           <Calendar size={24} aria-hidden="true" /> Agenda de Cultos
@@ -126,12 +246,9 @@ export default function Dashboard() {
                 <span className="badge badge-primary">Próximo culto</span>
                 <strong>{proximosCultos[0]?.nome}</strong>
                 <span>
-                  {new Date(proximosCultos[0]?.data).toLocaleDateString(
-                    "pt-BR",
-                    {
-                      timeZone: "UTC",
-                    },
-                  )}
+                  {new Date(proximosCultos[0]?.data).toLocaleDateString("pt-BR", {
+                    timeZone: "UTC",
+                  })}
                 </span>
               </div>
 

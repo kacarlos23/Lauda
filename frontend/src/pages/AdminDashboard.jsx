@@ -28,7 +28,7 @@ function slugify(value) {
 }
 
 export default function AdminDashboard() {
-  const { token, user } = useAuth();
+  const { token, user, logout } = useAuth();
   const [ministerios, setMinisterios] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [cultos, setCultos] = useState([]);
@@ -44,12 +44,36 @@ export default function AdminDashboard() {
     setError("");
 
     try {
-      const [ministeriosData, usuariosData, cultosData, convitesData] = await Promise.all([
+      const [ministeriosResult, usuariosResult, cultosResult, convitesResult] = await Promise.allSettled([
         authFetch("/api/ministerios/", token),
         authFetch("/api/usuarios/", token),
         authFetch("/api/cultos/", token),
         authFetch("/api/convites/", token),
       ]);
+
+      const failedAuthRequest = [ministeriosResult, usuariosResult, cultosResult, convitesResult].find(
+        (result) => result.status === "rejected" && result.reason?.status === 401,
+      );
+      if (failedAuthRequest) {
+        logout();
+        return;
+      }
+
+      const ministeriosData = ministeriosResult.status === "fulfilled" ? ministeriosResult.value : [];
+      const usuariosData = usuariosResult.status === "fulfilled" ? usuariosResult.value : [];
+      const cultosData = cultosResult.status === "fulfilled" ? cultosResult.value : [];
+      const convitesData = convitesResult.status === "fulfilled" ? convitesResult.value : [];
+
+      const failedRequests = [
+        ["ministerios", ministeriosResult],
+        ["usuarios", usuariosResult],
+        ["cultos", cultosResult],
+        ["convites", convitesResult],
+      ].filter(([, result]) => result.status === "rejected");
+
+      failedRequests.forEach(([resource, result]) => {
+        console.error(`Erro ao carregar ${resource} do painel global:`, result.reason);
+      });
 
       setMinisterios(ministeriosData);
       setUsuarios(usuariosData);
@@ -59,12 +83,20 @@ export default function AdminDashboard() {
         ...current,
         ministerio_id: current.ministerio_id || String(ministeriosData[0]?.id || ""),
       }));
+      if (failedRequests.length > 0) {
+        setError("Parte do painel global nao foi carregada. Verifique os endpoints com erro.");
+      }
     } catch (err) {
+      if (err.status === 401) {
+        logout();
+        return;
+      }
+
       setError(err.message || "Nao foi possivel carregar o painel global.");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [logout, token]);
 
   useEffect(() => {
     loadDashboard();
@@ -99,6 +131,11 @@ export default function AdminDashboard() {
       setMinistryForm(INITIAL_MINISTRY_FORM);
       loadDashboard();
     } catch (err) {
+      if (err.status === 401) {
+        logout();
+        return;
+      }
+
       setError(err.message || "Nao foi possivel criar o ministerio.");
     }
   };
@@ -123,7 +160,31 @@ export default function AdminDashboard() {
       setInviteForm((current) => ({ ...INITIAL_INVITE_FORM, ministerio_id: current.ministerio_id }));
       loadDashboard();
     } catch (err) {
+      if (err.status === 401) {
+        logout();
+        return;
+      }
+
       setError(err.message || "Nao foi possivel gerar o convite.");
+    }
+  };
+
+  const handleRegenerateAccessCode = async (ministerioId) => {
+    setError("");
+
+    try {
+      await authFetch(`/api/ministerios/${ministerioId}/regenerate-access-code/`, token, {
+        method: "POST",
+      });
+      setNotice("Codigo de acesso regenerado com sucesso.");
+      loadDashboard();
+    } catch (err) {
+      if (err.status === 401) {
+        logout();
+        return;
+      }
+
+      setError(err.message || "Nao foi possivel regenerar o codigo.");
     }
   };
 
@@ -305,19 +366,31 @@ export default function AdminDashboard() {
               <thead>
                 <tr>
                   <th>Ministerio</th>
+                  <th>Codigo fixo</th>
                   <th>Slug</th>
                   <th>Status</th>
+                  <th>Acoes</th>
                 </tr>
               </thead>
               <tbody>
                 {ministerios.map((ministerio) => (
                   <tr key={ministerio.id}>
                     <td data-label="Ministerio">{ministerio.nome}</td>
+                    <td data-label="Codigo fixo">{ministerio.access_code}</td>
                     <td data-label="Slug">{ministerio.slug}</td>
                     <td data-label="Status">
                       <span className={`badge ${ministerio.is_active ? "badge-primary" : "badge-gray"}`}>
                         {ministerio.is_active ? "Ativo" : "Inativo"}
                       </span>
+                    </td>
+                    <td data-label="Acoes">
+                      <button
+                        type="button"
+                        className="lauda-btn lauda-btn-secondary"
+                        onClick={() => handleRegenerateAccessCode(ministerio.id)}
+                      >
+                        Regenerar codigo
+                      </button>
                     </td>
                   </tr>
                 ))}

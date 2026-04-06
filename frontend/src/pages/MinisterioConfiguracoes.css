@@ -1,0 +1,110 @@
+.ministerio-config-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ministerio-config-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+.ministerio-logo-card,
+.ministerio-details-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ministerio-logo-preview,
+.ministerio-logo-placeholder {
+  width: min(100%, 260px);
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+}
+
+.ministerio-logo-preview {
+  object-fit: cover;
+  border: 1px solid var(--border-default);
+}
+
+.ministerio-logo-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 0.5rem;
+  border: 1px dashed var(--border-default);
+  background: linear-gradient(135deg, var(--interactive-primary-soft), var(--bg-surface-subtle));
+  color: var(--interactive-primary);
+}
+
+.ministerio-logo-placeholder strong {
+  font-size: 1.9rem;
+}
+
+.ministerio-config-help {
+  margin-top: 0.45rem;
+  margin-bottom: 0;
+}
+
+.ministerio-access-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.ministerio-copy-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.ministerio-copy-row .input-field {
+  flex: 1;
+}
+
+.ministerio-access-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+}
+
+.ministerio-access-status.open {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.24);
+}
+
+.ministerio-access-status.closed {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.22);
+}
+
+.ministerio-access-status strong {
+  color: var(--text-primary);
+}
+
+.ministerio-access-status span {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.ministerio-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .ministerio-config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ministerio-copy-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

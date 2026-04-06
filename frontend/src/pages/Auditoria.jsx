@@ -7,10 +7,12 @@ import {
   LayoutList,
   ShieldCheck,
 } from "lucide-react";
-import { getApiBaseUrl } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
+import { authFetch } from "../lib/api";
 import "./Auditoria.css";
 
 export default function Auditoria() {
+  const { token, logout } = useAuth();
   const [resumo, setResumo] = useState({
     total_eventos: 0,
     eventos_hoje: 0,
@@ -22,46 +24,60 @@ export default function Auditoria() {
   const [filtros, setFiltros] = useState({ acao: "", usuario: "" });
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
-  const [loading, setLoading] = useState(true);
-
-  const urlLimpa = getApiBaseUrl();
+  const [loading, setLoading] = useState(() => Boolean(token));
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const headers = { Authorization: `Bearer ${token}` };
+    if (!token) {
+      return;
+    }
 
-    fetch(`${urlLimpa}/api/usuarios/`, { headers })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((dados) => setUsuarios(dados));
+    authFetch("/api/usuarios/", token)
+      .then((dados) => setUsuarios(dados))
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+        }
+      });
 
-    fetch(`${urlLimpa}/api/auditoria/resumo/`, { headers })
-      .then((res) => (res.ok ? res.json() : null))
+    authFetch("/api/auditoria/resumo/", token)
       .then((dados) => {
         if (dados) setResumo(dados);
+      })
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+        }
       });
-  }, [urlLimpa]);
+  }, [logout, token]);
 
   const carregarTrilha = useCallback(() => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
-    const token = localStorage.getItem("token");
     const query = new URLSearchParams({
       page: paginaAtual,
       acao: filtros.acao,
       usuario: filtros.usuario,
     }).toString();
 
-    fetch(`${urlLimpa}/api/auditoria/?${query}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
+    authFetch(`/api/auditoria/?${query}`, token)
       .then((dados) => {
         setLogs(dados.results || []);
         setTotalPaginas(Math.ceil((dados.count || 0) / 10));
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, [filtros.acao, filtros.usuario, paginaAtual, urlLimpa]);
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+        }
+
+        setLoading(false);
+      });
+  }, [filtros.acao, filtros.usuario, logout, paginaAtual, token]);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {

@@ -3,6 +3,7 @@ import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from "react-rou
 import {
   Building2,
   Calendar,
+  FolderKanban,
   Home,
   LogOut,
   Menu,
@@ -16,15 +17,20 @@ import {
   Users,
 } from "lucide-react";
 import "./App.css";
+import MinistryNameLink from "./components/MinistryNameLink";
 import { useAuth } from "./context/AuthContext";
+import { usePermissions } from "./hooks/usePermissions";
 import { authFetch } from "./lib/api";
 import AdminDashboard from "./pages/AdminDashboard";
 import Auditoria from "./pages/Auditoria";
+import ClassificacoesMusicais from "./pages/ClassificacoesMusicais";
 import Cultos from "./pages/Cultos";
 import Dashboard from "./pages/Dashboard";
+import Equipes from "./pages/Equipes";
 import Invite from "./pages/Invite";
 import Login from "./pages/Login";
 import Membros from "./pages/Membros";
+import MinisterioConfiguracoes from "./pages/MinisterioConfiguracoes";
 import Musicas from "./pages/Musicas";
 import Perfil from "./pages/Perfil";
 
@@ -41,7 +47,7 @@ function App() {
         updateUser(profile);
       })
       .catch((error) => {
-        if (error.message?.toLowerCase().includes("token")) {
+        if (error.status === 401 || error.message?.toLowerCase().includes("token")) {
           logout();
         }
       });
@@ -62,6 +68,9 @@ function App() {
           <Route path="/app" element={<Dashboard />} />
           <Route path="/app/musicas" element={<Musicas />} />
           <Route path="/app/cultos" element={<Cultos />} />
+          <Route path="/app/equipes" element={<Equipes />} />
+          <Route path="/app/ministerio/configuracoes" element={<MinisterioConfiguracoes />} />
+          <Route path="/app/ministerio/classificacoes" element={<ClassificacoesMusicais />} />
           <Route path="/app/membros" element={<Membros />} />
           <Route path="/app/perfil" element={<Perfil />} />
           <Route path="/app/auditoria" element={<Auditoria />} />
@@ -112,6 +121,7 @@ function RequireAdminRoute() {
 
 function AppShell({ variant }) {
   const { user, logout } = useAuth();
+  const permissions = usePermissions(user);
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -125,7 +135,6 @@ function AppShell({ variant }) {
   );
 
   const isGlobalAdmin = variant === "admin";
-  const isMinistryAdmin = !isGlobalAdmin && Number(user?.nivel_acesso) === 1;
   const ministryName = user?.ministerio_nome || "Ministerio";
   const shellTitle = isGlobalAdmin ? "Painel Global" : ministryName;
   const shellSubtitle = isGlobalAdmin ? "Gestao multi-ministerio" : "Aplicacao do ministerio";
@@ -141,7 +150,8 @@ function AppShell({ variant }) {
         { to: "/app", label: "Dashboard", icon: Home, end: true },
         { to: "/app/musicas", label: "Musicas", icon: Music2 },
         { to: "/app/cultos", label: "Cultos", icon: Calendar },
-        ...(isMinistryAdmin
+        { to: "/app/equipes", label: "Equipes", icon: FolderKanban },
+        ...(permissions.isMinistryAdmin
           ? [
               { to: "/app/membros", label: "Membros", icon: Users },
               { to: "/app/auditoria", label: "Auditoria", icon: Shield },
@@ -185,7 +195,13 @@ function AppShell({ variant }) {
         <div className="lauda-sidebar-top">
           <div className="sidebar-brand-block">
             <span className="sidebar-brand-kicker">{isGlobalAdmin ? "Admin" : "Ministerio"}</span>
-            <strong>{shellTitle}</strong>
+            {permissions.canViewMinistrySettings ? (
+              <MinistryNameLink to="/app/ministerio/configuracoes" className="ministry-route-link">
+                <strong>{shellTitle}</strong>
+              </MinistryNameLink>
+            ) : (
+              <strong>{shellTitle}</strong>
+            )}
           </div>
 
           <nav className="lauda-nav">
@@ -202,10 +218,17 @@ function AppShell({ variant }) {
 
         <div className="lauda-sidebar-bottom">
           {!isGlobalAdmin && (
-            <div className="sidebar-ministry-chip">
-              <Building2 size={16} aria-hidden="true" />
-              <span>{ministryName}</span>
-            </div>
+            permissions.canViewMinistrySettings ? (
+              <MinistryNameLink to="/app/ministerio/configuracoes" className="sidebar-ministry-chip ministry-route-link">
+                <Building2 size={16} aria-hidden="true" />
+                <span>{ministryName}</span>
+              </MinistryNameLink>
+            ) : (
+              <div className="sidebar-ministry-chip">
+                <Building2 size={16} aria-hidden="true" />
+                <span>{ministryName}</span>
+              </div>
+            )
           )}
 
           <button
@@ -243,7 +266,13 @@ function AppShell({ variant }) {
                 <Music size={22} aria-hidden="true" className="header-title-icon" />
                 <span className="header-title-text">Ministerio de Louvor</span>
               </h1>
-              <span className="header-context-line">{shellTitle} · {shellSubtitle}</span>
+              {permissions.canViewMinistrySettings ? (
+                <MinistryNameLink to="/app/ministerio/configuracoes" className="header-context-line ministry-route-link">
+                  {shellTitle} · {shellSubtitle}
+                </MinistryNameLink>
+              ) : (
+                <span className="header-context-line">{shellTitle} · {shellSubtitle}</span>
+              )}
             </div>
           </div>
 

@@ -1,8 +1,11 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, KeyRound, Mail, Music, ShieldCheck, UserRound } from "lucide-react";
+import MultiSelectField from "../components/MultiSelectField";
 import { useAuth } from "../context/AuthContext";
+import { USER_FUNCTION_OPTIONS } from "../lib/constants";
 import { apiFetch } from "../lib/api";
+import { inviteSchema } from "../lib/schemas";
 import "./Invite.css";
 
 const INITIAL_FORM = {
@@ -12,7 +15,7 @@ const INITIAL_FORM = {
   last_name: "",
   email: "",
   telefone: "",
-  funcao_principal: "",
+  funcoes: [],
 };
 
 export default function Invite() {
@@ -43,14 +46,23 @@ export default function Invite() {
           email: data.email || current.email,
         }));
       })
-      .catch((err) => setError(err.message || "Nao foi possivel carregar o convite."))
+      .catch((requestError) =>
+        setError(requestError.message || "Nao foi possivel carregar o convite."),
+      )
       .finally(() => setLoading(false));
   }, [code]);
 
   const accessLabel = useMemo(() => {
     if (!invite) return "Convite";
-    return invite.nome_convidado || invite.email || invite.access_code;
+    return invite.nome_convidado || invite.email || "Convite ativo";
   }, [invite]);
+
+  const accessLevelLabel = useMemo(() => {
+    if (!invite) return "";
+    return invite.nivel_acesso_label || "Membro";
+  }, [invite]);
+
+  const isMinistryAccessCode = invite?.code_source === "MINISTERIO";
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -63,16 +75,21 @@ export default function Invite() {
     setSubmitting(true);
 
     try {
+      const validation = inviteSchema.safeParse(formData);
+      if (!validation.success) {
+        throw new Error(validation.error.issues[0]?.message || "Dados invalidos.");
+      }
+
       const session = await apiFetch("/api/auth/invites/accept/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, code: code || manualCode }),
+        body: JSON.stringify({ ...validation.data, code: code || manualCode }),
       });
 
       login(session);
       navigate("/app", { replace: true });
-    } catch (err) {
-      setError(err.message || "Nao foi possivel aceitar o convite.");
+    } catch (requestError) {
+      setError(requestError.message || "Nao foi possivel aceitar o convite.");
     } finally {
       setSubmitting(false);
     }
@@ -93,17 +110,17 @@ export default function Invite() {
         <div className="invite-hero">
           <div className="invite-badge">
             <ShieldCheck size={16} aria-hidden="true" />
-            <span>Convite de ministério</span>
+            <span>Convite de ministerio</span>
           </div>
           <h1>Entrada por convite</h1>
           <p>
-            Use o link recebido ou informe o código manual para entrar em um ministério específico.
+            Use o link recebido ou informe um codigo valido para entrar no ministerio correto.
           </p>
         </div>
 
         <div className="invite-lookup">
           <label className="input-label" htmlFor="invite-code">
-            Código de acesso
+            Codigo de acesso
           </label>
           <div className="invite-lookup-row">
             <input
@@ -115,7 +132,7 @@ export default function Invite() {
               placeholder="ABC123XYZ"
             />
             <button type="button" className="lauda-btn lauda-btn-secondary" onClick={handleManualLookup}>
-              Validar código
+              Validar codigo
             </button>
           </div>
         </div>
@@ -131,25 +148,29 @@ export default function Invite() {
                 <Music size={24} aria-hidden="true" />
                 <div>
                   <strong>{invite.ministerio.nome}</strong>
-                  <span>{accessLabel}</span>
+                  <span>{isMinistryAccessCode ? "Codigo fixo do ministerio" : accessLabel}</span>
                 </div>
               </div>
 
               <ul className="invite-meta-list">
                 <li>
-                  <span>Código manual</span>
-                  <strong>{invite.access_code}</strong>
+                  <span>Tipo de entrada</span>
+                  <strong>{isMinistryAccessCode ? "Codigo fixo do ministerio" : "Convite rotativo"}</strong>
                 </li>
                 <li>
-                  <span>Status</span>
-                  <strong>{invite.status}</strong>
+                  <span>Perfil inicial</span>
+                  <strong>{accessLevelLabel}</strong>
                 </li>
                 <li>
-                  <span>Usos</span>
-                  <strong>
-                    {invite.uses_count}/{invite.max_uses}
-                  </strong>
+                  <span>Escopo</span>
+                  <strong>{isMinistryAccessCode ? "Entrada padrao para novos membros" : "Convite individual para este ministerio"}</strong>
                 </li>
+                {invite.expires_at && (
+                  <li>
+                    <span>Expira em</span>
+                    <strong>{new Date(invite.expires_at).toLocaleString("pt-BR")}</strong>
+                  </li>
+                )}
               </ul>
             </section>
 
@@ -182,16 +203,15 @@ export default function Invite() {
                   />
                 </div>
                 <div className="form-col form-col-md">
-                  <label className="input-label" htmlFor="funcao_principal">
-                    Função principal
-                  </label>
-                  <input
-                    id="funcao_principal"
-                    name="funcao_principal"
-                    className="input-field"
-                    value={formData.funcao_principal}
-                    onChange={handleChange}
-                    placeholder="Vocal, guitarra, teclado..."
+                  <MultiSelectField
+                    id="invite-funcoes"
+                    label="Funcoes ministeriais"
+                    value={formData.funcoes}
+                    options={USER_FUNCTION_OPTIONS}
+                    onChange={(nextFuncoes) =>
+                      setFormData((current) => ({ ...current, funcoes: nextFuncoes }))
+                    }
+                    description="Selecione uma ou mais funcoes para seu cadastro inicial."
                   />
                 </div>
               </div>
@@ -199,7 +219,7 @@ export default function Invite() {
               <div className="form-row">
                 <div className="form-col form-col-md">
                   <label className="input-label" htmlFor="username">
-                    Usuário
+                    Usuario
                   </label>
                   <div className="input-with-icon">
                     <UserRound size={16} aria-hidden="true" />
@@ -275,4 +295,3 @@ export default function Invite() {
     </main>
   );
 }
-

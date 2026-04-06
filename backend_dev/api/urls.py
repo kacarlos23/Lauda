@@ -11,6 +11,7 @@ from .views import (
     LogAuditoriaViewSet,
     MinisterioViewSet,
     MusicaViewSet,
+    TeamViewSet,
     UsuarioViewSet,
 )
 
@@ -23,6 +24,7 @@ router.register(r"cultos", CultoViewSet)
 router.register(r"escalas", EscalaViewSet)
 router.register(r"setlists", ItemSetlistViewSet)
 router.register(r"auditoria", LogAuditoriaViewSet)
+router.register(r"equipes", TeamViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),

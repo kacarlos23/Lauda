@@ -1,0 +1,245 @@
+.multi-select-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.multi-select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 48px;
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.multi-select-trigger:hover:not(:disabled),
+.multi-select-trigger.is-open {
+  border-color: var(--interactive-primary);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.22);
+}
+
+.multi-select-trigger-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.multi-select-trigger-title,
+.multi-select-trigger-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multi-select-trigger-title {
+  font-size: 0.94rem;
+  font-weight: 600;
+}
+
+.multi-select-trigger-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.multi-select-help {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.multi-select-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.multi-select-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.58rem;
+  border-radius: 999px;
+  background: var(--interactive-primary-soft);
+  color: var(--interactive-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.multi-select-modal {
+  max-width: 560px;
+}
+
+.multi-select-modal .modal-title p {
+  margin-top: 0.3rem;
+}
+
+.multi-select-selectbox-shell,
+.multi-select-current-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.multi-select-selectbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem 0;
+}
+
+.multi-select-selectbox-label,
+.multi-select-current-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.multi-select-selectbox-count {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.multi-select-selectbox {
+  max-height: min(46vh, 360px);
+  overflow-y: auto;
+  padding: 0.25rem;
+  border: 1px solid var(--border-default);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(14, 23, 41, 0.96), rgba(8, 14, 30, 0.94)),
+    var(--bg-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.multi-select-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.72rem 0.78rem;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.multi-select-option:hover,
+.multi-select-option:focus-visible {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(96, 165, 250, 0.34);
+  outline: none;
+}
+
+.multi-select-option.is-selected {
+  background: rgba(37, 99, 235, 0.16);
+  border-color: rgba(96, 165, 250, 0.4);
+}
+
+.multi-select-option-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.72rem;
+  min-width: 0;
+}
+
+.multi-select-option-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--interactive-primary);
+}
+
+.multi-select-option-label {
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.multi-select-option-check {
+  width: 20px;
+  display: inline-flex;
+  justify-content: center;
+  color: var(--interactive-primary);
+}
+
+.multi-select-empty {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.multi-select-cancel-btn {
+  background: transparent;
+}
+
+.multi-select-cancel-btn:hover:not(:disabled) {
+  background: var(--bg-surface-subtle);
+}
+
+@media (max-width: 768px) {
+  .multi-select-field {
+    gap: 0.45rem;
+  }
+
+  .multi-select-trigger {
+    min-height: 46px;
+    padding: 0.68rem 0.78rem;
+  }
+
+  .multi-select-trigger-title {
+    font-size: 0.9rem;
+  }
+
+  .multi-select-trigger-subtitle,
+  .multi-select-help {
+    font-size: 0.78rem;
+  }
+
+  .multi-select-modal {
+    max-width: none;
+  }
+
+  .multi-select-selectbox-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.55rem 0.55rem 0;
+  }
+
+  .multi-select-selectbox {
+    max-height: min(52svh, 420px);
+    border-radius: 16px;
+  }
+
+  .multi-select-option {
+    padding: 0.66rem 0.68rem;
+    gap: 0.65rem;
+  }
+
+  .multi-select-option-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+  }
+
+  .multi-select-option-label {
+    font-size: 0.86rem;
+  }
+}

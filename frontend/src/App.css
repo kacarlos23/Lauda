@@ -802,6 +802,21 @@ button.lauda-nav-item {
   overflow-wrap: anywhere;
 }
 
+.ministry-route-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ministry-route-link:hover {
+  color: var(--interactive-primary);
+}
+
+.ministry-route-link:focus-visible {
+  border-radius: var(--radius-sm);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
 .sidebar-ministry-chip {
   display: inline-flex;
   align-items: center;

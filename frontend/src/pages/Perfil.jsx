@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
 import { CheckCircle, Lock, Mail, Phone, Shield, User } from "lucide-react";
-import { getApiBaseUrl } from "../lib/api";
+import MultiSelectField from "../components/MultiSelectField";
+import { useAuth } from "../context/AuthContext";
+import { USER_FUNCTION_OPTIONS } from "../lib/constants";
+import { authFetch } from "../lib/api";
+import { profileSchema } from "../lib/schemas";
 import "./Perfil.css";
 
 export default function Perfil() {
+  const { token, updateUser, logout } = useAuth();
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
@@ -11,28 +16,29 @@ export default function Perfil() {
     telefone: "",
     username: "",
     funcao_principal: "",
+    funcoes: [],
   });
   const [passwordData, setPasswordData] = useState({
     password: "",
     confirm_password: "",
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(token));
   const [mensagemSucesso, setMensagemSucesso] = useState("");
   const [erro, setErro] = useState("");
 
-  const urlLimpa = getApiBaseUrl();
-
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    if (!token) {
+      return;
+    }
 
-    fetch(`${urlLimpa}/api/usuarios/me/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Erro ao carregar perfil");
-        return res.json();
-      })
+    let isMounted = true;
+
+    authFetch("/api/usuarios/me/", token)
       .then((dados) => {
+        if (!isMounted) {
+          return;
+        }
+
         setFormData({
           first_name: dados.first_name || "",
           last_name: dados.last_name || "",
@@ -40,15 +46,28 @@ export default function Perfil() {
           telefone: dados.telefone || "",
           username: dados.username || "",
           funcao_principal: dados.funcao_principal || "",
+          funcoes: dados.funcoes || [],
         });
-        setLoading(false);
       })
-      .catch((err) => {
-        console.error(err);
-        setErro("Não foi possível carregar os dados.");
-        setLoading(false);
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+          return;
+        }
+
+        console.error(error);
+        setErro("Nao foi possivel carregar os dados.");
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
       });
-  }, [urlLimpa]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [logout, token]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -63,36 +82,44 @@ export default function Perfil() {
     setErro("");
     setMensagemSucesso("");
 
-    const token = localStorage.getItem("token");
-    const dadosEnvio = { ...formData };
+    const validation = profileSchema.safeParse(formData);
+    if (!validation.success) {
+      setErro(validation.error.issues[0]?.message || "Dados invalidos.");
+      return;
+    }
+
+    const dadosEnvio = { ...validation.data };
 
     if (passwordData.password) {
       if (passwordData.password !== passwordData.confirm_password) {
-        setErro("As senhas não coincidem!");
+        setErro("As senhas nao coincidem!");
         return;
       }
 
       dadosEnvio.password = passwordData.password;
     }
 
-    fetch(`${urlLimpa}/api/usuarios/me/`, {
+    authFetch("/api/usuarios/me/", token, {
       method: "PATCH",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(dadosEnvio),
     })
-      .then((res) => {
-        if (!res.ok) throw new Error("Erro ao salvar alterações");
-        return res.json();
-      })
-      .then(() => {
+      .then((dadosAtualizados) => {
+        updateUser(dadosAtualizados);
         setMensagemSucesso("Perfil atualizado com sucesso!");
         setPasswordData({ password: "", confirm_password: "" });
         setTimeout(() => setMensagemSucesso(""), 4000);
       })
-      .catch((err) => setErro(err.message));
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+          return;
+        }
+
+        setErro(error.message || "Erro ao salvar alteracoes");
+      });
   };
 
   if (loading) {
@@ -107,7 +134,7 @@ export default function Perfil() {
             <User size={28} /> Meu Perfil
           </h2>
           <p className="text-muted">
-            Gerencie suas informações pessoais e senha de acesso
+            Gerencie suas informacoes pessoais e senha de acesso
           </p>
         </div>
       </div>
@@ -124,21 +151,20 @@ export default function Perfil() {
         <form onSubmit={handleSalvarPerfil} className="lauda-card perfil-form">
           <div>
             <h3 className="perfil-section-title">
-              <Shield size={18} /> Informações da Conta
+              <Shield size={18} /> Informacoes da Conta
             </h3>
 
             <div className="perfil-account-meta">
               <div>
-                <strong>Usuário:</strong> @{formData.username}
+                <strong>Usuario:</strong> @{formData.username}
               </div>
               <div>
-                <strong>Função Principal:</strong> {formData.funcao_principal}
+                <strong>Funcao Principal:</strong> {formData.funcao_principal}
               </div>
             </div>
 
             <p className="text-muted perfil-help">
-              Para alterar seu usuário ou função ministerial, contate o
-              administrador.
+              Seu usuario e somente leitura. As funcoes ministeriais agora podem ser atualizadas neste painel.
             </p>
           </div>
 
@@ -200,13 +226,30 @@ export default function Perfil() {
                 />
               </div>
             </div>
+
+            <MultiSelectField
+              id="perfil-funcoes"
+              label="Funcoes ministeriais"
+              value={formData.funcoes}
+              options={USER_FUNCTION_OPTIONS}
+              onChange={(nextFuncoes) =>
+                setFormData((current) => ({
+                  ...current,
+                  funcoes: nextFuncoes,
+                  funcao_principal: nextFuncoes[0] || "",
+                }))
+              }
+              description="Selecione uma ou mais funcoes. A primeira sera usada como funcao principal."
+            />
           </div>
 
           <div>
             <h3 className="perfil-section-title">
-              <Lock size={18} /> Segurança
+              <Lock size={18} /> Seguranca
             </h3>
-            <p className="text-muted">Deixe em branco se não quiser alterar sua senha.</p>
+            <p className="text-muted">
+              Deixe em branco se nao quiser alterar sua senha.
+            </p>
 
             <div className="form-row">
               <div className="form-col form-col-md">
@@ -217,7 +260,7 @@ export default function Perfil() {
                   className="input-field"
                   value={passwordData.password}
                   onChange={handlePasswordChange}
-                  placeholder="••••••••"
+                  placeholder="********"
                 />
               </div>
 
@@ -229,7 +272,7 @@ export default function Perfil() {
                   className="input-field"
                   value={passwordData.confirm_password}
                   onChange={handlePasswordChange}
-                  placeholder="••••••••"
+                  placeholder="********"
                 />
               </div>
             </div>
@@ -237,7 +280,7 @@ export default function Perfil() {
 
           <div className="perfil-actions">
             <button type="submit" className="lauda-btn lauda-btn-primary">
-              Salvar Alterações
+              Salvar Alteracoes
             </button>
           </div>
         </form>
