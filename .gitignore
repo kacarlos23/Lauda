@@ -55,3 +55,8 @@ Thumbs.db
 # Local Infra / Tunnels
 # =========================
 cloudflared.exe
+
+# =========================
+# AI Review Outputs
+# =========================
+.ai-reviews/

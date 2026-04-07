@@ -1,4 +1,10 @@
 {
+  "scripts": {
+    "agents:run": "python tools/routine_agents/run.py",
+    "agents:dry-run": "python tools/routine_agents/run.py --dry-run",
+    "agents:watch": "python tools/routine_agents/run.py --watch",
+    "agents:install-hook": "powershell -ExecutionPolicy Bypass -File tools/routine_agents/install-hook.ps1"
+  },
   "dependencies": {
     "react-router-dom": "^7.13.1"
   }

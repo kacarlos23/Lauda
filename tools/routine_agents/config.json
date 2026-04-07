@@ -1,0 +1,20 @@
+{
+  "model": "gpt-5.4-mini",
+  "output_dir": ".ai-reviews",
+  "watch_paths": [
+    "backend/api",
+    "frontend/src",
+    "docs"
+  ],
+  "poll_interval_seconds": 2,
+  "debounce_seconds": 2,
+  "max_file_bytes": 24000,
+  "max_diff_chars": 18000,
+  "max_files_per_agent": 8,
+  "ui_review": {
+    "enabled": true,
+    "review_url": "http://localhost:5173/dashboard",
+    "screenshot_path": ".ai-reviews/review-dashboard.png",
+    "screenshot_command": ""
+  }
+}
