@@ -1,4 +1,6 @@
 from django.db import transaction
+from urllib.parse import quote, urlsplit
+
 from django.utils.timezone import localtime, now
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
@@ -19,11 +21,15 @@ from .models import (
     Ministerio,
     Musica,
     RegistroLogin,
+    Team,
     Usuario,
 )
 from .serializers import (
+    AccessCodeBindSerializer,
     ConviteAcceptSerializer,
     ConviteMinisterioSerializer,
+    MinisterioAccessCodePublicSerializer,
+    ConviteMinisterioPublicSerializer,
     CultoSerializer,
     EscalaSerializer,
     ItemSetlistSerializer,
@@ -31,6 +37,8 @@ from .serializers import (
     MinisterioSerializer,
     MusicaSerializer,
     MusicEnrichmentRequestSerializer,
+    MemberLoginSerializer,
+    TeamSerializer,
     UsuarioSerializer,
 )
 from .services.music_facade import MusicFacade
@@ -59,6 +67,45 @@ def registrar_log(user, acao, modelo, descricao):
         )
 
 
+def build_user_payload(user):
+    is_global_admin = bool(user.is_global_admin or user.is_superuser)
+    return {
+        "id": user.id,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "email": user.email,
+        "nivel_acesso": user.nivel_acesso,
+        "nivel_acesso_label": user.get_nivel_acesso_display(),
+        "escopo_acesso": "GLOBAL" if is_global_admin else "MINISTERIO",
+        "papel_display": "Admin Global" if is_global_admin else user.get_nivel_acesso_display(),
+        "is_global_admin": user.is_global_admin,
+        "ministerio_id": user.ministerio_id,
+        "ministerio_nome": user.ministerio.nome if user.ministerio_id else None,
+        "ministerio_slug": user.ministerio.slug if user.ministerio_id else None,
+        "funcao_principal": user.funcao_principal or "",
+        "funcoes": user.get_normalized_funcoes(),
+    }
+
+
+def resolve_access_code(code):
+    normalized_code = code.strip()
+    invite = ConviteMinisterio.objects.select_related("ministerio").filter(token=normalized_code).first()
+    if invite is None:
+        invite = ConviteMinisterio.objects.select_related("ministerio").filter(access_code=normalized_code.upper()).first()
+
+    if invite is not None:
+        return "CONVITE", invite
+
+    ministry = Ministerio.objects.filter(access_code=normalized_code.upper(), is_active=True).first()
+    if ministry is not None:
+        if not ministry.is_open:
+            return "MINISTERIO_FECHADO", ministry
+        return "MINISTERIO", ministry
+
+    return None, None
+
+
 def build_auth_payload(user):
     refresh = RefreshToken.for_user(user)
     refresh["is_global_admin"] = user.is_global_admin
@@ -69,19 +116,22 @@ def build_auth_payload(user):
     return {
         "refresh": str(refresh),
         "access": str(refresh.access_token),
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": user.email,
-            "nivel_acesso": user.nivel_acesso,
-            "is_global_admin": user.is_global_admin,
-            "ministerio_id": user.ministerio_id,
-            "ministerio_nome": user.ministerio.nome if user.ministerio_id else None,
-            "ministerio_slug": user.ministerio.slug if user.ministerio_id else None,
-        },
+        "user": build_user_payload(user),
     }
+
+
+def build_frontend_base_url(request):
+    origin = request.headers.get("Origin", "").strip()
+    if origin:
+        return origin.rstrip("/")
+
+    referer = request.headers.get("Referer", "").strip()
+    if referer:
+        parsed = urlsplit(referer)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+    return request.build_absolute_uri("/").rstrip("/")
 
 
 def apply_music_enrichment(instance: Musica, enrichment: dict):
@@ -123,6 +173,36 @@ class IsGlobalAdmin(permissions.BasePermission):
         )
 
 
+class IsAuthenticatedReadOnlyOrAdminLevel(permissions.BasePermission):
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return bool(user.nivel_acesso == 1 or user.is_global_admin or user.is_superuser)
+
+
+class IsMusicEditor(permissions.BasePermission):
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and (user.is_global_admin or user.is_superuser or user.nivel_acesso in {1, 2})
+        )
+
+
+class IsAuthenticatedReadOnlyOrMusicEditor(permissions.BasePermission):
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return bool(user.is_global_admin or user.is_superuser or user.nivel_acesso in {1, 2})
+
+
 class MinistryScopedViewSetMixin:
     ministry_field = "ministerio"
 
@@ -161,31 +241,26 @@ class MinistryScopedViewSetMixin:
         if self.is_global_admin() or effective_ministry is None:
             return
 
+        if getattr(obj, "ministerio_id", None) is None:
+            return
+
         if getattr(obj, "ministerio_id", None) != effective_ministry.id:
             raise serializers.ValidationError(
                 {field_name: "O recurso informado pertence a outro ministerio."},
             )
 
+    def require_ministry(self, ministry, field_name="ministerio"):
+        if ministry is None:
+            raise serializers.ValidationError(
+                {field_name: "Um ministerio valido e obrigatorio para este recurso."},
+            )
+        return ministry
+
 
 class BaseTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        data.update(
-            {
-                "user": {
-                    "id": self.user.id,
-                    "username": self.user.username,
-                    "first_name": self.user.first_name,
-                    "last_name": self.user.last_name,
-                    "email": self.user.email,
-                    "nivel_acesso": self.user.nivel_acesso,
-                    "is_global_admin": self.user.is_global_admin,
-                    "ministerio_id": self.user.ministerio_id,
-                    "ministerio_nome": self.user.ministerio.nome if self.user.ministerio_id else None,
-                    "ministerio_slug": self.user.ministerio.slug if self.user.ministerio_id else None,
-                }
-            }
-        )
+        data.update({"user": build_user_payload(self.user)})
         return data
 
     def register_login(self):
@@ -242,17 +317,35 @@ class AdminTokenObtainPairView(TokenObtainPairView):
     serializer_class = AdminTokenObtainPairSerializer
 
 
+class MemberLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = MemberLoginSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+        RegistroLogin.objects.create(usuario=user, ip_address=get_client_ip(request))
+        return Response(build_auth_payload(user))
+
+
 class InviteLookupView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, code):
-        invite = ConviteMinisterio.objects.select_related("ministerio").filter(token=code).first()
-        if invite is None:
-            invite = ConviteMinisterio.objects.select_related("ministerio").filter(access_code=code.upper()).first()
-
-        if invite is None:
+        code_source, target = resolve_access_code(code)
+        if target is None:
             return Response({"detail": "Convite nao encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
+        if code_source == "MINISTERIO_FECHADO":
+            return Response(
+                {"detail": "As portas deste ministerio estao fechadas para entrada por codigo fixo."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if code_source == "MINISTERIO":
+            return Response(MinisterioAccessCodePublicSerializer(target).data)
+
+        invite = target
         if invite.is_expired and invite.status == "PENDENTE":
             invite.status = "EXPIRADO"
             invite.save(update_fields=["status", "updated_at"])
@@ -260,7 +353,7 @@ class InviteLookupView(APIView):
         if not invite.can_be_used():
             return Response({"detail": "Convite expirado, revogado ou sem usos disponiveis."}, status=status.HTTP_410_GONE)
 
-        return Response(ConviteMinisterioSerializer(invite).data)
+        return Response(ConviteMinisterioPublicSerializer(invite).data)
 
 
 class AcceptInviteView(APIView):
@@ -271,17 +364,21 @@ class AcceptInviteView(APIView):
         serializer = ConviteAcceptSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        invite = serializer.validated_data["code"]
+        code_source = serializer.validated_data["code_source"]
+        target = serializer.validated_data["code"]
         existing_user = serializer.validated_data["existing_user"]
+        ministry = target.ministerio if code_source == "CONVITE" else target
+        nivel_acesso = target.nivel_acesso if code_source == "CONVITE" else 3
         payload = {
             "username": serializer.validated_data["username"],
             "first_name": serializer.validated_data["first_name"],
             "last_name": serializer.validated_data.get("last_name", ""),
             "email": serializer.validated_data.get("email", ""),
             "telefone": serializer.validated_data.get("telefone", ""),
-            "funcao_principal": serializer.validated_data.get("funcao_principal") or "Membro",
-            "ministerio": invite.ministerio,
-            "nivel_acesso": invite.nivel_acesso,
+            "funcao_principal": serializer.validated_data.get("funcao_principal", ""),
+            "funcoes": serializer.validated_data.get("funcoes", []),
+            "ministerio": ministry,
+            "nivel_acesso": nivel_acesso,
             "is_active": True,
             "invite_accepted_at": now(),
         }
@@ -298,16 +395,131 @@ class AcceptInviteView(APIView):
                 **payload,
             )
 
-        invite.mark_as_accepted(user)
-        registrar_log(user, "CREATE", "ConviteMinisterio", f'Convite aceito para o ministerio "{invite.ministerio.nome}".')
+        if code_source == "CONVITE":
+            target.mark_as_accepted(user)
+            registrar_log(user, "CREATE", "ConviteMinisterio", f'Convite aceito para o ministerio "{ministry.nome}".')
+        else:
+            registrar_log(user, "CREATE", "Ministerio", f'Codigo fixo aceito para o ministerio "{ministry.nome}".')
         RegistroLogin.objects.create(usuario=user, ip_address=get_client_ip(request))
         return Response(build_auth_payload(user), status=status.HTTP_201_CREATED)
+
+
+class BindAccessCodeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        serializer = AccessCodeBindSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        code_source = serializer.validated_data["code_source"]
+        target = serializer.validated_data["code"]
+        ministry = serializer.validated_data["ministerio"]
+
+        user.ministerio = ministry
+        user.invite_accepted_at = now()
+        if code_source == "CONVITE":
+            user.nivel_acesso = target.nivel_acesso
+            target.mark_as_accepted(user)
+            if target.email and not user.email:
+                user.email = target.email
+            registrar_log(
+                user,
+                "UPDATE",
+                "ConviteMinisterio",
+                f'Usuario "{user.username}" vinculado ao ministerio "{ministry.nome}" por convite.',
+            )
+        else:
+            user.nivel_acesso = 3
+            registrar_log(
+                user,
+                "UPDATE",
+                "Ministerio",
+                f'Usuario "{user.username}" vinculado ao ministerio "{ministry.nome}" por codigo fixo.',
+            )
+
+        user.save()
+        return Response(build_auth_payload(user), status=status.HTTP_200_OK)
+
+
+class MinistryInviteLinkView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.is_global_admin or user.is_superuser or not user.ministerio_id:
+            return Response(
+                {"detail": "Somente usuarios vinculados a um ministerio podem gerar links de convite."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if user.nivel_acesso not in {1, 2}:
+            return Response(
+                {"detail": "Apenas administradores e lideres podem gerar links de convite."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        ministry = user.ministerio
+        invite_url = f"{build_frontend_base_url(request)}/invite?code={quote(ministry.access_code)}"
+        return Response(
+            {
+                "ministerio_id": ministry.id,
+                "ministerio_nome": ministry.nome,
+                "access_code": ministry.access_code,
+                "invite_url": invite_url,
+            }
+        )
 
 
 class MinisterioViewSet(viewsets.ModelViewSet):
     queryset = Ministerio.objects.all()
     serializer_class = MinisterioSerializer
     permission_classes = [IsGlobalAdmin]
+
+    @action(detail=False, methods=["get", "put", "patch"], permission_classes=[IsAuthenticated])
+    def current(self, request):
+        user = request.user
+        if user.is_global_admin or user.is_superuser:
+            return Response({"detail": "Admin global nao possui ministerio atual."}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.ministerio_id:
+            return Response({"detail": "Usuario sem ministerio vinculado."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if request.method == "GET":
+            serializer = self.get_serializer(user.ministerio)
+            return Response(serializer.data)
+
+        if user.nivel_acesso == 3:
+            return Response(
+                {"detail": "Membros nao podem editar as configuracoes do ministerio."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        payload = {"nome": request.data.get("nome", user.ministerio.nome)}
+        serializer = self.get_serializer(user.ministerio, data=payload, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        registrar_log(user, "UPDATE", "Ministerio", f'Configuracoes atualizadas para o ministerio "{user.ministerio.nome}".')
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminLevel], url_path="regenerate-access-code")
+    def regenerate_access_code(self, request, pk=None):
+        ministry = self.get_object()
+        user = request.user
+        if not (user.is_global_admin or user.is_superuser) and user.ministerio_id != ministry.id:
+            return Response({"detail": "Voce nao pode regenerar o codigo de outro ministerio."}, status=status.HTTP_403_FORBIDDEN)
+
+        for _ in range(5):
+            ministry.access_code = Ministerio._meta.get_field("access_code").default()
+            try:
+                ministry.save(update_fields=["access_code", "updated_at"])
+                break
+            except Exception:  # pragma: no cover
+                continue
+        else:  # pragma: no cover
+            return Response({"detail": "Nao foi possivel regenerar o codigo agora."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        registrar_log(user, "UPDATE", "Ministerio", f'Codigo de acesso regenerado para o ministerio "{ministry.nome}".')
+        return Response(self.get_serializer(ministry).data)
 
 
 class ConviteMinisterioViewSet(viewsets.ModelViewSet):
@@ -340,50 +552,72 @@ class UsuarioViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
 
         serializer = self.get_serializer(user, data=mutable_data, partial=True)
         serializer.is_valid(raise_exception=True)
-        if self.is_global_admin():
-            serializer.save()
-        else:
-            serializer.save(ministerio=user.ministerio, is_global_admin=False)
+        ministry, is_global_admin = self.resolve_user_assignment(serializer)
+        serializer.save(ministerio=ministry, is_global_admin=is_global_admin)
         return Response(serializer.data)
 
-    def perform_create(self, serializer):
-        payload_ministry = serializer.validated_data.get("ministerio")
-        ministry = self.get_effective_ministry(payload_ministry)
-        if not self.is_global_admin() and serializer.validated_data.get("is_global_admin"):
-            raise serializers.ValidationError({"is_global_admin": "Apenas admin global pode criar outro admin global."})
-
-        instance = serializer.save(
-            ministerio=ministry,
-            is_global_admin=serializer.validated_data.get("is_global_admin", False) if self.is_global_admin() else False,
+    def resolve_user_assignment(self, serializer):
+        requested_global_admin = serializer.validated_data.get(
+            "is_global_admin",
+            getattr(serializer.instance, "is_global_admin", False),
         )
+        requested_ministry = serializer.validated_data.get(
+            "ministerio",
+            getattr(serializer.instance, "ministerio", None),
+        )
+
+        if self.is_global_admin():
+            if requested_global_admin:
+                if serializer.validated_data.get("ministerio") is not None:
+                    raise serializers.ValidationError(
+                        {"ministerio": "Admin global nao pode ser vinculado a ministerio."},
+                    )
+                return None, True
+
+            return self.require_ministry(requested_ministry), False
+
+        if serializer.instance and serializer.instance.ministerio_id != self.request.user.ministerio_id:
+            raise serializers.ValidationError(
+                {"ministerio": "Voce nao pode alterar usuarios de outro ministerio."},
+            )
+
+        if requested_global_admin:
+            raise serializers.ValidationError({"is_global_admin": "Apenas admin global pode promover admin global."})
+
+        return self.require_ministry(self.request.user.ministerio), False
+
+    def perform_create(self, serializer):
+        ministry, is_global_admin = self.resolve_user_assignment(serializer)
+        instance = serializer.save(ministerio=ministry, is_global_admin=is_global_admin)
         registrar_log(self.request.user, "CREATE", "Usuario", f'Usuario "{instance.username}" criado.')
 
     def perform_update(self, serializer):
-        if not self.is_global_admin():
-            if "ministerio" in serializer.validated_data and serializer.validated_data["ministerio"] != self.request.user.ministerio:
-                raise serializers.ValidationError({"ministerio": "Voce nao pode mover usuarios para outro ministerio."})
-            if serializer.validated_data.get("is_global_admin"):
-                raise serializers.ValidationError({"is_global_admin": "Apenas admin global pode promover admin global."})
-            serializer.save(ministerio=self.request.user.ministerio, is_global_admin=False)
-            return
+        ministry, is_global_admin = self.resolve_user_assignment(serializer)
+        serializer.save(ministerio=ministry, is_global_admin=is_global_admin)
 
-        serializer.save()
+
+class TeamViewSet(MinistryScopedViewSetMixin, viewsets.ReadOnlyModelViewSet):
+    queryset = Team.objects.select_related("ministerio").all()
+    serializer_class = TeamSerializer
+    permission_classes = [IsAuthenticated]
+    ministry_field = "ministerio"
 
 
 class MusicaViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
     queryset = Musica.objects.all()
     serializer_class = MusicaSerializer
+    permission_classes = [IsAuthenticatedReadOnlyOrMusicEditor]
+
+    def get_queryset(self):
+        return Musica.objects.all()
 
     def perform_create(self, serializer):
-        instance = serializer.save(ministerio=self.get_effective_ministry(serializer.validated_data.get("ministerio")))
+        instance = serializer.save(ministerio=None)
         registrar_log(self.request.user, "CREATE", "Musica", f'Musica "{instance.titulo}" criada.')
 
     def perform_update(self, serializer):
         is_active_before = serializer.instance.is_active
-        if not self.is_global_admin():
-            instance = serializer.save(ministerio=self.request.user.ministerio)
-        else:
-            instance = serializer.save()
+        instance = serializer.save(ministerio=None)
         if is_active_before and not instance.is_active:
             registrar_log(
                 self.request.user,
@@ -399,7 +633,7 @@ class MusicaViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
         instance.delete()
         registrar_log(self.request.user, "DELETE", "Musica", f'Musica "{titulo}" deletada definitivamente.')
 
-    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated], url_path="enriquecer")
+    @action(detail=False, methods=["post"], permission_classes=[IsMusicEditor], url_path="enriquecer")
     def enriquecer(self, request):
         serializer = MusicEnrichmentRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -421,7 +655,7 @@ class MusicaViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
 
         return Response(data)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated], url_path="sincronizar-metadados")
+    @action(detail=True, methods=["post"], permission_classes=[IsMusicEditor], url_path="sincronizar-metadados")
     def sincronizar_metadados(self, request, pk=None):
         musica = self.get_object()
         facade = MusicFacade()
@@ -440,16 +674,19 @@ class MusicaViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
 class CultoViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
     queryset = Culto.objects.all()
     serializer_class = CultoSerializer
+    permission_classes = [IsAuthenticatedReadOnlyOrAdminLevel]
 
     def perform_create(self, serializer):
-        instance = serializer.save(ministerio=self.get_effective_ministry(serializer.validated_data.get("ministerio")))
+        ministry = self.require_ministry(self.get_effective_ministry(serializer.validated_data.get("ministerio")))
+        instance = serializer.save(ministerio=ministry)
         registrar_log(self.request.user, "CREATE", "Culto", f'Culto "{instance.nome}" agendado.')
 
     def perform_update(self, serializer):
-        if not self.is_global_admin():
-            instance = serializer.save(ministerio=self.request.user.ministerio)
+        if self.is_global_admin():
+            ministry = serializer.validated_data.get("ministerio", serializer.instance.ministerio)
         else:
-            instance = serializer.save()
+            ministry = self.request.user.ministerio
+        instance = serializer.save(ministerio=self.require_ministry(ministry))
         registrar_log(self.request.user, "UPDATE", "Culto", f'Culto "{instance.nome}" atualizado.')
 
     def perform_destroy(self, instance):
@@ -461,6 +698,7 @@ class CultoViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
 class EscalaViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
     queryset = Escala.objects.all()
     serializer_class = EscalaSerializer
+    permission_classes = [IsAuthenticatedReadOnlyOrAdminLevel]
 
     def validate_related_objects(self, serializer):
         culto = serializer.validated_data.get("culto", getattr(serializer.instance, "culto", None))
@@ -478,7 +716,7 @@ class EscalaViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
         if culto and membro and culto.ministerio_id != membro.ministerio_id:
             raise serializers.ValidationError({"membro": "Membro e culto precisam pertencer ao mesmo ministerio."})
 
-        return ministry or getattr(culto, "ministerio", None) or getattr(membro, "ministerio", None)
+        return self.require_ministry(ministry or getattr(culto, "ministerio", None) or getattr(membro, "ministerio", None))
 
     def perform_create(self, serializer):
         ministry = self.validate_related_objects(serializer)
@@ -492,6 +730,7 @@ class EscalaViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
 class ItemSetlistViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
     queryset = ItemSetlist.objects.all()
     serializer_class = ItemSetlistSerializer
+    permission_classes = [IsAuthenticatedReadOnlyOrAdminLevel]
 
     def validate_related_objects(self, serializer):
         culto = serializer.validated_data.get("culto", getattr(serializer.instance, "culto", None))
@@ -506,10 +745,10 @@ class ItemSetlistViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
             self.ensure_same_ministry(culto, "culto")
         if musica:
             self.ensure_same_ministry(musica, "musica")
-        if culto and musica and culto.ministerio_id != musica.ministerio_id:
+        if culto and musica and musica.ministerio_id is not None and culto.ministerio_id != musica.ministerio_id:
             raise serializers.ValidationError({"musica": "Musica e culto precisam pertencer ao mesmo ministerio."})
 
-        return ministry or getattr(culto, "ministerio", None) or getattr(musica, "ministerio", None)
+        return self.require_ministry(ministry or getattr(culto, "ministerio", None) or getattr(musica, "ministerio", None))
 
     def perform_create(self, serializer):
         ministry = self.validate_related_objects(serializer)

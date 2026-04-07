@@ -212,9 +212,18 @@ class MultiMinisterioAuthTests(APITestCase):
             username="superadmin",
             password="12345678",
             funcao_principal="Admin",
+            email="admin-global@example.com",
             is_global_admin=True,
             is_staff=True,
             is_superuser=True,
+        )
+        self.unbound_user = Usuario.objects.create_user(
+            username="sem-vinculo",
+            password="12345678",
+            email="sem-vinculo@example.com",
+            first_name="Sem",
+            last_name="Vinculo",
+            nivel_acesso=3,
         )
 
     def test_lookup_invite_by_code(self):
@@ -279,10 +288,21 @@ class MultiMinisterioAuthTests(APITestCase):
     def test_ministry_login_rejects_global_admin(self):
         response = self.client.post(
             "/api/auth/login/",
-            {"username": "superadmin", "password": "12345678"},
+            {"email": "admin-global@example.com", "password": "12345678"},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_member_login_accepts_user_without_ministry(self):
+        response = self.client.post(
+            "/api/auth/login/",
+            {"email": "sem-vinculo@example.com", "password": "12345678"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data["user"]["ministerio_id"])
+        self.assertFalse(response.data["user"]["is_global_admin"])
 
     def test_admin_login_accepts_global_admin(self):
         response = self.client.post(
@@ -294,6 +314,39 @@ class MultiMinisterioAuthTests(APITestCase):
         self.assertTrue(response.data["user"]["is_global_admin"])
         self.assertEqual(response.data["user"]["escopo_acesso"], "GLOBAL")
         self.assertEqual(response.data["user"]["papel_display"], "Admin Global")
+
+    def test_authenticated_user_can_bind_by_fixed_access_code(self):
+        self.client.force_authenticate(user=self.unbound_user)
+
+        response = self.client.post(
+            "/api/auth/access-code/bind/",
+            {"code": self.ministerio.access_code},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.unbound_user.refresh_from_db()
+        self.assertEqual(self.unbound_user.ministerio_id, self.ministerio.id)
+        self.assertEqual(self.unbound_user.nivel_acesso, 3)
+        self.assertEqual(response.data["user"]["ministerio_id"], self.ministerio.id)
+
+    def test_authenticated_user_can_bind_by_invite_code(self):
+        self.convite.email = self.unbound_user.email
+        self.convite.save(update_fields=["email"])
+        self.client.force_authenticate(user=self.unbound_user)
+
+        response = self.client.post(
+            "/api/auth/access-code/bind/",
+            {"code": self.convite.access_code},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.unbound_user.refresh_from_db()
+        self.convite.refresh_from_db()
+        self.assertEqual(self.unbound_user.ministerio_id, self.ministerio.id)
+        self.assertEqual(self.unbound_user.nivel_acesso, self.convite.nivel_acesso)
+        self.assertEqual(self.convite.status, "ACEITO")
 
 
 class MultiMinisterioIsolationTests(APITestCase):
@@ -675,6 +728,30 @@ class TenantHardeningTests(APITestCase):
             {"nome": "Nao Pode"},
             format="json",
         )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_leader_can_generate_ministry_invite_link(self):
+        leader = Usuario.objects.create_user(
+            username="leader-link",
+            password="12345678",
+            email="leader-link@example.com",
+            funcao_principal="Teclado",
+            nivel_acesso=2,
+            ministerio=self.ministerio_a,
+        )
+        self.client.force_authenticate(user=leader)
+
+        response = self.client.get("/api/auth/ministry-invite-link/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("/invite?code=", response.data["invite_url"])
+        self.assertEqual(response.data["access_code"], self.ministerio_a.access_code)
+
+    def test_member_cannot_generate_ministry_invite_link(self):
+        self.client.force_authenticate(user=self.member_a)
+
+        response = self.client.get("/api/auth/ministry-invite-link/")
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 

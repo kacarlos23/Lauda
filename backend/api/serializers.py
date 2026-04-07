@@ -1,4 +1,5 @@
 import re
+from django.contrib.auth import authenticate
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
@@ -411,4 +412,106 @@ class ConviteAcceptSerializer(serializers.Serializer):
         attrs["existing_user"] = existing_user
         attrs["funcoes"] = funcoes
         attrs["funcao_principal"] = funcoes[0] if funcoes else ""
+        return attrs
+
+
+class MemberLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=False, allow_blank=True)
+    username = serializers.CharField(required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True)
+
+    default_error_messages = {
+        "missing_identifier": "Informe um e-mail valido para entrar.",
+        "not_found": "Credenciais invalidas.",
+        "duplicate_email": "Existe mais de uma conta com este e-mail. Contate o administrador.",
+        "invalid_password": "Credenciais invalidas.",
+        "global_admin": "Use a rota de login admin para administradores globais.",
+        "inactive": "Esta conta esta inativa.",
+    }
+
+    def validate(self, attrs):
+        email = attrs.get("email", "").strip().lower()
+        username = attrs.get("username", "").strip()
+        password = attrs["password"]
+        user_model = get_user_model()
+
+        if not email and not username:
+            raise serializers.ValidationError({"email": self.error_messages["missing_identifier"]})
+
+        if email:
+            matching_users = list(user_model.objects.filter(email__iexact=email))
+            if not matching_users:
+                raise serializers.ValidationError({"email": self.error_messages["not_found"]})
+            if len(matching_users) > 1:
+                raise serializers.ValidationError({"email": self.error_messages["duplicate_email"]})
+            user = matching_users[0]
+        else:
+            user = user_model.objects.filter(username=username).first()
+            if user is None:
+                raise serializers.ValidationError({"username": self.error_messages["not_found"]})
+
+        authenticated_user = authenticate(username=user.username, password=password)
+        if authenticated_user is None:
+            raise serializers.ValidationError({"password": self.error_messages["invalid_password"]})
+
+        if authenticated_user.is_global_admin or authenticated_user.is_superuser:
+            raise serializers.ValidationError({"email": self.error_messages["global_admin"]})
+        if not authenticated_user.is_active:
+            raise serializers.ValidationError({"email": self.error_messages["inactive"]})
+
+        attrs["user"] = authenticated_user
+        return attrs
+
+
+class AccessCodeBindSerializer(serializers.Serializer):
+    code = serializers.CharField()
+
+    def validate_code(self, value):
+        normalized = value.strip()
+        if not normalized:
+            raise serializers.ValidationError("Informe um codigo de acesso valido.")
+
+        target = ConviteMinisterio.objects.select_related("ministerio").filter(token=normalized).first()
+        code_source = "CONVITE"
+        if target is None:
+            target = ConviteMinisterio.objects.select_related("ministerio").filter(access_code=normalized.upper()).first()
+
+        if target is None:
+            target = Ministerio.objects.filter(access_code=normalized.upper(), is_active=True).first()
+            code_source = "MINISTERIO"
+
+        if target is None:
+            raise serializers.ValidationError("Codigo de acesso invalido.")
+
+        if code_source == "MINISTERIO" and not target.is_open:
+            raise serializers.ValidationError("As portas deste ministerio estao fechadas para entrada por codigo fixo.")
+
+        if code_source == "CONVITE" and not target.can_be_used():
+            raise serializers.ValidationError("Convite expirado, revogado ou sem usos disponiveis.")
+
+        return {
+            "raw": normalized,
+            "code_source": code_source,
+            "target": target,
+        }
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        if user.is_global_admin or user.is_superuser:
+            raise serializers.ValidationError({"code": "Admins globais nao podem usar codigos de ministerio."})
+
+        code_info = attrs["code"]
+        code_source = code_info["code_source"]
+        target = code_info["target"]
+        ministry = target.ministerio if code_source == "CONVITE" else target
+
+        if user.ministerio_id and user.ministerio_id != ministry.id:
+            raise serializers.ValidationError({"code": "Sua conta ja esta vinculada a outro ministerio."})
+
+        if code_source == "CONVITE" and target.email and user.email and target.email.lower() != user.email.lower():
+            raise serializers.ValidationError({"code": "Este convite foi emitido para outro e-mail."})
+
+        attrs["code"] = target
+        attrs["code_source"] = code_source
+        attrs["ministerio"] = ministry
         return attrs
