@@ -434,11 +434,21 @@
   border-radius: var(--radius-md);
   padding: 1.5rem;
   box-shadow: var(--shadow-sm);
-  overflow-x: auto;
+  overflow: hidden;
+}
+
+.calendar-wrapper .fc {
+  width: 100%;
+}
+
+.calendar-wrapper .fc-view-harness,
+.calendar-wrapper .fc-scroller,
+.calendar-wrapper .fc-scroller-liquid-absolute {
+  overflow: hidden !important;
 }
 
 .fc .fc-daygrid-day-frame {
-  min-height: 130px;
+  min-height: clamp(88px, 10vw, 120px);
 }
 .fc .fc-toolbar {
   margin-bottom: 1.5rem !important;
@@ -678,7 +688,7 @@ body.dark-mode .culto-actions-summary {
   }
 
   .fc .fc-daygrid-day-frame {
-    min-height: 96px;
+    min-height: 72px;
   }
 
   .fc-event-title {

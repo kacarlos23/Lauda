@@ -98,6 +98,22 @@
   gap: 0.75rem;
 }
 
+.ministerio-invite-link-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ministerio-section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ministerio-section-heading strong {
+  color: var(--text-primary);
+}
+
 @media (max-width: 900px) {
   .ministerio-config-grid {
     grid-template-columns: 1fr;

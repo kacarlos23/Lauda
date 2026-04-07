@@ -1,5 +1,12 @@
 ﻿import { createElement, useEffect, useMemo, useState } from "react";
-import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import {
+  Navigate,
+  NavLink,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import {
   Building2,
   Calendar,
@@ -20,12 +27,18 @@ import "./App.css";
 import MinistryNameLink from "./components/MinistryNameLink";
 import { useAuth } from "./context/AuthContext";
 import { usePermissions } from "./hooks/usePermissions";
+import {
+  buildInvitePath,
+  buildLoginPath,
+  getAccessCodeFromSearch,
+} from "./lib/accessCode";
 import { authFetch } from "./lib/api";
 import AdminDashboard from "./pages/AdminDashboard";
 import Auditoria from "./pages/Auditoria";
 import ClassificacoesMusicais from "./pages/ClassificacoesMusicais";
 import Cultos from "./pages/Cultos";
 import Dashboard from "./pages/Dashboard";
+import EnterCode from "./pages/EnterCode";
 import Equipes from "./pages/Equipes";
 import Invite from "./pages/Invite";
 import Login from "./pages/Login";
@@ -47,7 +60,10 @@ function App() {
         updateUser(profile);
       })
       .catch((error) => {
-        if (error.status === 401 || error.message?.toLowerCase().includes("token")) {
+        if (
+          error.status === 401 ||
+          error.message?.toLowerCase().includes("token")
+        ) {
           logout();
         }
       });
@@ -55,13 +71,15 @@ function App() {
 
   return (
     <Routes>
-      <Route
-        path="/"
-        element={<Navigate to={session ? (session.user?.is_global_admin ? "/admin" : "/app") : "/login"} replace />}
-      />
-      <Route path="/login" element={session ? <Navigate to="/app" replace /> : <Login mode="member" />} />
-      <Route path="/admin/login" element={session?.user?.is_global_admin ? <Navigate to="/admin" replace /> : <Login mode="admin" />} />
+      <Route path="/" element={<RootRedirect />} />
+      <Route path="/login" element={<MemberLoginRoute />} />
+      <Route path="/admin/login" element={<AdminLoginRoute />} />
+      <Route path="/invite" element={<Invite />} />
       <Route path="/invite/:code" element={<Invite />} />
+
+      <Route element={<RequireUnboundMemberRoute />}>
+        <Route path="/enter-code" element={<EnterCode />} />
+      </Route>
 
       <Route element={<RequireMemberRoute />}>
         <Route element={<AppShell variant="member" />}>
@@ -69,8 +87,14 @@ function App() {
           <Route path="/app/musicas" element={<Musicas />} />
           <Route path="/app/cultos" element={<Cultos />} />
           <Route path="/app/equipes" element={<Equipes />} />
-          <Route path="/app/ministerio/configuracoes" element={<MinisterioConfiguracoes />} />
-          <Route path="/app/ministerio/classificacoes" element={<ClassificacoesMusicais />} />
+          <Route
+            path="/app/ministerio/configuracoes"
+            element={<MinisterioConfiguracoes />}
+          />
+          <Route
+            path="/app/ministerio/classificacoes"
+            element={<ClassificacoesMusicais />}
+          />
           <Route path="/app/membros" element={<Membros />} />
           <Route path="/app/perfil" element={<Perfil />} />
           <Route path="/app/auditoria" element={<Auditoria />} />
@@ -91,15 +115,86 @@ function App() {
   );
 }
 
-function RequireMemberRoute() {
+function resolveMemberDestination(session, search = "") {
+  if (!session) {
+    return buildLoginPath(getAccessCodeFromSearch(search));
+  }
+
+  if (session.user?.is_global_admin) {
+    return "/admin";
+  }
+
+  if (session.user?.ministerio_id) {
+    return "/app";
+  }
+
+  const requestedCode = getAccessCodeFromSearch(search);
+  return requestedCode ? buildInvitePath(requestedCode) : "/enter-code";
+}
+
+function RootRedirect() {
+  const { session } = useAuth();
+  const location = useLocation();
+
+  return (
+    <Navigate to={resolveMemberDestination(session, location.search)} replace />
+  );
+}
+
+function MemberLoginRoute() {
+  const { session } = useAuth();
+  const location = useLocation();
+
+  if (session) {
+    return (
+      <Navigate
+        to={resolveMemberDestination(session, location.search)}
+        replace
+      />
+    );
+  }
+
+  return <Login mode="member" />;
+}
+
+function AdminLoginRoute() {
   const { session } = useAuth();
 
   if (!session) {
-    return <Navigate to="/login" replace />;
+    return <Login mode="admin" />;
   }
 
   if (session.user?.is_global_admin) {
     return <Navigate to="/admin" replace />;
+  }
+
+  return (
+    <Navigate
+      to={session.user?.ministerio_id ? "/app" : "/enter-code"}
+      replace
+    />
+  );
+}
+
+function RequireMemberRoute() {
+  const { session } = useAuth();
+  const location = useLocation();
+
+  if (!session) {
+    return (
+      <Navigate
+        to={buildLoginPath(getAccessCodeFromSearch(location.search))}
+        replace
+      />
+    );
+  }
+
+  if (session.user?.is_global_admin) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  if (!session.user?.ministerio_id) {
+    return <Navigate to="/enter-code" replace />;
   }
 
   return <Outlet />;
@@ -119,6 +214,24 @@ function RequireAdminRoute() {
   return <Outlet />;
 }
 
+function RequireUnboundMemberRoute() {
+  const { session } = useAuth();
+
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (session.user?.is_global_admin) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  if (session.user?.ministerio_id) {
+    return <Navigate to="/app" replace />;
+  }
+
+  return <Outlet />;
+}
+
 function AppShell({ variant }) {
   const { user, logout } = useAuth();
   const permissions = usePermissions(user);
@@ -127,7 +240,9 @@ function AppShell({ variant }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsNotice, setSettingsNotice] = useState("");
-  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
+  const [isDarkMode, setIsDarkMode] = useState(
+    () => localStorage.getItem("theme") === "dark",
+  );
 
   const settingsLinks = useMemo(
     () => ["Sugerir Melhorias", "Termos de Uso", "Política de Privacidade"],
@@ -137,7 +252,9 @@ function AppShell({ variant }) {
   const isGlobalAdmin = variant === "admin";
   const ministryName = user?.ministerio_nome || "Ministerio";
   const shellTitle = isGlobalAdmin ? "Painel Global" : ministryName;
-  const shellSubtitle = isGlobalAdmin ? "Gestao multi-ministerio" : "Aplicacao do ministerio";
+  const shellSubtitle = isGlobalAdmin
+    ? "Gestao multi-ministerio"
+    : "Aplicacao do ministerio";
 
   const navItems = isGlobalAdmin
     ? [
@@ -194,9 +311,14 @@ function AppShell({ variant }) {
       >
         <div className="lauda-sidebar-top">
           <div className="sidebar-brand-block">
-            <span className="sidebar-brand-kicker">{isGlobalAdmin ? "Admin" : "Ministerio"}</span>
+            <span className="sidebar-brand-kicker">
+              {isGlobalAdmin ? "Admin" : "Ministerio"}
+            </span>
             {permissions.canViewMinistrySettings ? (
-              <MinistryNameLink to="/app/ministerio/configuracoes" className="ministry-route-link">
+              <MinistryNameLink
+                to="/app/ministerio/configuracoes"
+                className="ministry-route-link"
+              >
                 <strong>{shellTitle}</strong>
               </MinistryNameLink>
             ) : (
@@ -206,7 +328,13 @@ function AppShell({ variant }) {
 
           <nav className="lauda-nav">
             {navItems.map((item) => (
-              <NavLink key={item.to} to={item.to} className="lauda-nav-item" onClick={closeMenu} end={item.end}>
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className="lauda-nav-item"
+                onClick={closeMenu}
+                end={item.end}
+              >
                 <span className="nav-icon" aria-hidden="true">
                   {createElement(item.icon, { size: 20 })}
                 </span>
@@ -217,9 +345,12 @@ function AppShell({ variant }) {
         </div>
 
         <div className="lauda-sidebar-bottom">
-          {!isGlobalAdmin && (
-            permissions.canViewMinistrySettings ? (
-              <MinistryNameLink to="/app/ministerio/configuracoes" className="sidebar-ministry-chip ministry-route-link">
+          {!isGlobalAdmin &&
+            (permissions.canViewMinistrySettings ? (
+              <MinistryNameLink
+                to="/app/ministerio/configuracoes"
+                className="sidebar-ministry-chip ministry-route-link"
+              >
                 <Building2 size={16} aria-hidden="true" />
                 <span>{ministryName}</span>
               </MinistryNameLink>
@@ -228,8 +359,7 @@ function AppShell({ variant }) {
                 <Building2 size={16} aria-hidden="true" />
                 <span>{ministryName}</span>
               </div>
-            )
-          )}
+            ))}
 
           <button
             type="button"
@@ -246,7 +376,11 @@ function AppShell({ variant }) {
             <span className="nav-text">Configuracoes</span>
           </button>
 
-          <button type="button" className="lauda-nav-item sidebar-logout-item" onClick={logout}>
+          <button
+            type="button"
+            className="lauda-nav-item sidebar-logout-item"
+            onClick={logout}
+          >
             <span className="nav-icon" aria-hidden="true">
               <LogOut size={20} />
             </span>
@@ -258,20 +392,34 @@ function AppShell({ variant }) {
       <main className="lauda-main-zone">
         <header className="lauda-header">
           <div className="lauda-header-left">
-            <button type="button" className="menu-toggle-btn" onClick={toggleMenu} aria-label="Alternar menu lateral">
+            <button
+              type="button"
+              className="menu-toggle-btn"
+              onClick={toggleMenu}
+              aria-label="Alternar menu lateral"
+            >
               <Menu size={22} />
             </button>
             <div className="header-brand-stack">
               <h1>
-                <Music size={22} aria-hidden="true" className="header-title-icon" />
+                <Music
+                  size={22}
+                  aria-hidden="true"
+                  className="header-title-icon"
+                />
                 <span className="header-title-text">Ministerio de Louvor</span>
               </h1>
               {permissions.canViewMinistrySettings ? (
-                <MinistryNameLink to="/app/ministerio/configuracoes" className="header-context-line ministry-route-link">
+                <MinistryNameLink
+                  to="/app/ministerio/configuracoes"
+                  className="header-context-line ministry-route-link"
+                >
                   {shellTitle} · {shellSubtitle}
                 </MinistryNameLink>
               ) : (
-                <span className="header-context-line">{shellTitle} · {shellSubtitle}</span>
+                <span className="header-context-line">
+                  {shellTitle} · {shellSubtitle}
+                </span>
               )}
             </div>
           </div>
@@ -281,7 +429,9 @@ function AppShell({ variant }) {
               type="button"
               onClick={() => setIsDarkMode((value) => !value)}
               className="theme-toggle-btn"
-              aria-label={isDarkMode ? "Ativar tema claro" : "Ativar tema escuro"}
+              aria-label={
+                isDarkMode ? "Ativar tema claro" : "Ativar tema escuro"
+              }
             >
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
@@ -291,7 +441,11 @@ function AppShell({ variant }) {
               <span>{isGlobalAdmin ? "Admin global" : ministryName}</span>
             </div>
 
-            <button type="button" onClick={logout} className="lauda-btn lauda-btn-secondary logout-btn header-logout-btn">
+            <button
+              type="button"
+              onClick={logout}
+              className="lauda-btn lauda-btn-secondary logout-btn header-logout-btn"
+            >
               <LogOut size={16} aria-hidden="true" /> Sair
             </button>
           </div>
@@ -304,9 +458,17 @@ function AppShell({ variant }) {
 
       {isSettingsOpen && (
         <div className="modal-overlay" role="presentation">
-          <div className="modal modal-compact" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+          <div
+            className="modal modal-compact"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-title"
+          >
             <div className="modal-header">
-              <h3 id="settings-title" className="modal-title settings-modal-title">
+              <h3
+                id="settings-title"
+                className="modal-title settings-modal-title"
+              >
                 <Settings size={22} aria-hidden="true" /> Configuracoes
               </h3>
               <button
@@ -321,7 +483,10 @@ function AppShell({ variant }) {
 
             <div className="modal-body settings-modal-body">
               {settingsNotice && (
-                <div className="status-alert status-alert--success settings-note" aria-live="polite">
+                <div
+                  className="status-alert status-alert--success settings-note"
+                  aria-live="polite"
+                >
                   {settingsNotice}
                 </div>
               )}
@@ -329,7 +494,11 @@ function AppShell({ variant }) {
               <div className="settings-section">
                 <div className="settings-row">
                   <span className="settings-label">Modo Escuro</span>
-                  <button type="button" onClick={() => setIsDarkMode((value) => !value)} className="lauda-btn lauda-btn-secondary settings-inline-btn">
+                  <button
+                    type="button"
+                    onClick={() => setIsDarkMode((value) => !value)}
+                    className="lauda-btn lauda-btn-secondary settings-inline-btn"
+                  >
                     {isDarkMode ? "Desativar" : "Ativar"}
                   </button>
                 </div>

@@ -1,4 +1,4 @@
-import { Copy, FolderKanban, Image as ImageIcon, Music2, Save, Settings } from "lucide-react";
+import { Copy, FolderKanban, Image as ImageIcon, Link2, Music2, Save, Settings } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -15,6 +15,8 @@ export default function MinisterioConfiguracoes() {
   const [formData, setFormData] = useState({ nome: "" });
   const [loading, setLoading] = useState(() => Boolean(token));
   const [saving, setSaving] = useState(false);
+  const [inviteLinkData, setInviteLinkData] = useState(null);
+  const [generatingInviteLink, setGeneratingInviteLink] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -120,6 +122,44 @@ export default function MinisterioConfiguracoes() {
       setError("");
     } catch {
       setError("Nao foi possivel copiar o codigo de acesso.");
+    }
+  };
+
+  const handleGenerateInviteLink = async () => {
+    if (!permissions.canEditMinistrySettings) {
+      setError("Apenas administradores e lideres podem gerar links de convite.");
+      return;
+    }
+
+    try {
+      setGeneratingInviteLink(true);
+      setError("");
+      const data = await authFetch("/api/auth/ministry-invite-link/", token);
+      setInviteLinkData(data);
+      setNotice("Link de convite gerado com sucesso.");
+    } catch (requestError) {
+      if (requestError.status === 401) {
+        logout();
+        return;
+      }
+
+      setError(requestError.message || "Nao foi possivel gerar o link de convite.");
+    } finally {
+      setGeneratingInviteLink(false);
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!inviteLinkData?.invite_url) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(inviteLinkData.invite_url);
+      setNotice("Link de convite copiado para a area de transferencia.");
+      setError("");
+    } catch {
+      setError("Nao foi possivel copiar o link de convite.");
     }
   };
 
@@ -238,6 +278,44 @@ export default function MinisterioConfiguracoes() {
                 <Music2 size={16} aria-hidden="true" /> Classificacao de Musicas
               </button>
             </div>
+
+            {permissions.canEditMinistrySettings && (
+              <div className="ministerio-invite-link-block">
+                <div className="ministerio-section-heading">
+                  <strong>Link de convite</strong>
+                  <span className="text-muted">
+                    Disponivel apenas para lideres e administradores do ministerio.
+                  </span>
+                </div>
+
+                <div className="ministerio-copy-row">
+                  <input
+                    className="input-field"
+                    value={inviteLinkData?.invite_url || ""}
+                    readOnly
+                    placeholder="Gere um link de convite para compartilhar com novos usuarios."
+                    aria-label="Link de convite do ministerio"
+                  />
+                  <button
+                    type="button"
+                    className="lauda-btn lauda-btn-secondary"
+                    onClick={handleGenerateInviteLink}
+                    disabled={generatingInviteLink}
+                  >
+                    <Link2 size={16} aria-hidden="true" />
+                    {generatingInviteLink ? "Gerando..." : "Gerar Link de Convite"}
+                  </button>
+                  <button
+                    type="button"
+                    className="lauda-btn lauda-btn-secondary"
+                    onClick={handleCopyInviteLink}
+                    disabled={!inviteLinkData?.invite_url}
+                  >
+                    <Copy size={16} aria-hidden="true" /> Copiar
+                  </button>
+                </div>
+              </div>
+            )}
 
             {permissions.canEditMinistrySettings && (
               <div className="modal-footer">

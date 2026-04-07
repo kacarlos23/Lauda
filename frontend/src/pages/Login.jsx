@@ -1,13 +1,8 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  KeyRound,
-  Music,
-  ShieldCheck,
-  Sparkles,
-  UserRound,
-} from "lucide-react";
+import { KeyRound, Music, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { buildInvitePath, getAccessCodeFromSearch } from "../lib/accessCode";
 import { apiFetch } from "../lib/api";
 import "./Login.css";
 
@@ -15,10 +10,12 @@ export default function Login({ mode = "member" }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  const [formData, setFormData] = useState({ username: "", password: "" });
+  const [formData, setFormData] = useState({ credential: "", password: "" });
   const [erro, setErro] = useState("");
+  const [helperNotice, setHelperNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isAdminMode = mode === "admin" || location.pathname.startsWith("/admin/");
+  const pendingCode = getAccessCodeFromSearch(location.search);
 
   const config = useMemo(() => {
     if (isAdminMode) {
@@ -26,9 +23,13 @@ export default function Login({ mode = "member" }) {
         endpoint: "/api/auth/admin/login/",
         badge: "Admin Console",
         title: "Acesso administrativo global",
-        description: "Gerencie ministérios, convites e usuários de toda a plataforma.",
+        description: "Gerencie ministerios, convites e usuarios de toda a plataforma.",
         buttonLabel: "Entrar no Painel Global",
         nextPath: "/admin",
+        fieldLabel: "Usuario admin",
+        fieldPlaceholder: "admin.global",
+        fieldName: "username",
+        icon: UserRound,
       };
     }
 
@@ -36,11 +37,17 @@ export default function Login({ mode = "member" }) {
       endpoint: "/api/auth/login/",
       badge: "Ministry Access",
       title: "Acesse o seu ministério",
-      description: "Entre com a conta vinculada ao seu ministério ou use um convite para começar.",
+      description: pendingCode
+        ? "Entre com sua conta para aplicar automaticamente o codigo de convite recebido."
+        : "Entre com a conta vinculada ao seu ministerio ou conclua a vinculacao pelo codigo de acesso.",
       buttonLabel: "Entrar no Ministério",
       nextPath: "/app",
+      fieldLabel: "Login (Nome de Usuario)",
+      fieldPlaceholder: "seunome.sobrenome",
+      fieldName: "username",
+      icon: UserRound,
     };
-  }, [isAdminMode]);
+  }, [isAdminMode, pendingCode]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -50,36 +57,40 @@ export default function Login({ mode = "member" }) {
   const handleLogin = async (event) => {
     event.preventDefault();
     setErro("");
+    setHelperNotice("");
     setIsSubmitting(true);
 
     try {
-      let dados;
+      const payload = {
+        [config.fieldName]: formData.credential,
+        password: formData.password,
+      };
 
-      try {
-        dados = await apiFetch(config.endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        });
-      } catch (error) {
-        const shouldRetryAsAdmin =
-          !isAdminMode &&
-          error.message?.toLowerCase().includes("login admin");
-
-        if (!shouldRetryAsAdmin) {
-          throw error;
-        }
-
-        dados = await apiFetch("/api/auth/admin/login/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        });
-      }
+      const dados = await apiFetch(config.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       login(dados);
-      const redirectTo = location.state?.from || (dados.user?.is_global_admin ? "/admin" : config.nextPath);
-      navigate(redirectTo, { replace: true });
+
+      if (dados.user?.is_global_admin) {
+        navigate("/admin", { replace: true });
+        return;
+      }
+
+      if (dados.user?.ministerio_id) {
+        const redirectTo = location.state?.from || config.nextPath;
+        navigate(redirectTo, { replace: true });
+        return;
+      }
+
+      if (pendingCode) {
+        navigate(buildInvitePath(pendingCode), { replace: true });
+        return;
+      }
+
+      navigate("/enter-code", { replace: true });
     } catch (error) {
       setErro(error.message || "Nao foi possivel concluir o login.");
     } finally {
@@ -111,11 +122,11 @@ export default function Login({ mode = "member" }) {
           <div className="login-features">
             <div className="feature-item">
               <ShieldCheck size={18} />
-              <span>Segurança com autenticação segmentada</span>
+              <span>Seguranca com autenticacao segmentada</span>
             </div>
             <div className="feature-item">
               <Music size={18} />
-              <span>Escopo isolado por ministério</span>
+              <span>Escopo isolado por ministerio</span>
             </div>
           </div>
         </aside>
@@ -138,24 +149,29 @@ export default function Login({ mode = "member" }) {
                   {erro}
                 </div>
               )}
+              {helperNotice && (
+                <div className="status-alert status-alert--success" role="status">
+                  {helperNotice}
+                </div>
+              )}
 
               <div className="form-group">
-                <label className="input-label" htmlFor="username">
-                  Login (Nome de Usuário)
+                <label className="input-label" htmlFor="credential">
+                  {config.fieldLabel}
                 </label>
                 <div className="input-wrapper">
-                  <UserRound size={18} className="input-icon" aria-hidden="true" />
+                  <config.icon size={18} className="input-icon" aria-hidden="true" />
                   <input
                     type="text"
-                    name="username"
-                    id="username"
+                    name="credential"
+                    id="credential"
                     className="login-input"
-                    value={formData.username}
+                    value={formData.credential}
                     onChange={handleChange}
                     required
                     autoComplete="username"
                     spellCheck={false}
-                    placeholder="seunome.sobrenome"
+                    placeholder={config.fieldPlaceholder}
                   />
                 </div>
               </div>
@@ -180,6 +196,20 @@ export default function Login({ mode = "member" }) {
                 </div>
               </div>
 
+              {!isAdminMode && (
+                <button
+                  type="button"
+                  className="forgot-password-link login-inline-link"
+                  onClick={() =>
+                    setHelperNotice(
+                      "Recuperacao de senha ainda nao esta disponivel nesta versao. Procure o administrador do ministerio.",
+                    )
+                  }
+                >
+                  Esqueci minha senha
+                </button>
+              )}
+
               <button
                 type="submit"
                 className="lauda-btn lauda-btn-primary btn-submit"
@@ -187,28 +217,28 @@ export default function Login({ mode = "member" }) {
               >
                 {isSubmitting ? "Entrando..." : config.buttonLabel}
               </button>
-
-              <div className="login-footer login-footer-links">
-                {!isAdminMode && (
-                  <button
-                    type="button"
-                    className="forgot-password-link"
-                    onClick={() => navigate("/admin/login")}
-                  >
-                    Sou admin global
-                  </button>
-                )}
-                {isAdminMode && (
-                  <button
-                    type="button"
-                    className="forgot-password-link"
-                    onClick={() => navigate("/login")}
-                  >
-                    Voltar para login do ministério
-                  </button>
-                )}
-              </div>
             </form>
+
+            <div className="login-footer login-footer-links">
+              {!isAdminMode ? (
+                <button
+                  type="button"
+                  className="login-admin-link"
+                  onClick={() => navigate("/admin/login")}
+                  aria-label="Ir para o login administrativo"
+                >
+                  Acesso admin
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="login-admin-link"
+                  onClick={() => navigate("/login")}
+                >
+                  Voltar ao login comum
+                </button>
+              )}
+            </div>
           </div>
         </section>
       </div>
@@ -217,4 +247,3 @@ export default function Login({ mode = "member" }) {
     </main>
   );
 }
-

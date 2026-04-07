@@ -62,6 +62,14 @@ export const inviteSchema = z.object({
   funcoes: funcoesSchema,
 });
 
+export const accessCodeSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(1, "Informe um codigo de acesso.")
+    .transform((value) => value.toUpperCase()),
+});
+
 export const ministrySettingsSchema = z.object({
   nome: z
     .string()

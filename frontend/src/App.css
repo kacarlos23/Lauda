@@ -334,9 +334,79 @@ button.lauda-nav-item {
   gap: 1rem;
 }
 
+/* ==========================================
+   CALENDÁRIO MINIMALISTA E RESPONSIVO
+   ========================================== */
 .dashboard-calendar-card {
-  position: relative;
-  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dashboard-calendar-card .fc {
+  --fc-border-color: var(--border-default);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: var(--bg-surface-subtle);
+  --fc-today-bg-color: var(--interactive-primary-soft);
+  --fc-button-bg-color: var(--bg-surface-subtle);
+  --fc-button-border-color: var(--border-default);
+  --fc-button-text-color: var(--text-primary);
+  --fc-button-hover-bg-color: var(--interactive-primary-soft);
+  --fc-button-hover-border-color: var(--interactive-primary);
+  --fc-button-active-bg-color: var(--interactive-primary);
+  --fc-button-active-border-color: var(--interactive-primary);
+  --fc-event-border-color: transparent;
+  width: 100%;
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.dashboard-calendar-card .fc-view-harness,
+.dashboard-calendar-card .fc-scroller,
+.dashboard-calendar-card .fc-scroller-liquid-absolute {
+  overflow: hidden !important;
+}
+
+.dashboard-calendar-card .fc-daygrid-day-frame {
+  min-height: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-calendar-card .fc-toolbar-title {
+  color: var(--text-primary);
+  font-size: 1.1rem !important;
+  font-weight: 700;
+}
+
+.dashboard-calendar-card .fc-button {
+  border-radius: var(--radius-md) !important;
+  box-shadow: none !important;
+  text-transform: capitalize;
+}
+
+.dashboard-calendar-card .fc-col-header-cell-cushion,
+.dashboard-calendar-card .fc-daygrid-day-number {
+  color: var(--text-primary);
+}
+
+.dashboard-calendar-card .fc-daygrid-event {
+  padding: 0.1rem 0.25rem !important;
+  font-size: 0.75rem !important;
+  margin-top: 1px !important;
+}
+
+.dashboard-calendar-card .fc-day-today {
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.18);
+}
+
+.dashboard-calendar-card .fc-event.dashboard-next-event {
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.94),
+    0 0 0 4px rgba(37, 99, 235, 0.3),
+    0 10px 20px rgba(37, 99, 235, 0.18);
+  transform: translateY(-1px);
 }
 
 .dashboard-calendar-highlight {
@@ -360,59 +430,6 @@ button.lauda-nav-item {
 .dashboard-calendar-highlight span:last-child {
   color: var(--text-secondary);
   font-size: 0.9rem;
-}
-
-.dashboard-calendar-card .fc {
-  --fc-border-color: var(--border-default);
-  --fc-page-bg-color: transparent;
-  --fc-neutral-bg-color: var(--bg-surface-subtle);
-  --fc-today-bg-color: var(--interactive-primary-soft);
-  --fc-button-bg-color: var(--bg-surface-subtle);
-  --fc-button-border-color: var(--border-default);
-  --fc-button-text-color: var(--text-primary);
-  --fc-button-hover-bg-color: var(--interactive-primary-soft);
-  --fc-button-hover-border-color: var(--interactive-primary);
-  --fc-button-active-bg-color: var(--interactive-primary);
-  --fc-button-active-border-color: var(--interactive-primary);
-  --fc-event-border-color: transparent;
-}
-
-.dashboard-calendar-card .fc-toolbar-title {
-  color: var(--text-primary);
-  font-size: 1.1rem !important;
-  font-weight: 700;
-}
-
-.dashboard-calendar-card .fc-button {
-  border-radius: var(--radius-md) !important;
-  box-shadow: none !important;
-  text-transform: capitalize;
-}
-
-.dashboard-calendar-card .fc-col-header-cell-cushion,
-.dashboard-calendar-card .fc-daygrid-day-number {
-  color: var(--text-primary);
-}
-
-.dashboard-calendar-card .fc-daygrid-event {
-  padding: 0.18rem 0.35rem;
-  border-radius: var(--radius-sm);
-}
-
-.dashboard-calendar-card .fc-day-today {
-  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.18);
-}
-
-.dashboard-calendar-card .fc-event.dashboard-next-event {
-  box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.94),
-    0 0 0 4px rgba(37, 99, 235, 0.3),
-    0 10px 20px rgba(37, 99, 235, 0.18);
-  transform: translateY(-1px);
-}
-
-.dashboard-calendar-card .fc-daygrid-day-frame {
-  min-height: 92px;
 }
 
 .dashboard-calendar-tooltip {
@@ -744,13 +761,24 @@ button.lauda-nav-item {
     align-items: stretch;
   }
 
+  /* --- AJUSTES DO CALENDÁRIO PARA MOBILE --- */
+  .dashboard-calendar-card {
+    padding: 0.5rem;
+    min-height: 0;
+  }
+
+  .dashboard-calendar-card .fc-toolbar-title {
+    font-size: 1rem !important;
+  }
+
+  .dashboard-calendar-card .fc-button {
+    padding: 0.3rem 0.5rem !important;
+    font-size: 0.8rem !important;
+  }
+
   .dashboard-calendar-card .fc-toolbar {
     flex-direction: column;
     gap: 0.75rem;
-  }
-
-  .dashboard-culto-modal-grid {
-    grid-template-columns: 1fr;
   }
 
   .dashboard-calendar-card .fc-toolbar-chunk {
@@ -758,6 +786,17 @@ button.lauda-nav-item {
     justify-content: center;
     flex-wrap: wrap;
     gap: 0.5rem;
+  }
+
+  .dashboard-calendar-card .fc-event-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .dashboard-culto-modal-grid {
+    grid-template-columns: 1fr;
   }
 
   .settings-inline-select {

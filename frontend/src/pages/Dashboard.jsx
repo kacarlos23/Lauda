@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import ptBrLocale from "@fullcalendar/core/locales/pt-br";
-import { Calendar, KeyRound } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { authFetch } from "../lib/api";
 import "./Dashboard.css";
@@ -22,12 +22,10 @@ export default function Dashboard() {
     cultos: 0,
     minhasEscalas: 0,
   });
-  const [ministerioAtual, setMinisterioAtual] = useState(null);
   const [proximosCultos, setProximosCultos] = useState([]);
   const [calendarTooltip, setCalendarTooltip] = useState(null);
   const [selectedCulto, setSelectedCulto] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [codeNotice, setCodeNotice] = useState("");
   const [dashboardNotice, setDashboardNotice] = useState("");
 
   useEffect(() => {
@@ -41,24 +39,36 @@ export default function Dashboard() {
     const loadDashboard = async () => {
       try {
         setDashboardNotice("");
-        const canReadMembers = user?.is_global_admin || Number(user?.nivel_acesso) === 1;
-        const [musicasResult, membrosResult, cultosResult] = await Promise.allSettled([
-          authFetch("/api/musicas/", token),
-          canReadMembers ? authFetch("/api/usuarios/", token) : Promise.resolve([]),
-          authFetch("/api/cultos/", token),
-        ]);
+        const canReadMembers =
+          user?.is_global_admin || Number(user?.nivel_acesso) === 1;
+        const [musicasResult, membrosResult, cultosResult] =
+          await Promise.allSettled([
+            authFetch("/api/musicas/", token),
+            canReadMembers
+              ? authFetch("/api/usuarios/", token)
+              : Promise.resolve([]),
+            authFetch("/api/cultos/", token),
+          ]);
 
-        const failedAuthRequest = [musicasResult, membrosResult, cultosResult].find(
-          (result) => result.status === "rejected" && result.reason?.status === 401,
+        const failedAuthRequest = [
+          musicasResult,
+          membrosResult,
+          cultosResult,
+        ].find(
+          (result) =>
+            result.status === "rejected" && result.reason?.status === 401,
         );
         if (failedAuthRequest) {
           logout();
           return;
         }
 
-        const musicas = musicasResult.status === "fulfilled" ? musicasResult.value : [];
-        const membros = membrosResult.status === "fulfilled" ? membrosResult.value : [];
-        const cultos = cultosResult.status === "fulfilled" ? cultosResult.value : [];
+        const musicas =
+          musicasResult.status === "fulfilled" ? musicasResult.value : [];
+        const membros =
+          membrosResult.status === "fulfilled" ? membrosResult.value : [];
+        const cultos =
+          cultosResult.status === "fulfilled" ? cultosResult.value : [];
 
         const failedRequests = [
           ["musicas", musicasResult],
@@ -67,7 +77,10 @@ export default function Dashboard() {
         ].filter(([, result]) => result.status === "rejected");
 
         failedRequests.forEach(([resource, result]) => {
-          console.error(`Erro ao carregar ${resource} do dashboard:`, result.reason);
+          console.error(
+            `Erro ao carregar ${resource} do dashboard:`,
+            result.reason,
+          );
         });
 
         if (!isMounted) {
@@ -75,7 +88,9 @@ export default function Dashboard() {
         }
 
         if (failedRequests.length > 0) {
-          setDashboardNotice("Parte do painel nao foi carregada. Atualize a pagina apos corrigir o backend.");
+          setDashboardNotice(
+            "Parte do painel nao foi carregada. Atualize a pagina apos corrigir o backend.",
+          );
         }
 
         setStats({
@@ -93,28 +108,6 @@ export default function Dashboard() {
           .sort((a, b) => new Date(a.data) - new Date(b.data));
 
         setProximosCultos(futuros.slice(0, 5));
-
-        if (Number(user?.nivel_acesso) === 1) {
-          try {
-            const ministerioData = await authFetch("/api/ministerios/current/", token);
-            if (isMounted) {
-              setMinisterioAtual(ministerioData);
-            }
-          } catch (error) {
-            if (error.status === 401) {
-              logout();
-              return;
-            }
-
-            console.error("Erro ao carregar ministerio atual no dashboard:", error);
-            if (isMounted) {
-              setMinisterioAtual(null);
-              setDashboardNotice(
-                "O painel carregou parcialmente. Nao foi possivel buscar os dados do ministerio.",
-              );
-            }
-          }
-        }
       } catch (error) {
         if (error.status === 401) {
           logout();
@@ -139,29 +132,6 @@ export default function Dashboard() {
   if (loading) {
     return <div className="dashboard-loading">Carregando painel...</div>;
   }
-
-  const handleRegenerateAccessCode = async () => {
-    if (!ministerioAtual?.id) {
-      return;
-    }
-
-    try {
-      const ministerioData = await authFetch(
-        `/api/ministerios/${ministerioAtual.id}/regenerate-access-code/`,
-        token,
-        { method: "POST" },
-      );
-      setMinisterioAtual(ministerioData);
-      setCodeNotice("Codigo fixo regenerado com sucesso.");
-    } catch (error) {
-      if (error.status === 401) {
-        logout();
-        return;
-      }
-
-      setCodeNotice(error.message || "Nao foi possivel regenerar o codigo.");
-    }
-  };
 
   const eventosCultos = proximosCultos.map((culto) => ({
     id: String(culto.id),
@@ -188,7 +158,9 @@ export default function Dashboard() {
   return (
     <div className="stack-lg">
       {dashboardNotice && (
-        <div className="status-alert status-alert--error">{dashboardNotice}</div>
+        <div className="status-alert status-alert--error">
+          {dashboardNotice}
+        </div>
       )}
 
       <div className="dashboard-grid">
@@ -210,31 +182,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {ministerioAtual?.access_code && (
-        <section className="lauda-card">
-          <h3 className="text-primary">
-            <KeyRound size={18} aria-hidden="true" /> Codigo Fixo do Ministerio
-          </h3>
-          <p className="text-muted">
-            Compartilhe este codigo com novos membros quando quiser usar a entrada padrao do ministerio.
-          </p>
-          <div className="dashboard-calendar-highlight">
-            <strong>{ministerioAtual.access_code}</strong>
-            <span>{ministerioAtual.nome}</span>
-          </div>
-          {codeNotice && <p className="text-muted">{codeNotice}</p>}
-          <div className="modal-footer">
-            <button
-              type="button"
-              className="lauda-btn lauda-btn-secondary"
-              onClick={handleRegenerateAccessCode}
-            >
-              Regenerar codigo
-            </button>
-          </div>
-        </section>
-      )}
-
       <section className="agenda-section">
         <h2 className="dashboard-title text-primary">
           <Calendar size={24} aria-hidden="true" /> Agenda de Cultos
@@ -246,9 +193,12 @@ export default function Dashboard() {
                 <span className="badge badge-primary">Próximo culto</span>
                 <strong>{proximosCultos[0]?.nome}</strong>
                 <span>
-                  {new Date(proximosCultos[0]?.data).toLocaleDateString("pt-BR", {
-                    timeZone: "UTC",
-                  })}
+                  {new Date(proximosCultos[0]?.data).toLocaleDateString(
+                    "pt-BR",
+                    {
+                      timeZone: "UTC",
+                    },
+                  )}
                 </span>
               </div>
 
@@ -256,12 +206,14 @@ export default function Dashboard() {
                 plugins={[dayGridPlugin]}
                 initialView="dayGridMonth"
                 headerToolbar={{
-                  left: "prev,next",
-                  center: "title",
-                  right: "today",
+                  left: "title",
+                  center: "",
+                  right: "prev,next today",
                 }}
                 locale={ptBrLocale}
                 height="auto"
+                contentHeight="auto"
+                expandRows={true}
                 fixedWeekCount={false}
                 dayMaxEventRows={2}
                 events={eventosCultos}

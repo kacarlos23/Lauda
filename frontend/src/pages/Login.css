@@ -199,6 +199,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   padding: 3rem;
   background: var(--white);
 }
@@ -290,8 +291,9 @@
 }
 
 .login-footer {
-  text-align: center;
-  margin-top: 0.5rem;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
 }
 
 .forgot-password-link {
@@ -306,6 +308,27 @@
 .forgot-password-link:hover {
   text-decoration: underline;
   color: var(--primary);
+}
+
+.login-inline-link {
+  align-self: flex-start;
+  padding-inline: 0;
+}
+
+.login-admin-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--gray-500);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.login-admin-link:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
 }
 
 /* Autofill Hack para navegadores Webkit */
@@ -420,5 +443,10 @@ input:-webkit-autofill {
 
   .forgot-password-link {
     line-height: 1.45;
+  }
+
+  .login-footer {
+    justify-content: center;
+    margin-top: 0.85rem;
   }
 }
