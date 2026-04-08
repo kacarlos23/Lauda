@@ -58,6 +58,10 @@ export default function Cultos() {
   const [pageNotice, setPageNotice] = useState("");
 
   const canManageCultos = permissions.canManageCultos;
+  const canManageEscalas = permissions.canManageEscalas;
+  const canManageSetlists = permissions.canManageSetlists;
+  const canManageAnyMusicOperation =
+    canManageCultos || canManageEscalas || canManageSetlists;
 
   const carregarDados = useCallback(async () => {
     if (!token) {
@@ -74,7 +78,7 @@ export default function Cultos() {
       setlistsResult,
     ] = await Promise.allSettled([
       authFetch("/api/cultos/", token),
-      canManageCultos
+      canManageEscalas
         ? authFetch("/api/usuarios/", token)
         : Promise.resolve([]),
       authFetch("/api/escalas/", token),
@@ -126,7 +130,7 @@ export default function Cultos() {
         "Parte da agenda nao foi carregada. Verifique os endpoints com erro.",
       );
     }
-  }, [canManageCultos, logout, token]);
+  }, [canManageEscalas, logout, token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -286,7 +290,7 @@ export default function Cultos() {
           return;
         }
 
-        alert(formatApiError(error));
+        setPageNotice(formatApiError(error));
       });
   };
 
@@ -310,7 +314,10 @@ export default function Cultos() {
       .catch((error) => {
         if (error.status === 401) {
           logout();
+          return;
         }
+
+        setPageNotice("Nao foi possivel excluir o culto selecionado.");
       });
   };
 
@@ -325,7 +332,7 @@ export default function Cultos() {
   };
 
   const handleAdicionarEscala = (membroId) => {
-    if (!canManageCultos || !membroId || !cultoSelecionado) return;
+    if (!canManageEscalas || !membroId || !cultoSelecionado) return;
 
     authFetch("/api/escalas/", token, {
       method: "POST",
@@ -344,12 +351,15 @@ export default function Cultos() {
       .catch((error) => {
         if (error.status === 401) {
           logout();
+          return;
         }
+
+        setPageNotice("Nao foi possivel adicionar o membro na escala.");
       });
   };
 
   const handleRemoverEscala = (escalaId) => {
-    if (!canManageCultos) {
+    if (!canManageEscalas) {
       return;
     }
 
@@ -362,7 +372,10 @@ export default function Cultos() {
       .catch((error) => {
         if (error.status === 401) {
           logout();
+          return;
         }
+
+        setPageNotice("Nao foi possivel remover o membro da escala.");
       });
   };
 
@@ -372,7 +385,7 @@ export default function Cultos() {
   };
 
   const adicionarMusicaNaSetlist = (musica) => {
-    if (!canManageCultos) {
+    if (!canManageSetlists) {
       return;
     }
 
@@ -396,12 +409,15 @@ export default function Cultos() {
       .catch((error) => {
         if (error.status === 401) {
           logout();
+          return;
         }
+
+        setPageNotice("Nao foi possivel adicionar a musica na setlist.");
       });
   };
 
   const removerMusicaDaSetlist = (itemId) => {
-    if (!canManageCultos) {
+    if (!canManageSetlists) {
       return;
     }
 
@@ -414,7 +430,10 @@ export default function Cultos() {
       .catch((error) => {
         if (error.status === 401) {
           logout();
+          return;
         }
+
+        setPageNotice("Nao foi possivel remover a musica da setlist.");
       });
   };
 
@@ -432,7 +451,7 @@ export default function Cultos() {
 
   const handleDropToSetlist = (e) => {
     e.preventDefault();
-    if (!canManageCultos) {
+    if (!canManageSetlists) {
       return;
     }
 
@@ -445,7 +464,7 @@ export default function Cultos() {
 
   const handleDropToRepertorio = (e) => {
     e.preventDefault();
-    if (!canManageCultos) {
+    if (!canManageSetlists) {
       return;
     }
 
@@ -465,7 +484,7 @@ export default function Cultos() {
   };
 
   const handleAtualizarItemSetlistBanco = (itemId, campo, valor) => {
-    if (!itemId || !canManageCultos) return;
+    if (!itemId || !canManageSetlists) return;
 
     authFetch(`/api/setlists/${itemId}/`, token, {
       method: "PATCH",
@@ -480,6 +499,7 @@ export default function Cultos() {
       }
 
       console.error("Erro ao atualizar setlist:", err);
+      setPageNotice("Nao foi possivel atualizar o item da setlist.");
     });
   };
 
@@ -590,7 +610,7 @@ export default function Cultos() {
                   >
                     <Music size={16} /> Setlist
                   </button>
-                  {canManageCultos && !isMobile && (
+                  {canManageEscalas && !isMobile && (
                     <button
                       className="lauda-btn lauda-btn-secondary culto-action-btn"
                       onClick={() => abrirModalEscala(culto)}
@@ -601,7 +621,7 @@ export default function Cultos() {
                 </div>
 
                 {isMobile ? (
-                  canManageCultos ? (
+                  canManageAnyMusicOperation ? (
                     <details
                       className="culto-actions-disclosure"
                       open={mobileActionsCultoId === culto.id}
@@ -615,26 +635,32 @@ export default function Cultos() {
                         Opções avançadas
                       </summary>
                       <div className="culto-actions-row culto-actions-row-secondary">
-                        {canManageCultos && (
+                        {canManageAnyMusicOperation && (
                           <>
-                            <button
-                              className="lauda-btn lauda-btn-secondary culto-action-btn"
-                              onClick={() => abrirModalEscala(culto)}
-                            >
-                              <Users size={16} /> Escala
-                            </button>
-                            <button
-                              className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost"
-                              onClick={() => handleEditarCulto(culto)}
-                            >
-                              <Edit2 size={16} /> Editar
-                            </button>
-                            <button
-                              className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost-danger"
-                              onClick={() => handleExcluirCulto(culto.id)}
-                            >
-                              <Trash2 size={16} /> Excluir
-                            </button>
+                            {canManageEscalas && (
+                              <button
+                                className="lauda-btn lauda-btn-secondary culto-action-btn"
+                                onClick={() => abrirModalEscala(culto)}
+                              >
+                                <Users size={16} /> Escala
+                              </button>
+                            )}
+                            {canManageCultos && (
+                              <>
+                                <button
+                                  className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost"
+                                  onClick={() => handleEditarCulto(culto)}
+                                >
+                                  <Edit2 size={16} /> Editar
+                                </button>
+                                <button
+                                  className="lauda-btn lauda-btn-secondary culto-action-btn culto-action-btn-ghost-danger"
+                                  onClick={() => handleExcluirCulto(culto.id)}
+                                >
+                                  <Trash2 size={16} /> Excluir
+                                </button>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
@@ -829,7 +855,7 @@ export default function Cultos() {
           culto={cultoSelecionado}
           membros={membros}
           escalas={escalas}
-          canManageCultos={canManageCultos}
+          canManageEscalas={canManageEscalas}
           onClose={fecharModalEscala}
           onAddEscala={handleAdicionarEscala}
           onRemoveEscala={handleRemoverEscala}
@@ -852,13 +878,13 @@ export default function Cultos() {
 
             <div className="modal-body">
               <p className="text-muted culto-setlist-helper">
-                {canManageCultos
+                {canManageSetlists
                   ? "Arraste as músicas do repertório (esquerda) para a setlist do culto (direita)."
                   : "Visualização apenas leitura da setlist do culto."}
               </p>
 
               <div className="dnd-container">
-                {canManageCultos && (
+                {canManageSetlists && (
                   <div
                     className="dnd-column"
                     onDragOver={handleDragOver}
@@ -896,9 +922,9 @@ export default function Cultos() {
 
                 <div
                   className="dnd-column dnd-column-highlight"
-                  onDragOver={canManageCultos ? handleDragOver : undefined}
-                  onDragLeave={canManageCultos ? handleDragLeave : undefined}
-                  onDrop={canManageCultos ? handleDropToSetlist : undefined}
+                  onDragOver={canManageSetlists ? handleDragOver : undefined}
+                  onDragLeave={canManageSetlists ? handleDragLeave : undefined}
+                  onDrop={canManageSetlists ? handleDropToSetlist : undefined}
                 >
                   <h4 className="dnd-column-title dnd-column-title-primary">
                     <Music size={18} /> Músicas do Culto
@@ -912,9 +938,9 @@ export default function Cultos() {
                     return (
                       <div
                         key={item.id}
-                        draggable={canManageCultos}
+                        draggable={canManageSetlists}
                         onDragStart={
-                          canManageCultos
+                          canManageSetlists
                             ? (e) => handleDragStart(e, item, "setlist")
                             : undefined
                         }
@@ -949,7 +975,7 @@ export default function Cultos() {
                                 )
                               }
                               onBlur={
-                                canManageCultos
+                                canManageSetlists
                                   ? (e) =>
                                       handleAtualizarItemSetlistBanco(
                                         item.id,
@@ -961,7 +987,7 @@ export default function Cultos() {
                               className="setlist-input setlist-input-tone input-field"
                               title="Tom de Execução"
                               placeholder="Tom"
-                              disabled={!canManageCultos}
+                              disabled={!canManageSetlists}
                             />
                             <input
                               type="text"
@@ -974,7 +1000,7 @@ export default function Cultos() {
                                 )
                               }
                               onBlur={
-                                canManageCultos
+                                canManageSetlists
                                   ? (e) =>
                                       handleAtualizarItemSetlistBanco(
                                         item.id,
@@ -985,11 +1011,11 @@ export default function Cultos() {
                               }
                               placeholder="Obs: Ex: Acústico"
                               className="setlist-input setlist-input-note input-field"
-                              disabled={!canManageCultos}
+                              disabled={!canManageSetlists}
                             />
                           </div>
                         </div>
-                        {canManageCultos && (
+                        {canManageSetlists && (
                           <button
                             type="button"
                             className="lauda-btn lauda-btn-secondary dnd-touch-btn dnd-touch-btn-remove"

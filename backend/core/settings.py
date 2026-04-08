@@ -166,6 +166,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated', # Exige login para tudo!
     ),
+    'EXCEPTION_HANDLER': 'api.exception_handler.custom_exception_handler',
 }
 
 SIMPLE_JWT = {

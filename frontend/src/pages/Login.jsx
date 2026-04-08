@@ -4,6 +4,7 @@ import { KeyRound, Music, ShieldCheck, Sparkles, UserRound } from "lucide-react"
 import { useAuth } from "../context/AuthContext";
 import { buildInvitePath, getAccessCodeFromSearch } from "../lib/accessCode";
 import { apiFetch } from "../lib/api";
+import { resolveMemberDestination } from "../core/auth/access";
 import "./Login.css";
 
 export default function Login({ mode = "member" }) {
@@ -74,14 +75,16 @@ export default function Login({ mode = "member" }) {
 
       login(dados);
 
-      if (dados.user?.is_global_admin) {
-        navigate("/admin", { replace: true });
+      if (dados.user?.ministerio_id) {
+        const redirectTo = isAdminMode
+          ? resolveMemberDestination(dados)
+          : location.state?.from || resolveMemberDestination(dados);
+        navigate(redirectTo, { replace: true });
         return;
       }
 
-      if (dados.user?.ministerio_id) {
-        const redirectTo = location.state?.from || config.nextPath;
-        navigate(redirectTo, { replace: true });
+      if (dados.user?.is_superuser) {
+        navigate(resolveMemberDestination(dados), { replace: true });
         return;
       }
 

@@ -8,6 +8,8 @@ export function normalizeSession(session) {
   const user = session.user
     ? {
         ...session.user,
+        is_global_admin: session.user.is_global_admin ?? false,
+        is_superuser: session.user.is_superuser ?? false,
         igreja_id: session.user.igreja_id ?? null,
         igreja_slug: session.user.igreja_slug ?? null,
         igreja_nome: session.user.igreja_nome ?? null,
@@ -19,6 +21,13 @@ export function normalizeSession(session) {
           session.user.ministerio_membership_is_primary ?? false,
         has_institutional_membership:
           session.user.has_institutional_membership ?? false,
+        authorization_roles: session.user.authorization_roles ?? {},
+        capabilities: Array.isArray(session.user.capabilities)
+          ? [...new Set(session.user.capabilities)]
+          : [],
+        active_modules: Array.isArray(session.user.active_modules)
+          ? [...new Set(session.user.active_modules)]
+          : [],
         igreja_vinculo: session.user.igreja_vinculo ?? null,
         ministerio_vinculo_principal:
           session.user.ministerio_vinculo_principal ?? null,

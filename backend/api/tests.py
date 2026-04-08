@@ -2,26 +2,50 @@ import importlib
 from unittest.mock import patch
 
 from django.apps import apps as django_apps
+from rest_framework.permissions import SAFE_METHODS
+from rest_framework.test import APIRequestFactory
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from api.models import (
+    ApiRequestErrorLog,
     ConviteMinisterio,
     Culto,
+    Evento,
     Igreja,
+    IgrejaModulo,
+    LogAuditoria,
     Ministerio,
+    Modulo,
     Musica,
     Team,
     Usuario,
     VinculoIgrejaUsuario,
     VinculoMinisterioUsuario,
 )
+from api.constants import (
+    CAPABILITY_MANAGE_CHURCH,
+    CAPABILITY_MANAGE_MEMBERS,
+    CAPABILITY_MANAGE_MUSIC,
+    CAPABILITY_MANAGE_PLATFORM,
+    MODULE_KEY_EVENTS,
+    MODULE_KEY_MUSIC,
+)
+from api.permissions import HasChurchCapability
+from api.services.access_context import resolve_scoped_ministry
+from api.services.agenda import AGENDA_SOURCE_TYPE_CULTO, list_institutional_agenda, sync_culto_evento
+from api.services.authorization import build_authorization_snapshot, has_capability
+from api.services.governance import get_governance_snapshot
 from api.services.institutional_context import (
     get_user_igreja,
     get_user_igreja_membership,
     get_user_ministerio,
     get_user_ministerio_membership,
 )
+from api.services.music_module import apply_music_enrichment
+from api.services.module_blueprint import build_module_expansion_blueprint
+from api.services.modular_context import get_active_module_keys_for_church
+from api.services.session_payload import build_user_payload
 from api.services.normalization import build_query, normalize_text, score_track_title
 
 
@@ -335,6 +359,7 @@ class MultiMinisterioAuthTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsNone(response.data["user"]["ministerio_id"])
         self.assertFalse(response.data["user"]["is_global_admin"])
+        self.assertFalse(response.data["user"]["is_superuser"])
 
     def test_admin_login_accepts_global_admin(self):
         response = self.client.post(
@@ -344,6 +369,7 @@ class MultiMinisterioAuthTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["user"]["is_global_admin"])
+        self.assertTrue(response.data["user"]["is_superuser"])
         self.assertEqual(response.data["user"]["escopo_acesso"], "GLOBAL")
         self.assertEqual(response.data["user"]["papel_display"], "Admin Global")
 
@@ -352,6 +378,7 @@ class MultiMinisterioAuthTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["user"]["is_global_admin"])
+        self.assertTrue(response.data["user"]["is_superuser"])
         self.assertTrue(response.data["user"]["is_impersonating"])
         self.assertEqual(response.data["user"]["ministerio_id"], self.ministerio.id)
         self.assertEqual(response.data["user"]["ministerio_slug"], self.ministerio.slug)
@@ -360,6 +387,7 @@ class MultiMinisterioAuthTests(APITestCase):
 
         self.assertEqual(me_response.status_code, status.HTTP_200_OK)
         self.assertTrue(me_response.data["is_global_admin"])
+        self.assertTrue(me_response.data["is_superuser"])
         self.assertTrue(me_response.data["is_impersonating"])
         self.assertEqual(me_response.data["ministerio_id"], self.ministerio.id)
         self.assertEqual(me_response.data["ministerio_nome"], self.ministerio.nome)
@@ -512,7 +540,8 @@ class MultiMinisterioIsolationTests(APITestCase):
             },
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(response.data["ministerio"])
 
     def test_ministry_admin_cannot_create_scale_with_foreign_member(self):
         membro_b = Usuario.objects.create_user(
@@ -534,7 +563,8 @@ class MultiMinisterioIsolationTests(APITestCase):
             {"culto": culto_a.id, "membro": membro_b.id, "status_confirmacao": "PENDENTE"},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("membro", response.data)
 
     def test_global_admin_lists_all_music(self):
         self.client.force_authenticate(user=self.global_admin)
@@ -646,6 +676,7 @@ class UserAccessLevelSyncTests(APITestCase):
         self.assertEqual(response.data["nivel_acesso_label"], "Administrador")
         self.assertEqual(response.data["escopo_acesso"], "MINISTERIO")
         self.assertEqual(response.data["papel_display"], "Administrador")
+        self.assertFalse(response.data["is_superuser"])
 
     def test_me_endpoint_updates_funcoes_with_allowed_values(self):
         response = self.client.patch(
@@ -753,7 +784,7 @@ class TenantHardeningTests(APITestCase):
         )
         self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_leader_cannot_create_global_music(self):
+    def test_leader_can_create_global_music_catalog_entry(self):
         leader = Usuario.objects.create_user(
             username="leader-hardening",
             password="12345678",
@@ -769,7 +800,60 @@ class TenantHardeningTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(response.data["ministerio"])
+
+    def test_leader_can_create_culto_and_manage_operational_music_flow(self):
+        leader = Usuario.objects.create_user(
+            username="leader-operational-hardening",
+            password="12345678",
+            funcao_principal="Voz",
+            nivel_acesso=2,
+            ministerio=self.ministerio_a,
+        )
+        self.client.force_authenticate(user=leader)
+
+        culto_response = self.client.post(
+            "/api/cultos/",
+            {
+                "nome": "Culto Lider",
+                "data": "2026-04-09",
+                "horario_inicio": "19:30:00",
+                "status": "AGENDADO",
+            },
+            format="json",
+        )
+
+        self.assertEqual(culto_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(culto_response.data["ministerio"], self.ministerio_a.id)
+
+        escala_response = self.client.post(
+            "/api/escalas/",
+            {
+                "culto": culto_response.data["id"],
+                "membro": self.member_a.id,
+                "status_confirmacao": "PENDENTE",
+            },
+            format="json",
+        )
+
+        self.assertEqual(escala_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(escala_response.data["ministerio"], self.ministerio_a.id)
+
+        setlist_response = self.client.post(
+            "/api/setlists/",
+            {
+                "culto": culto_response.data["id"],
+                "musica": self.musica_a.id,
+                "ordem": 1,
+                "tom_execucao": "C",
+                "observacoes": "Entrada",
+            },
+            format="json",
+        )
+
+        self.assertEqual(setlist_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(setlist_response.data["ministerio"], self.ministerio_a.id)
 
     def test_member_cannot_create_setlist_item(self):
         self.client.force_authenticate(user=self.member_a)
@@ -1211,3 +1295,723 @@ class FundacaoAcessoTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["titulo"], "Musica Legada")
+
+
+class FundacaoModularTests(APITestCase):
+    def setUp(self):
+        self.igreja = Igreja.objects.create(nome="Igreja Modular", slug="igreja-modular")
+        self.igreja_secundaria = Igreja.objects.create(nome="Igreja Modular 2", slug="igreja-modular-2")
+        self.music_module = Modulo.objects.get(chave=MODULE_KEY_MUSIC)
+        self.ministerio = Ministerio.objects.create(
+            nome="Ministerio Modular",
+            slug="ministerio-modular",
+            igreja=self.igreja,
+        )
+        self.global_admin = Usuario.objects.create_user(
+            username="admin-modular",
+            password="12345678",
+            is_global_admin=True,
+            is_superuser=True,
+        )
+        self.church_admin = Usuario.objects.create_user(
+            username="church-modular-admin",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        VinculoIgrejaUsuario.objects.create(
+            usuario=self.church_admin,
+            igreja=self.igreja,
+            papel_institucional="CHURCH_ADMIN",
+        )
+        VinculoMinisterioUsuario.objects.create(
+            usuario=self.church_admin,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MEMBRO",
+            is_primary=True,
+        )
+
+    def test_can_create_module_catalog_entry(self):
+        modulo = Modulo.objects.create(
+            nome="Juventude",
+            chave="youth",
+            descricao="Modulo piloto de juventude.",
+        )
+
+        self.assertEqual(modulo.chave, "youth")
+        self.assertTrue(modulo.is_active)
+
+    def test_module_key_must_be_unique(self):
+        with self.assertRaises(Exception):
+            Modulo.objects.create(nome="Musica Duplicada", chave=MODULE_KEY_MUSIC)
+
+    def test_can_link_module_to_church(self):
+        igreja_modulo = IgrejaModulo.objects.create(igreja=self.igreja, modulo=self.music_module)
+
+        self.assertEqual(igreja_modulo.igreja_id, self.igreja.id)
+        self.assertEqual(igreja_modulo.modulo_id, self.music_module.id)
+        self.assertTrue(igreja_modulo.is_enabled)
+
+    def test_church_module_pair_must_be_unique(self):
+        IgrejaModulo.objects.create(igreja=self.igreja, modulo=self.music_module)
+
+        with self.assertRaises(Exception):
+            IgrejaModulo.objects.create(igreja=self.igreja, modulo=self.music_module)
+
+    def test_helper_returns_only_enabled_active_modules_for_church(self):
+        youth = Modulo.objects.create(nome="Juventude", chave="youth", is_active=False)
+        IgrejaModulo.objects.create(igreja=self.igreja, modulo=self.music_module, is_enabled=True)
+        IgrejaModulo.objects.create(igreja=self.igreja, modulo=youth, is_enabled=True)
+
+        self.assertEqual(get_active_module_keys_for_church(self.igreja), [MODULE_KEY_MUSIC])
+
+    def test_backfill_registers_music_module_and_enables_it_for_existing_churches(self):
+        migration_module = importlib.import_module("api.migrations.0018_seed_music_module_and_backfill_igreja_modulos")
+
+        migration_module.seed_music_module_and_backfill_igreja_modulos(django_apps, None)
+
+        music_module = Modulo.objects.get(chave=MODULE_KEY_MUSIC)
+        self.assertTrue(music_module.is_active)
+        self.assertTrue(IgrejaModulo.objects.get(igreja=self.igreja, modulo=music_module).is_enabled)
+        self.assertTrue(IgrejaModulo.objects.get(igreja=self.igreja_secundaria, modulo=music_module).is_enabled)
+
+    def test_disabled_church_module_does_not_appear_as_active(self):
+        IgrejaModulo.objects.create(igreja=self.igreja, modulo=self.music_module, is_enabled=False)
+
+        self.assertEqual(get_active_module_keys_for_church(self.igreja), [])
+
+    def test_auth_payload_exposes_active_modules(self):
+        IgrejaModulo.objects.create(igreja=self.igreja, modulo=self.music_module, is_enabled=True)
+
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "church-modular-admin", "password": "12345678"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["user"]["active_modules"], [MODULE_KEY_MUSIC])
+
+    def test_church_module_endpoint_allows_management_with_church_scope(self):
+        self.client.force_authenticate(user=self.church_admin)
+
+        create_response = self.client.post(
+            "/api/igreja-modulos/",
+            {
+                "igreja": self.igreja.id,
+                "modulo": self.music_module.id,
+                "is_enabled": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        patch_response = self.client.patch(
+            f"/api/igreja-modulos/{create_response.data['id']}/",
+            {"is_enabled": False},
+            format="json",
+        )
+
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+        self.assertFalse(patch_response.data["is_enabled"])
+
+
+class ModuleExpansionBlueprintTests(APITestCase):
+    def setUp(self):
+        self.igreja = Igreja.objects.create(nome="Igreja Blueprint", slug="igreja-blueprint")
+        self.ministerio = Ministerio.objects.create(
+            nome="Ministerio Blueprint",
+            slug="ministerio-blueprint",
+            igreja=self.igreja,
+        )
+        self.church_admin = Usuario.objects.create_user(
+            username="church-blueprint-admin",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        VinculoIgrejaUsuario.objects.create(
+            usuario=self.church_admin,
+            igreja=self.igreja,
+            papel_institucional="CHURCH_ADMIN",
+        )
+        VinculoMinisterioUsuario.objects.create(
+            usuario=self.church_admin,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MEMBRO",
+            is_primary=True,
+        )
+
+    def test_blueprint_service_selects_events_as_single_next_module(self):
+        blueprint = build_module_expansion_blueprint()
+
+        self.assertEqual(blueprint["next_priority_module"]["key"], MODULE_KEY_EVENTS)
+        self.assertEqual(blueprint["next_priority_module"]["status"], "planned")
+        self.assertIn("igreja", blueprint["next_priority_module"]["core_dependencies"])
+        self.assertIn("tipos_de_evento", blueprint["next_priority_module"]["module_specific_scope"])
+        self.assertIn("registrar_modulo_no_catalogo", blueprint["creation_checklist"])
+
+    def test_blueprint_endpoint_exposes_repeatable_process_for_church_admin(self):
+        self.client.force_authenticate(user=self.church_admin)
+
+        response = self.client.get("/api/modulos/blueprint/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["next_priority_module"]["key"], MODULE_KEY_EVENTS)
+        self.assertTrue(response.data["guardrails"]["preserve_music_module"])
+        self.assertTrue(
+            any(item["key"] == MODULE_KEY_MUSIC for item in response.data["official_catalog"]),
+        )
+
+    def test_seed_events_module_catalog_registers_inactive_module(self):
+        migration_module = importlib.import_module("api.migrations.0022_seed_events_module_catalog")
+
+        migration_module.seed_events_module_catalog(django_apps, None)
+
+        events_module = Modulo.objects.get(chave=MODULE_KEY_EVENTS)
+        self.assertEqual(events_module.nome, "Eventos")
+        self.assertFalse(events_module.is_active)
+
+
+class CoreVsMusicBoundaryTests(APITestCase):
+    def setUp(self):
+        self.igreja = Igreja.objects.create(nome="Igreja Fronteira", slug="igreja-fronteira")
+        self.ministerio = Ministerio.objects.create(
+            nome="Ministerio Fronteira",
+            slug="ministerio-fronteira",
+            igreja=self.igreja,
+        )
+        self.user = Usuario.objects.create_user(
+            username="user-fronteira",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=2,
+        )
+        self.music_module = Modulo.objects.get(chave=MODULE_KEY_MUSIC)
+        IgrejaModulo.objects.get_or_create(
+            igreja=self.igreja,
+            modulo=self.music_module,
+            defaults={"is_enabled": True},
+        )
+
+    def test_core_session_payload_resolves_context_without_music_resource(self):
+        payload = build_user_payload(self.user)
+
+        self.assertEqual(payload["igreja_id"], self.igreja.id)
+        self.assertEqual(payload["ministerio_id"], self.ministerio.id)
+        self.assertEqual(payload["active_modules"], [MODULE_KEY_MUSIC])
+
+    def test_core_scope_resolution_does_not_depend_on_music_entities(self):
+        resolved = resolve_scoped_ministry(self.user)
+
+        self.assertEqual(resolved.id, self.ministerio.id)
+
+    def test_music_module_consumes_core_context_and_keeps_music_logic_local(self):
+        musica = Musica.objects.create(
+            ministerio=self.ministerio,
+            titulo="Cancao Base",
+            artista="Autor Base",
+            tom_original="C",
+        )
+
+        apply_music_enrichment(
+            musica,
+            {
+                "title": "Cancao Enriquecida",
+                "artist": "Autor Enriquecido",
+                "spotify_id": "spotify-core-music",
+                "source": "music-module",
+            },
+        )
+
+        self.assertEqual(musica.titulo, "Cancao Enriquecida")
+        self.assertEqual(musica.spotify_id, "spotify-core-music")
+        self.assertEqual(get_user_igreja(self.user).id, self.igreja.id)
+
+
+class AgendaBaseFoundationTests(APITestCase):
+    def setUp(self):
+        self.igreja = Igreja.objects.create(nome="Igreja Agenda", slug="igreja-agenda")
+        self.ministerio = Ministerio.objects.create(
+            nome="Ministerio Agenda",
+            slug="ministerio-agenda",
+            igreja=self.igreja,
+        )
+        self.ministry_admin = Usuario.objects.create_user(
+            username="agenda-admin",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        self.member = Usuario.objects.create_user(
+            username="agenda-member",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        VinculoMinisterioUsuario.objects.create(
+            usuario=self.ministry_admin,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MINISTRY_ADMIN",
+            is_primary=True,
+        )
+
+    def test_can_create_base_event_for_scoped_ministry(self):
+        self.client.force_authenticate(user=self.ministry_admin)
+
+        response = self.client.post(
+            "/api/eventos/",
+            {
+                "nome": "Ensaio Geral",
+                "descricao": "Agenda base do ministerio.",
+                "data": "2026-04-12",
+                "horario_inicio": "19:30:00",
+                "horario_termino": "21:00:00",
+                "local": "Templo",
+                "status": "AGENDADO",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["igreja"], self.igreja.id)
+        self.assertEqual(response.data["ministerio"], self.ministerio.id)
+        self.assertFalse(response.data["is_music_culto"])
+
+    def test_list_institutional_agenda_returns_base_and_music_events_together(self):
+        Evento.objects.create(
+            igreja=self.igreja,
+            ministerio=None,
+            nome="Conferencia da Igreja",
+            data="2026-04-13",
+            horario_inicio="18:00:00",
+            status="AGENDADO",
+        )
+        culto = Culto.objects.create(
+            ministerio=self.ministerio,
+            nome="Culto Agenda",
+            data="2026-04-14",
+            horario_inicio="19:00:00",
+            status="AGENDADO",
+        )
+        sync_culto_evento(culto)
+
+        agenda = list_institutional_agenda(self.ministry_admin)
+
+        self.assertEqual(len(agenda), 2)
+        self.assertEqual({item["nome"] for item in agenda}, {"Conferencia da Igreja", "Culto Agenda"})
+        self.assertEqual(
+            {item["source_type"] for item in agenda if item["nome"] == "Culto Agenda"},
+            {AGENDA_SOURCE_TYPE_CULTO},
+        )
+
+    def test_culto_creation_keeps_music_flow_and_syncs_evento_base(self):
+        self.client.force_authenticate(user=self.ministry_admin)
+
+        culto_response = self.client.post(
+            "/api/cultos/",
+            {
+                "nome": "Culto Jovem",
+                "data": "2026-04-15",
+                "horario_inicio": "20:00:00",
+                "horario_termino": "21:30:00",
+                "local": "Templo Central",
+                "status": "AGENDADO",
+            },
+            format="json",
+        )
+
+        self.assertEqual(culto_response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(culto_response.data["evento_id"])
+
+        evento = Evento.objects.get(id=culto_response.data["evento_id"])
+        self.assertEqual(evento.nome, "Culto Jovem")
+        self.assertEqual(evento.source_type, AGENDA_SOURCE_TYPE_CULTO)
+        self.assertEqual(evento.source_module, MODULE_KEY_MUSIC)
+        self.assertEqual(evento.ministerio_id, self.ministerio.id)
+
+    def test_member_can_read_eventos_but_cannot_create(self):
+        Evento.objects.create(
+            igreja=self.igreja,
+            ministerio=self.ministerio,
+            nome="Evento Leitura",
+            data="2026-04-16",
+            horario_inicio="19:00:00",
+            status="AGENDADO",
+        )
+        self.client.force_authenticate(user=self.member)
+
+        list_response = self.client.get("/api/eventos/")
+        create_response = self.client.post(
+            "/api/eventos/",
+            {
+                "nome": "Nao Pode",
+                "data": "2026-04-17",
+                "horario_inicio": "19:00:00",
+                "status": "AGENDADO",
+            },
+            format="json",
+        )
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class GovernanceObservabilityTests(APITestCase):
+    def setUp(self):
+        self.igreja = Igreja.objects.create(nome="Igreja Governanca", slug="igreja-governanca")
+        self.ministerio = Ministerio.objects.create(
+            nome="Ministerio Governanca",
+            slug="ministerio-governanca",
+            igreja=self.igreja,
+        )
+        self.global_admin = Usuario.objects.create_user(
+            username="global-governance",
+            password="12345678",
+            is_global_admin=True,
+            is_superuser=True,
+        )
+        self.ministry_admin = Usuario.objects.create_user(
+            username="governance-admin",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=1,
+        )
+        self.member = Usuario.objects.create_user(
+            username="governance-member",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        self.music_module = Modulo.objects.get(chave=MODULE_KEY_MUSIC)
+        IgrejaModulo.objects.get_or_create(
+            igreja=self.igreja,
+            modulo=self.music_module,
+            defaults={"is_enabled": True},
+        )
+
+    def test_audit_log_persists_scope_fields_for_module_data(self):
+        self.client.force_authenticate(user=self.ministry_admin)
+
+        response = self.client.post(
+            "/api/cultos/",
+            {
+                "nome": "Culto Governanca",
+                "data": "2026-04-20",
+                "horario_inicio": "19:00:00",
+                "status": "AGENDADO",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        log = LogAuditoria.objects.first()
+        self.assertEqual(log.modelo_afetado, "Culto")
+        self.assertEqual(log.escopo, "module")
+        self.assertEqual(log.modulo, MODULE_KEY_MUSIC)
+        self.assertEqual(log.igreja_id, self.igreja.id)
+        self.assertEqual(log.ministerio_id, self.ministerio.id)
+
+    def test_api_exception_handler_captures_scoped_error_log(self):
+        self.client.force_authenticate(user=self.member)
+
+        response = self.client.post(
+            "/api/cultos/",
+            {
+                "nome": "Culto Bloqueado",
+                "data": "2026-04-20",
+                "horario_inicio": "19:00:00",
+                "status": "AGENDADO",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        api_error = ApiRequestErrorLog.objects.first()
+        self.assertEqual(api_error.path, "/api/cultos/")
+        self.assertEqual(api_error.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(api_error.modulo, MODULE_KEY_MUSIC)
+        self.assertEqual(api_error.igreja_id, self.igreja.id)
+        self.assertEqual(api_error.ministerio_id, self.ministerio.id)
+
+    def test_governance_snapshot_and_metrics_endpoint_expose_minimum_observability(self):
+        LogAuditoria.objects.create(
+            usuario=self.ministry_admin,
+            igreja=self.igreja,
+            ministerio=self.ministerio,
+            escopo="module",
+            modulo=MODULE_KEY_MUSIC,
+            acao="CREATE",
+            modelo_afetado="Culto",
+            descricao="Log manual para metrica.",
+        )
+        ApiRequestErrorLog.objects.create(
+            usuario=self.member,
+            igreja=self.igreja,
+            ministerio=self.ministerio,
+            modulo=MODULE_KEY_MUSIC,
+            method="POST",
+            path="/api/cultos/",
+            status_code=400,
+            detail="Falha controlada",
+        )
+
+        snapshot = get_governance_snapshot()
+        self.assertGreaterEqual(snapshot["metrics"]["igrejas_ativas"], 1)
+        self.assertGreaterEqual(snapshot["metrics"]["modulo_musica"]["igrejas_com_modulo_ativo"], 1)
+        self.assertTrue(
+            any(item["nome"] == self.igreja.nome for item in snapshot["metrics"]["modulos_ativos_por_igreja"]),
+        )
+        self.assertEqual(snapshot["storage"]["database_fields"], ["Usuario.foto_perfil", "Musica.cifra_pdf"])
+
+        self.client.force_authenticate(user=self.global_admin)
+        response = self.client.get("/api/auditoria/metricas/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(response.data["metrics"]["igrejas_ativas"], 1)
+        self.assertGreaterEqual(response.data["metrics"]["modulo_musica"]["igrejas_com_modulo_ativo"], 1)
+        self.assertEqual(response.data["ownership"]["module"][0], "catalogo musical ativo")
+
+
+class MusicModuleCapabilityEndpointTests(APITestCase):
+    def setUp(self):
+        self.igreja = Igreja.objects.create(nome="Igreja Cap Music", slug="igreja-cap-music")
+        self.ministerio = Ministerio.objects.create(
+            nome="Ministerio Cap Music",
+            slug="ministerio-cap-music",
+            igreja=self.igreja,
+        )
+        self.music_module = Modulo.objects.get(chave=MODULE_KEY_MUSIC)
+        IgrejaModulo.objects.get_or_create(
+            igreja=self.igreja,
+            modulo=self.music_module,
+            defaults={"is_enabled": True},
+        )
+        self.member = Usuario.objects.create_user(
+            username="member-music-cap",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        self.leader = Usuario.objects.create_user(
+            username="leader-music-cap",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        VinculoMinisterioUsuario.objects.create(
+            usuario=self.leader,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MINISTRY_LEADER",
+            is_primary=True,
+        )
+        self.musica = Musica.objects.create(
+            ministerio=None,
+            titulo="Cancao Cap",
+            artista="Autor Cap",
+            tom_original="G",
+        )
+
+    def test_membership_role_leader_can_manage_music_module_endpoints(self):
+        self.client.force_authenticate(user=self.leader)
+
+        music_response = self.client.post(
+            "/api/musicas/",
+            {"titulo": "Nova Cap", "artista": "Autor", "tom_original": "D"},
+            format="json",
+        )
+        self.assertEqual(music_response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(music_response.data["ministerio"])
+
+        culto_response = self.client.post(
+            "/api/cultos/",
+            {
+                "nome": "Culto Cap",
+                "data": "2026-04-10",
+                "horario_inicio": "20:00:00",
+                "status": "AGENDADO",
+            },
+            format="json",
+        )
+        self.assertEqual(culto_response.status_code, status.HTTP_201_CREATED)
+
+        escala_response = self.client.post(
+            "/api/escalas/",
+            {
+                "culto": culto_response.data["id"],
+                "membro": self.member.id,
+                "status_confirmacao": "PENDENTE",
+            },
+            format="json",
+        )
+        self.assertEqual(escala_response.status_code, status.HTTP_201_CREATED)
+
+        setlist_response = self.client.post(
+            "/api/setlists/",
+            {
+                "culto": culto_response.data["id"],
+                "musica": self.musica.id,
+                "ordem": 1,
+                "tom_execucao": "G",
+            },
+            format="json",
+        )
+        self.assertEqual(setlist_response.status_code, status.HTTP_201_CREATED)
+
+    def test_member_without_module_capabilities_still_cannot_write(self):
+        culto = Culto.objects.create(
+            ministerio=self.ministerio,
+            nome="Culto Member",
+            data="2026-04-10",
+            horario_inicio="19:00:00",
+        )
+        self.client.force_authenticate(user=self.member)
+
+        music_response = self.client.post(
+            "/api/musicas/",
+            {"titulo": "Bloqueada", "artista": "Autor", "tom_original": "E"},
+            format="json",
+        )
+        self.assertEqual(music_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        setlist_response = self.client.post(
+            "/api/setlists/",
+            {
+                "culto": culto.id,
+                "musica": self.musica.id,
+                "ordem": 1,
+                "tom_execucao": "G",
+            },
+            format="json",
+        )
+        self.assertEqual(setlist_response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class EscopoAuthorizationTests(APITestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.igreja = Igreja.objects.create(nome="Igreja Escopo", slug="igreja-escopo")
+        self.ministerio = Ministerio.objects.create(
+            nome="Ministerio Escopo",
+            slug="ministerio-escopo",
+            igreja=self.igreja,
+        )
+        self.platform_admin = Usuario.objects.create_user(
+            username="platform-admin",
+            password="12345678",
+            is_global_admin=True,
+            is_superuser=True,
+        )
+        self.church_admin = Usuario.objects.create_user(
+            username="church-admin",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        self.ministry_admin = Usuario.objects.create_user(
+            username="ministry-admin",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        self.ministry_leader = Usuario.objects.create_user(
+            username="ministry-leader",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        self.member = Usuario.objects.create_user(
+            username="member-escopo",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+
+        VinculoIgrejaUsuario.objects.create(
+            usuario=self.church_admin,
+            igreja=self.igreja,
+            papel_institucional="CHURCH_ADMIN",
+        )
+        VinculoMinisterioUsuario.objects.create(
+            usuario=self.church_admin,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MEMBRO",
+            is_primary=True,
+        )
+        VinculoMinisterioUsuario.objects.create(
+            usuario=self.ministry_admin,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MINISTRY_ADMIN",
+            is_primary=True,
+        )
+        VinculoMinisterioUsuario.objects.create(
+            usuario=self.ministry_leader,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MINISTRY_LEADER",
+            is_primary=True,
+        )
+        VinculoMinisterioUsuario.objects.create(
+            usuario=self.member,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MEMBRO",
+            is_primary=True,
+        )
+
+    def test_platform_super_admin_receives_platform_capabilities(self):
+        snapshot = build_authorization_snapshot(self.platform_admin, igreja=self.igreja, ministerio=self.ministerio)
+
+        self.assertEqual(snapshot["roles"]["platform"], "platform_super_admin")
+        self.assertIn(CAPABILITY_MANAGE_PLATFORM, snapshot["capabilities"])
+        self.assertIn(CAPABILITY_MANAGE_CHURCH, snapshot["capabilities"])
+
+    def test_church_admin_receives_church_capabilities_only(self):
+        snapshot = build_authorization_snapshot(self.church_admin, igreja=self.igreja, ministerio=self.ministerio)
+
+        self.assertEqual(snapshot["roles"]["church"], "church_admin")
+        self.assertIn(CAPABILITY_MANAGE_CHURCH, snapshot["capabilities"])
+        self.assertNotIn(CAPABILITY_MANAGE_PLATFORM, snapshot["capabilities"])
+
+    def test_ministry_admin_receives_ministry_capabilities(self):
+        snapshot = build_authorization_snapshot(self.ministry_admin, igreja=self.igreja, ministerio=self.ministerio)
+
+        self.assertEqual(snapshot["roles"]["ministry"], "ministry_admin")
+        self.assertIn(CAPABILITY_MANAGE_MEMBERS, snapshot["capabilities"])
+
+    def test_ministry_leader_receives_operational_capabilities(self):
+        snapshot = build_authorization_snapshot(self.ministry_leader, igreja=self.igreja, ministerio=self.ministerio)
+
+        self.assertEqual(snapshot["roles"]["ministry"], "ministry_leader")
+        self.assertIn(CAPABILITY_MANAGE_MUSIC, snapshot["capabilities"])
+        self.assertNotIn(CAPABILITY_MANAGE_MEMBERS, snapshot["capabilities"])
+
+    def test_member_does_not_receive_administrative_capabilities(self):
+        snapshot = build_authorization_snapshot(self.member, igreja=self.igreja, ministerio=self.ministerio)
+
+        self.assertEqual(snapshot["roles"]["ministry"], "member")
+        self.assertNotIn(CAPABILITY_MANAGE_MEMBERS, snapshot["capabilities"])
+        self.assertNotIn(CAPABILITY_MANAGE_PLATFORM, snapshot["capabilities"])
+
+    def test_legacy_fallback_continues_working_without_membership_role(self):
+        legacy_admin = Usuario.objects.create_user(
+            username="legacy-admin-role",
+            password="12345678",
+            ministerio=self.ministerio,
+            nivel_acesso=1,
+        )
+
+        self.assertTrue(has_capability(legacy_admin, CAPABILITY_MANAGE_MEMBERS, scope="ministry"))
+
+    def test_capability_permission_class_respects_resolver(self):
+        class CanManageChurchForTest(HasChurchCapability):
+            capability = CAPABILITY_MANAGE_CHURCH
+
+        request = self.factory.get("/api/igrejas/")
+        request.user = self.church_admin
+        request.method = SAFE_METHODS[0]
+
+        self.assertTrue(CanManageChurchForTest().has_permission(request, view=None))
+
+        request.user = self.member
+        self.assertFalse(CanManageChurchForTest().has_permission(request, view=None))

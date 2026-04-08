@@ -2,12 +2,17 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
 from .models import (
+    ApiRequestErrorLog,
     ConviteMinisterio,
     Culto,
     Escala,
+    Evento,
     Igreja,
+    IgrejaModulo,
     ItemSetlist,
+    LogAuditoria,
     Ministerio,
+    Modulo,
     Musica,
     Team,
     Usuario,
@@ -34,6 +39,13 @@ class IgrejaAdmin(admin.ModelAdmin):
     list_display = ("nome", "slug", "is_active", "created_at")
     list_filter = ("is_active",)
     search_fields = ("nome", "slug")
+
+
+@admin.register(Modulo)
+class ModuloAdmin(admin.ModelAdmin):
+    list_display = ("nome", "chave", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("nome", "chave", "descricao")
 
 
 @admin.register(Ministerio)
@@ -113,6 +125,13 @@ class VinculoMinisterioUsuarioAdmin(admin.ModelAdmin):
     search_fields = ("usuario__username", "usuario__first_name", "ministerio__nome", "ministerio__slug")
 
 
+@admin.register(IgrejaModulo)
+class IgrejaModuloAdmin(admin.ModelAdmin):
+    list_display = ("igreja", "modulo", "is_enabled", "created_at")
+    list_filter = ("igreja", "modulo", "is_enabled")
+    search_fields = ("igreja__nome", "igreja__slug", "modulo__nome", "modulo__chave")
+
+
 @admin.register(Musica)
 class MusicaAdmin(admin.ModelAdmin):
     list_display = ("titulo", "artista", "classificacao", "ministerio", "tom_original", "bpm", "is_active")
@@ -122,8 +141,29 @@ class MusicaAdmin(admin.ModelAdmin):
 
 @admin.register(Culto)
 class CultoAdmin(admin.ModelAdmin):
-    list_display = ("nome", "ministerio", "data", "horario_inicio", "status")
+    list_display = ("nome", "ministerio", "evento", "data", "horario_inicio", "status")
     list_filter = ("ministerio", "status", "data")
+
+
+@admin.register(Evento)
+class EventoAdmin(admin.ModelAdmin):
+    list_display = ("nome", "igreja", "ministerio", "source_module", "source_type", "data", "status")
+    list_filter = ("igreja", "ministerio", "source_module", "source_type", "status")
+    search_fields = ("nome", "descricao", "local", "igreja__nome", "ministerio__nome")
+
+
+@admin.register(LogAuditoria)
+class LogAuditoriaAdmin(admin.ModelAdmin):
+    list_display = ("data_hora", "acao", "modelo_afetado", "escopo", "modulo", "igreja", "ministerio", "usuario")
+    list_filter = ("acao", "escopo", "modulo", "igreja", "ministerio")
+    search_fields = ("descricao", "modelo_afetado", "usuario__username", "igreja__nome", "ministerio__nome")
+
+
+@admin.register(ApiRequestErrorLog)
+class ApiRequestErrorLogAdmin(admin.ModelAdmin):
+    list_display = ("occurred_at", "method", "path", "status_code", "modulo", "igreja", "ministerio", "usuario")
+    list_filter = ("status_code", "modulo", "igreja", "ministerio", "method")
+    search_fields = ("path", "detail", "usuario__username", "igreja__nome", "ministerio__nome")
 
 
 @admin.register(ConviteMinisterio)

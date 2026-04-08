@@ -31,6 +31,23 @@ function areUsersEqual(currentUser, nextUser) {
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => loadStoredSession());
+  const activeModules = useMemo(
+    () => session?.user?.active_modules || [],
+    [session?.user?.active_modules],
+  );
+  const capabilities = useMemo(
+    () => session?.user?.capabilities || [],
+    [session?.user?.capabilities],
+  );
+
+  const hasModule = useCallback(
+    (moduleKey) => activeModules.includes(moduleKey),
+    [activeModules],
+  );
+  const hasCapability = useCallback(
+    (capability) => capabilities.includes(capability),
+    [capabilities],
+  );
 
   const login = useCallback((nextSession) => {
     const normalizedSession = persistSession(nextSession);
@@ -93,12 +110,26 @@ export function AuthProvider({ children }) {
       session,
       token: session?.access || null,
       user: session?.user || null,
+      activeModules,
+      capabilities,
+      hasModule,
+      hasCapability,
       login,
       impersonateMinistry,
       updateUser,
       logout,
     }),
-    [impersonateMinistry, login, logout, session, updateUser],
+    [
+      activeModules,
+      capabilities,
+      hasCapability,
+      hasModule,
+      impersonateMinistry,
+      login,
+      logout,
+      session,
+      updateUser,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

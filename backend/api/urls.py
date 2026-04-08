@@ -8,11 +8,14 @@ from .views import (
     ConviteMinisterioViewSet,
     CultoViewSet,
     EscalaViewSet,
+    EventoViewSet,
     IgrejaViewSet,
+    IgrejaModuloViewSet,
     InviteLookupView,
     ItemSetlistViewSet,
     LogAuditoriaViewSet,
     MinisterioViewSet,
+    ModuloViewSet,
     MinistryInviteLinkView,
     MusicaViewSet,
     TeamViewSet,
@@ -21,9 +24,12 @@ from .views import (
 
 router = DefaultRouter()
 router.register(r"igrejas", IgrejaViewSet, basename="igreja")
+router.register(r"modulos", ModuloViewSet, basename="modulo")
+router.register(r"igreja-modulos", IgrejaModuloViewSet, basename="igreja-modulo")
 router.register(r"ministerios", MinisterioViewSet)
 router.register(r"convites", ConviteMinisterioViewSet)
 router.register(r"usuarios", UsuarioViewSet)
+router.register(r"eventos", EventoViewSet, basename="evento")
 router.register(r"musicas", MusicaViewSet)
 router.register(r"cultos", CultoViewSet)
 router.register(r"escalas", EscalaViewSet)

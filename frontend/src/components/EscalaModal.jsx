@@ -4,7 +4,7 @@ export default function EscalaModal({
   culto,
   membros,
   escalas,
-  canManageCultos,
+  canManageEscalas,
   onClose,
   onAddEscala,
   onRemoveEscala,
@@ -39,7 +39,7 @@ export default function EscalaModal({
         </div>
 
         <div className="modal-body form-container">
-          {canManageCultos && (
+          {canManageEscalas && (
             <form onSubmit={handleSubmit} className="escala-toolbar">
               <div className="form-group escala-toolbar-select">
                 <label className="input-label">
@@ -77,7 +77,7 @@ export default function EscalaModal({
                   <th>Membro</th>
                   <th>Função</th>
                   <th>Status</th>
-                  {canManageCultos && <th>Ação</th>}
+                  {canManageEscalas && <th>Ação</th>}
                 </tr>
               </thead>
               <tbody>
@@ -102,7 +102,7 @@ export default function EscalaModal({
                           {escala.status_confirmacao}
                         </span>
                       </td>
-                      {canManageCultos && (
+                      {canManageEscalas && (
                         <td data-label="Ação">
                           <button
                             onClick={() => onRemoveEscala(escala.id)}
@@ -118,7 +118,7 @@ export default function EscalaModal({
                 {escalasDoCulto.length === 0 && (
                   <tr>
                     <td
-                      colSpan={canManageCultos ? 4 : 3}
+                      colSpan={canManageEscalas ? 4 : 3}
                       className="table-empty"
                     >
                       Nenhum membro escalado.

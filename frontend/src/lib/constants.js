@@ -18,6 +18,38 @@ export const USER_FUNCTION_OPTIONS = [
   "Vocalista",
 ];
 
+export const AUTH_SCOPE_PLATFORM = "platform";
+export const AUTH_SCOPE_CHURCH = "church";
+export const AUTH_SCOPE_MINISTRY = "ministry";
+export const AUTH_SCOPE_MODULE = "module";
+
+export const MODULE_KEY_MUSIC = "music";
+export const MODULE_KEY_EVENTS = "events";
+
+export const OFFICIAL_MODULE_KEYS = [MODULE_KEY_MUSIC, MODULE_KEY_EVENTS];
+
+export const AUTHORIZATION_ROLES = [
+  "platform_super_admin",
+  "church_admin",
+  "ministry_admin",
+  "ministry_leader",
+  "member",
+];
+
+export const AUTHORIZATION_CAPABILITIES = [
+  "manage_platform",
+  "manage_church",
+  "manage_ministry",
+  "view_members",
+  "manage_members",
+  "view_music_module",
+  "manage_music",
+  "manage_cultos",
+  "manage_escalas",
+  "manage_setlists",
+  "view_auditoria",
+];
+
 export const MUSIC_CLASSIFICATION_OPTIONS = [
   {
     label: "Louvor",

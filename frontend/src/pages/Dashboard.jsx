@@ -19,12 +19,12 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     musicas: 0,
     membros: 0,
-    cultos: 0,
+    eventos: 0,
     minhasEscalas: 0,
   });
-  const [proximosCultos, setProximosCultos] = useState([]);
+  const [proximosEventos, setProximosEventos] = useState([]);
   const [calendarTooltip, setCalendarTooltip] = useState(null);
-  const [selectedCulto, setSelectedCulto] = useState(null);
+  const [selectedEvento, setSelectedEvento] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dashboardNotice, setDashboardNotice] = useState("");
 
@@ -40,19 +40,21 @@ export default function Dashboard() {
       try {
         setDashboardNotice("");
         const canReadMembers = Boolean(user?.is_global_admin);
-        const [musicasResult, membrosResult, cultosResult] =
+        const [musicasResult, membrosResult, cultosResult, eventosResult] =
           await Promise.allSettled([
             authFetch("/api/musicas/", token),
             canReadMembers
               ? authFetch("/api/usuarios/", token)
               : Promise.resolve([]),
             authFetch("/api/cultos/", token),
+            authFetch("/api/eventos/", token),
           ]);
 
         const failedAuthRequest = [
           musicasResult,
           membrosResult,
           cultosResult,
+          eventosResult,
         ].find(
           (result) =>
             result.status === "rejected" && result.reason?.status === 401,
@@ -68,11 +70,14 @@ export default function Dashboard() {
           membrosResult.status === "fulfilled" ? membrosResult.value : [];
         const cultos =
           cultosResult.status === "fulfilled" ? cultosResult.value : [];
+        const eventos =
+          eventosResult.status === "fulfilled" ? eventosResult.value : [];
 
         const failedRequests = [
           ["musicas", musicasResult],
           ["usuarios", membrosResult],
           ["cultos", cultosResult],
+          ["eventos", eventosResult],
         ].filter(([, result]) => result.status === "rejected");
 
         failedRequests.forEach(([resource, result]) => {
@@ -95,18 +100,18 @@ export default function Dashboard() {
         setStats({
           musicas: musicas.length || 0,
           membros: membros.length || 0,
-          cultos: cultos.length || 0,
+          eventos: eventos.length || 0,
           minhasEscalas: 0,
         });
 
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
 
-        const futuros = cultos
-          .filter((culto) => new Date(culto.data) >= hoje)
+        const futuros = eventos
+          .filter((evento) => new Date(evento.data) >= hoje)
           .sort((a, b) => new Date(a.data) - new Date(b.data));
 
-        setProximosCultos(futuros.slice(0, 5));
+        setProximosEventos(futuros.slice(0, 5));
       } catch (error) {
         if (error.status === 401) {
           logout();
@@ -132,25 +137,27 @@ export default function Dashboard() {
     return <div className="dashboard-loading">Carregando painel...</div>;
   }
 
-  const eventosCultos = proximosCultos.map((culto) => ({
-    id: String(culto.id),
-    title: culto.nome,
-    start: culto.data,
+  const eventosAgenda = proximosEventos.map((evento) => ({
+    id: String(evento.id),
+    title: evento.nome,
+    start: evento.data,
     allDay: true,
     backgroundColor:
-      culto.status === "AGENDADO"
+      evento.status === "AGENDADO"
         ? "var(--interactive-primary)"
-        : culto.status === "REALIZADO"
+        : evento.status === "REALIZADO"
           ? "var(--text-secondary)"
           : "var(--error)",
     borderColor: "transparent",
     textColor: "#fff",
     classNames:
-      proximosCultos[0]?.id === culto.id ? ["dashboard-next-event"] : [],
+      proximosEventos[0]?.id === evento.id ? ["dashboard-next-event"] : [],
     extendedProps: {
-      status: culto.status,
-      local: culto.local,
-      data: culto.data,
+      status: evento.status,
+      local: evento.local,
+      data: evento.data,
+      ministerioNome: evento.ministerio_nome,
+      isMusicCulto: evento.is_music_culto,
     },
   }));
 
@@ -164,8 +171,8 @@ export default function Dashboard() {
 
       <div className="dashboard-grid">
         <div className="lauda-card stat-card">
-          <h3>{stats.cultos}</h3>
-          <p>Próximos Cultos</p>
+          <h3>{stats.eventos}</h3>
+          <p>Eventos na Agenda</p>
         </div>
         <div className="lauda-card stat-card">
           <h3>{stats.musicas}</h3>
@@ -183,16 +190,16 @@ export default function Dashboard() {
 
       <section className="agenda-section">
         <h2 className="dashboard-title text-primary">
-          <Calendar size={24} aria-hidden="true" /> Agenda de Cultos
+          <Calendar size={24} aria-hidden="true" /> Agenda Institucional
         </h2>
         <div className="lauda-card dashboard-calendar-card">
-          {proximosCultos.length > 0 ? (
+          {proximosEventos.length > 0 ? (
             <>
               <div className="dashboard-calendar-highlight">
-                <span className="badge badge-primary">Próximo culto</span>
-                <strong>{proximosCultos[0]?.nome}</strong>
+                <span className="badge badge-primary">Próximo evento</span>
+                <strong>{proximosEventos[0]?.nome}</strong>
                 <span>
-                  {new Date(proximosCultos[0]?.data).toLocaleDateString(
+                  {new Date(proximosEventos[0]?.data).toLocaleDateString(
                     "pt-BR",
                     {
                       timeZone: "UTC",
@@ -215,14 +222,14 @@ export default function Dashboard() {
                 expandRows={true}
                 fixedWeekCount={false}
                 dayMaxEventRows={2}
-                events={eventosCultos}
+                events={eventosAgenda}
                 buttonText={{ today: "Hoje" }}
                 eventClick={(info) => {
-                  const culto = proximosCultos.find(
+                  const evento = proximosEventos.find(
                     (item) => String(item.id) === info.event.id,
                   );
-                  if (culto) {
-                    setSelectedCulto(culto);
+                  if (evento) {
+                    setSelectedEvento(evento);
                   }
                 }}
                 eventDidMount={(info) => {
@@ -259,14 +266,14 @@ export default function Dashboard() {
             </>
           ) : (
             <div className="empty-state">
-              <h3>Nenhum culto agendado</h3>
-              <p>Cadastre um novo culto para começar a montar sua agenda.</p>
+              <h3>Nenhum evento agendado</h3>
+              <p>Cadastre um novo evento ou culto para começar a montar sua agenda.</p>
             </div>
           )}
         </div>
       </section>
 
-      {selectedCulto && (
+      {selectedEvento && (
         <div className="modal-overlay" role="presentation">
           <div
             className="modal modal-compact dashboard-culto-modal"
@@ -276,13 +283,13 @@ export default function Dashboard() {
           >
             <div className="modal-header">
               <h3 id="dashboard-culto-modal-title" className="modal-title">
-                {selectedCulto.nome}
+                {selectedEvento.nome}
               </h3>
               <button
                 type="button"
-                onClick={() => setSelectedCulto(null)}
+                onClick={() => setSelectedEvento(null)}
                 className="modal-close"
-                aria-label="Fechar detalhes do culto"
+                aria-label="Fechar detalhes do evento"
               >
                 ×
               </button>
@@ -291,27 +298,34 @@ export default function Dashboard() {
             <div className="modal-body dashboard-culto-modal-body">
               <div className="dashboard-culto-modal-row">
                 <span className="badge badge-primary">
-                  {selectedCulto.status}
+                  {selectedEvento.is_music_culto ? "Culto Musical" : "Evento Base"}
+                </span>
+                <span className="badge badge-gray">
+                  {selectedEvento.status}
                 </span>
                 <span className="dashboard-culto-modal-date">
-                  {dashboardDateFormatter.format(new Date(selectedCulto.data))}
+                  {dashboardDateFormatter.format(new Date(selectedEvento.data))}
                 </span>
               </div>
               <div className="dashboard-culto-modal-grid">
                 <div>
                   <strong>Local</strong>
-                  <span>{selectedCulto.local || "Não informado"}</span>
+                  <span>{selectedEvento.local || "Não informado"}</span>
+                </div>
+                <div>
+                  <strong>Ministério</strong>
+                  <span>{selectedEvento.ministerio_nome || "Agenda da igreja"}</span>
                 </div>
                 <div>
                   <strong>Início</strong>
                   <span>
-                    {selectedCulto.horario_inicio?.substring(0, 5) || "--:--"}
+                    {selectedEvento.horario_inicio?.substring(0, 5) || "--:--"}
                   </span>
                 </div>
                 <div>
                   <strong>Término</strong>
                   <span>
-                    {selectedCulto.horario_termino?.substring(0, 5) || "--:--"}
+                    {selectedEvento.horario_termino?.substring(0, 5) || "--:--"}
                   </span>
                 </div>
               </div>
@@ -321,7 +335,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 className="lauda-btn lauda-btn-secondary"
-                onClick={() => setSelectedCulto(null)}
+                onClick={() => setSelectedEvento(null)}
               >
                 Fechar
               </button>

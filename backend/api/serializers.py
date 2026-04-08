@@ -11,13 +11,17 @@ from .constants import (
     USER_FUNCTION_SET,
 )
 from .models import (
+    ApiRequestErrorLog,
     ConviteMinisterio,
     Culto,
     Escala,
+    Evento,
     Igreja,
+    IgrejaModulo,
     ItemSetlist,
     LogAuditoria,
     Ministerio,
+    Modulo,
     Musica,
     RegistroLogin,
     Team,
@@ -30,6 +34,8 @@ from .services.institutional_context import (
     get_user_ministerio_membership,
     sync_user_memberships,
 )
+from .services.authorization import build_authorization_snapshot
+from .services.modular_context import get_active_module_keys_for_user
 
 
 class IgrejaSerializer(serializers.ModelSerializer):
@@ -42,6 +48,89 @@ class IgrejaSerializer(serializers.ModelSerializer):
             "logo_url",
             "configuracoes",
             "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class ModuloSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Modulo
+        fields = [
+            "id",
+            "nome",
+            "chave",
+            "descricao",
+            "is_active",
+            "configuracoes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class EventoSerializer(serializers.ModelSerializer):
+    igreja_nome = serializers.CharField(source="igreja.nome", read_only=True)
+    ministerio_nome = serializers.CharField(source="ministerio.nome", read_only=True, allow_null=True)
+    culto_id = serializers.IntegerField(source="culto_musical.id", read_only=True, allow_null=True)
+    is_music_culto = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Evento
+        fields = [
+            "id",
+            "igreja",
+            "igreja_nome",
+            "ministerio",
+            "ministerio_nome",
+            "nome",
+            "descricao",
+            "data",
+            "horario_inicio",
+            "horario_termino",
+            "local",
+            "status",
+            "source_module",
+            "source_type",
+            "culto_id",
+            "is_music_culto",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at", "culto_id", "is_music_culto"]
+        extra_kwargs = {
+            "igreja": {"required": False},
+            "ministerio": {"required": False, "allow_null": True},
+            "descricao": {"required": False, "allow_null": True, "allow_blank": True},
+            "horario_termino": {"required": False, "allow_null": True},
+            "local": {"required": False, "allow_null": True, "allow_blank": True},
+            "source_module": {"required": False, "allow_null": True, "allow_blank": True},
+            "source_type": {"required": False, "allow_null": True, "allow_blank": True},
+        }
+
+    def get_is_music_culto(self, obj):
+        return bool(getattr(obj, "culto_musical", None))
+
+
+class IgrejaModuloSerializer(serializers.ModelSerializer):
+    igreja_nome = serializers.CharField(source="igreja.nome", read_only=True)
+    igreja_slug = serializers.CharField(source="igreja.slug", read_only=True)
+    modulo_nome = serializers.CharField(source="modulo.nome", read_only=True)
+    modulo_chave = serializers.CharField(source="modulo.chave", read_only=True)
+
+    class Meta:
+        model = IgrejaModulo
+        fields = [
+            "id",
+            "igreja",
+            "igreja_nome",
+            "igreja_slug",
+            "modulo",
+            "modulo_nome",
+            "modulo_chave",
+            "is_enabled",
+            "configuracoes",
             "created_at",
             "updated_at",
         ]
@@ -125,6 +214,9 @@ class UsuarioSerializer(serializers.ModelSerializer):
     papel_display = serializers.SerializerMethodField()
     igreja_vinculo = serializers.SerializerMethodField()
     ministerio_vinculo_principal = serializers.SerializerMethodField()
+    authorization_roles = serializers.SerializerMethodField()
+    capabilities = serializers.SerializerMethodField()
+    active_modules = serializers.SerializerMethodField()
     funcoes = serializers.ListField(
         child=serializers.ChoiceField(choices=USER_FUNCTION_OPTIONS),
         required=False,
@@ -145,6 +237,9 @@ class UsuarioSerializer(serializers.ModelSerializer):
             "ministerio_slug",
             "igreja_vinculo",
             "ministerio_vinculo_principal",
+            "authorization_roles",
+            "capabilities",
+            "active_modules",
             "funcao_principal",
             "funcoes",
             "nivel_acesso",
@@ -152,6 +247,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
             "escopo_acesso",
             "papel_display",
             "is_global_admin",
+            "is_superuser",
             "is_active",
         ]
         extra_kwargs = {
@@ -178,6 +274,15 @@ class UsuarioSerializer(serializers.ModelSerializer):
         if membership is None:
             return None
         return VinculoMinisterioUsuarioSerializer(membership).data
+
+    def get_authorization_roles(self, obj):
+        return build_authorization_snapshot(obj)["roles"]
+
+    def get_capabilities(self, obj):
+        return build_authorization_snapshot(obj)["capabilities"]
+
+    def get_active_modules(self, obj):
+        return get_active_module_keys_for_user(obj, igreja=getattr(obj.ministerio, "igreja", None), ministerio=obj.ministerio)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -282,6 +387,8 @@ class MusicEnrichmentRequestSerializer(serializers.Serializer):
 
 
 class CultoSerializer(serializers.ModelSerializer):
+    evento_id = serializers.IntegerField(source="evento.id", read_only=True, allow_null=True)
+    igreja_id = serializers.IntegerField(source="ministerio.igreja.id", read_only=True, allow_null=True)
     horario_termino = serializers.TimeField(required=False, allow_null=True)
     local = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
@@ -336,10 +443,51 @@ class RegistroLoginSerializer(serializers.ModelSerializer):
 
 class LogAuditoriaSerializer(serializers.ModelSerializer):
     usuario_nome = serializers.CharField(source="usuario.first_name", read_only=True)
+    igreja_nome = serializers.CharField(source="igreja.nome", read_only=True)
+    ministerio_nome = serializers.CharField(source="ministerio.nome", read_only=True)
 
     class Meta:
         model = LogAuditoria
-        fields = ["id", "usuario", "usuario_nome", "acao", "modelo_afetado", "descricao", "data_hora"]
+        fields = [
+            "id",
+            "usuario",
+            "usuario_nome",
+            "igreja",
+            "igreja_nome",
+            "ministerio",
+            "ministerio_nome",
+            "escopo",
+            "modulo",
+            "acao",
+            "modelo_afetado",
+            "descricao",
+            "data_hora",
+        ]
+
+
+class ApiRequestErrorLogSerializer(serializers.ModelSerializer):
+    usuario_nome = serializers.CharField(source="usuario.username", read_only=True)
+    igreja_nome = serializers.CharField(source="igreja.nome", read_only=True)
+    ministerio_nome = serializers.CharField(source="ministerio.nome", read_only=True)
+
+    class Meta:
+        model = ApiRequestErrorLog
+        fields = [
+            "id",
+            "usuario",
+            "usuario_nome",
+            "igreja",
+            "igreja_nome",
+            "ministerio",
+            "ministerio_nome",
+            "modulo",
+            "method",
+            "path",
+            "status_code",
+            "error_code",
+            "detail",
+            "occurred_at",
+        ]
 
 
 class ConviteMinisterioSerializer(serializers.ModelSerializer):

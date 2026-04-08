@@ -113,6 +113,8 @@ export default function Musicas() {
     type: "",
   });
   const [enrichmentSnapshot, setEnrichmentSnapshot] = useState(null);
+  const [isLoadingMusicas, setIsLoadingMusicas] = useState(false);
+  const [pageNotice, setPageNotice] = useState("");
 
   const isReadOnly = modalMode === "view";
   const canManageMusic = permissions.canManageMusic;
@@ -121,6 +123,9 @@ export default function Musicas() {
     if (!token) {
       return;
     }
+
+    setIsLoadingMusicas(true);
+    setPageNotice("");
 
     authFetch("/api/musicas/", token)
       .then((dados) => {
@@ -136,6 +141,12 @@ export default function Musicas() {
         }
 
         console.error(error);
+        setPageNotice(
+          error.message || "Nao foi possivel carregar o repertorio de musicas.",
+        );
+      })
+      .finally(() => {
+        setIsLoadingMusicas(false);
       });
   }, [logout, token]);
 
@@ -438,6 +449,10 @@ export default function Musicas() {
 
   return (
     <div className="stack-lg">
+      {pageNotice && (
+        <div className="status-alert status-alert--error">{pageNotice}</div>
+      )}
+
       <div className="lauda-page-header">
         <div>
           <h2 className="text-primary">Repertório de Músicas</h2>
@@ -465,7 +480,9 @@ export default function Musicas() {
             </p>
           </div>
           <span className="badge badge-gray">
-            {musicasFiltradas.length} resultado(s)
+            {isLoadingMusicas
+              ? "Carregando..."
+              : `${musicasFiltradas.length} resultado(s)`}
           </span>
         </div>
 

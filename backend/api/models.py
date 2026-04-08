@@ -7,6 +7,8 @@ from django.db import models
 from django.utils import timezone
 
 from .constants import (
+    MODULE_KEY_EVENTS,
+    MODULE_KEY_MUSIC,
     MUSIC_CLASSIFICATION_CHOICES,
     USER_FUNCTION_SET,
 )
@@ -37,6 +39,48 @@ class Igreja(models.Model):
 
     def __str__(self):
         return self.nome
+
+
+class Modulo(models.Model):
+    nome = models.CharField(max_length=150)
+    chave = models.SlugField(unique=True)
+    descricao = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    configuracoes = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["nome"]
+        verbose_name = "Modulo"
+        verbose_name_plural = "Modulos"
+
+    def __str__(self):
+        return self.nome
+
+    @classmethod
+    def official_defaults(cls, module_key):
+        from api.services.module_blueprint import get_module_catalog_entry
+
+        definition = get_module_catalog_entry(module_key)
+        if definition is None:
+            raise ValueError(f'Modulo oficial desconhecido: "{module_key}".')
+
+        return {
+            "nome": definition["nome"],
+            "chave": definition["key"],
+            "descricao": definition["descricao"],
+            "is_active": definition["default_is_active"],
+            "configuracoes": {},
+        }
+
+    @classmethod
+    def music_defaults(cls):
+        return cls.official_defaults(MODULE_KEY_MUSIC)
+
+    @classmethod
+    def events_defaults(cls):
+        return cls.official_defaults(MODULE_KEY_EVENTS)
 
 
 class Ministerio(models.Model):
@@ -134,6 +178,13 @@ class Usuario(AbstractUser):
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.get_nivel_acesso_display()})"
 
+    class Meta(AbstractUser.Meta):
+        indexes = [
+            models.Index(fields=["ministerio", "is_active"]),
+            models.Index(fields=["is_global_admin", "is_active"]),
+            models.Index(fields=["nivel_acesso", "is_active"]),
+        ]
+
 
 class VinculoIgrejaUsuario(models.Model):
     PAPEL_INSTITUCIONAL_CHOICES = [
@@ -164,6 +215,10 @@ class VinculoIgrejaUsuario(models.Model):
         ordering = ["-is_active", "-joined_at", "-id"]
         verbose_name = "Vinculo Igreja Usuario"
         verbose_name_plural = "Vinculos Igreja Usuario"
+        indexes = [
+            models.Index(fields=["usuario", "is_active"]),
+            models.Index(fields=["igreja", "is_active"]),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["usuario", "igreja"],
@@ -205,6 +260,10 @@ class VinculoMinisterioUsuario(models.Model):
         ordering = ["-is_primary", "-is_active", "-joined_at", "-id"]
         verbose_name = "Vinculo Ministerio Usuario"
         verbose_name_plural = "Vinculos Ministerio Usuario"
+        indexes = [
+            models.Index(fields=["usuario", "is_active", "is_primary"]),
+            models.Index(fields=["ministerio", "is_active"]),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["usuario", "ministerio"],
@@ -214,6 +273,41 @@ class VinculoMinisterioUsuario(models.Model):
 
     def __str__(self):
         return f"{self.usuario.username} -> {self.ministerio.nome}"
+
+
+class IgrejaModulo(models.Model):
+    igreja = models.ForeignKey(
+        Igreja,
+        on_delete=models.CASCADE,
+        related_name="modulos_habilitados",
+    )
+    modulo = models.ForeignKey(
+        Modulo,
+        on_delete=models.CASCADE,
+        related_name="igrejas_habilitadas",
+    )
+    is_enabled = models.BooleanField(default=True)
+    configuracoes = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["igreja__nome", "modulo__nome"]
+        verbose_name = "Igreja Modulo"
+        verbose_name_plural = "Igrejas Modulos"
+        indexes = [
+            models.Index(fields=["igreja", "is_enabled"]),
+            models.Index(fields=["modulo", "is_enabled"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["igreja", "modulo"],
+                name="unique_igreja_modulo",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.igreja.nome} -> {self.modulo.nome}"
 
 
 class Musica(models.Model):
@@ -283,6 +377,58 @@ class Musica(models.Model):
     def __str__(self):
         return f"{self.titulo} - {self.artista}"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["is_active", "classificacao"]),
+            models.Index(fields=["artista", "titulo"]),
+            models.Index(fields=["metadata_last_synced_at"]),
+        ]
+
+
+class Evento(models.Model):
+    STATUS_CHOICES = [
+        ("AGENDADO", "Agendado"),
+        ("REALIZADO", "Realizado"),
+        ("CANCELADO", "Cancelado"),
+    ]
+
+    igreja = models.ForeignKey(
+        Igreja,
+        on_delete=models.CASCADE,
+        related_name="eventos",
+    )
+    ministerio = models.ForeignKey(
+        Ministerio,
+        on_delete=models.CASCADE,
+        related_name="eventos",
+        blank=True,
+        null=True,
+    )
+    nome = models.CharField(max_length=150)
+    descricao = models.TextField(blank=True, null=True)
+    data = models.DateField()
+    horario_inicio = models.TimeField()
+    horario_termino = models.TimeField(blank=True, null=True)
+    local = models.CharField(max_length=255, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="AGENDADO")
+    source_module = models.SlugField(blank=True, null=True)
+    source_type = models.CharField(max_length=50, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["data", "horario_inicio", "nome"]
+        verbose_name = "Evento"
+        verbose_name_plural = "Eventos"
+        indexes = [
+            models.Index(fields=["igreja", "status", "data"]),
+            models.Index(fields=["ministerio", "status", "data"]),
+            models.Index(fields=["source_module", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.nome} - {self.data.strftime('%d/%m/%Y')}"
+
 
 class Culto(models.Model):
     STATUS_CHOICES = [
@@ -298,6 +444,13 @@ class Culto(models.Model):
         blank=True,
         null=True,
     )
+    evento = models.OneToOneField(
+        Evento,
+        on_delete=models.SET_NULL,
+        related_name="culto_musical",
+        blank=True,
+        null=True,
+    )
     nome = models.CharField(max_length=150)
     data = models.DateField()
     horario_inicio = models.TimeField()
@@ -307,6 +460,11 @@ class Culto(models.Model):
 
     def __str__(self):
         return f"{self.nome} - {self.data.strftime('%d/%m/%Y')}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["ministerio", "status", "data"]),
+        ]
 
 
 class Escala(models.Model):
@@ -338,6 +496,12 @@ class Escala(models.Model):
     def __str__(self):
         return f"{self.membro.first_name} em {self.culto.nome}"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["ministerio", "status_confirmacao"]),
+            models.Index(fields=["culto", "membro"]),
+        ]
+
 
 class ItemSetlist(models.Model):
     ministerio = models.ForeignKey(
@@ -355,6 +519,9 @@ class ItemSetlist(models.Model):
 
     class Meta:
         ordering = ["ordem"]
+        indexes = [
+            models.Index(fields=["ministerio", "culto", "ordem"]),
+        ]
 
     def __str__(self):
         return f"{self.ordem} - {self.musica.titulo} ({self.tom_execucao})"
@@ -372,6 +539,11 @@ class RegistroLogin(models.Model):
     def __str__(self):
         return f"{self.usuario.username} logou em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["usuario", "data_hora"]),
+        ]
+
 
 class LogAuditoria(models.Model):
     ACAO_CHOICES = [
@@ -381,6 +553,22 @@ class LogAuditoria(models.Model):
     ]
 
     usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True)
+    igreja = models.ForeignKey(
+        Igreja,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="logs_auditoria",
+    )
+    ministerio = models.ForeignKey(
+        Ministerio,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="logs_auditoria",
+    )
+    escopo = models.CharField(max_length=20, default="platform")
+    modulo = models.SlugField(blank=True, null=True)
     acao = models.CharField(max_length=10, choices=ACAO_CHOICES)
     modelo_afetado = models.CharField(max_length=50)
     descricao = models.CharField(max_length=255)
@@ -388,10 +576,56 @@ class LogAuditoria(models.Model):
 
     class Meta:
         ordering = ["-data_hora"]
+        indexes = [
+            models.Index(fields=["escopo", "data_hora"]),
+            models.Index(fields=["igreja", "data_hora"]),
+            models.Index(fields=["ministerio", "data_hora"]),
+            models.Index(fields=["modulo", "data_hora"]),
+            models.Index(fields=["acao", "data_hora"]),
+            models.Index(fields=["usuario", "data_hora"]),
+        ]
 
     def __str__(self):
         nome = self.usuario.first_name if self.usuario else "Sistema"
         return f"{self.acao} em {self.modelo_afetado} por {nome}"
+
+
+class ApiRequestErrorLog(models.Model):
+    usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True)
+    igreja = models.ForeignKey(
+        Igreja,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="api_error_logs",
+    )
+    ministerio = models.ForeignKey(
+        Ministerio,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="api_error_logs",
+    )
+    modulo = models.SlugField(blank=True, null=True)
+    method = models.CharField(max_length=10)
+    path = models.CharField(max_length=255)
+    status_code = models.PositiveSmallIntegerField()
+    error_code = models.CharField(max_length=100, blank=True, null=True)
+    detail = models.CharField(max_length=500, blank=True, null=True)
+    occurred_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-occurred_at"]
+        indexes = [
+            models.Index(fields=["status_code", "occurred_at"]),
+            models.Index(fields=["path", "occurred_at"]),
+            models.Index(fields=["igreja", "occurred_at"]),
+            models.Index(fields=["ministerio", "occurred_at"]),
+            models.Index(fields=["modulo", "occurred_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.method} {self.path} -> {self.status_code}"
 
 
 class MusicMetadataCache(models.Model):
