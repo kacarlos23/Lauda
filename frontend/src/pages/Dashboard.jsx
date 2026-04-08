@@ -39,8 +39,7 @@ export default function Dashboard() {
     const loadDashboard = async () => {
       try {
         setDashboardNotice("");
-        const canReadMembers =
-          user?.is_global_admin || Number(user?.nivel_acesso) === 1;
+        const canReadMembers = Boolean(user?.is_global_admin);
         const [musicasResult, membrosResult, cultosResult] =
           await Promise.allSettled([
             authFetch("/api/musicas/", token),
@@ -127,7 +126,7 @@ export default function Dashboard() {
     return () => {
       isMounted = false;
     };
-  }, [logout, token, user?.is_global_admin, user?.nivel_acesso]);
+  }, [logout, token, user?.is_global_admin]);
 
   if (loading) {
     return <div className="dashboard-loading">Carregando painel...</div>;

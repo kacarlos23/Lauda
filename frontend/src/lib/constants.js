@@ -3,17 +3,17 @@ export const USER_FUNCTION_OPTIONS = [
   "Backstage",
   "Baixo",
   "Bateria",
-  "Comunicacao de Imagem",
+  "Comunicação de Imagem",
   "Flauta",
   "Guitarra",
   "Mesa de Som",
   "Ministro",
-  "Multimidia",
+  "Multimídia",
   "Piano",
   "Pregador",
   "Saxofone",
   "Teclado",
-  "Violao",
+  "Violão",
   "Violino",
   "Vocalista",
 ];
@@ -22,32 +22,34 @@ export const MUSIC_CLASSIFICATION_OPTIONS = [
   {
     label: "Louvor",
     value: "louvor",
-    description: "Elogio e agradecimento pelo que Deus fez, faz ou fara.",
+    description: "Elogio e agradecimento pelo que Deus fez, faz ou fará.",
   },
   {
-    label: "Adoracao",
+    label: "Adoração",
     value: "adoracao",
-    description: "Reconhecimento a Deus por quem Ele e.",
+    description: "Reconhecimento a Deus por quem Ele é.",
   },
   {
-    label: "Contemplacao",
+    label: "Contemplação",
     value: "contemplacao",
-    description: "Foco na meditacao da Pessoa de Deus, em Seu carater e natureza.",
+    description:
+      "Foco na meditação da Pessoa de Deus, em Seu caráter e natureza.",
   },
   {
-    label: "Consagracao",
+    label: "Consagração",
     value: "consagracao",
-    description: "Dedicacao da vida a Deus e santificacao.",
+    description: "Dedicação da vida a Deus e santificação.",
   },
   {
-    label: "Alegria (Jubilo)",
+    label: "Alegria (Júbilo)",
     value: "alegria",
-    description: "Expressao de alegria pelo Senhor e por Seus feitos.",
+    description: "Expressão de alegria pelo Senhor e por Seus feitos.",
   },
   {
     label: "Especiais",
     value: "especiais",
-    description: "Temas especificos como casamento, batizado e outras celebracoes.",
+    description:
+      "Temas específicos como casamento, batizado e outras celebrações.",
   },
 ];
 

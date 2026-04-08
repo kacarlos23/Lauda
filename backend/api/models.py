@@ -21,7 +21,32 @@ def generate_access_code(length=10):
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
+class Igreja(models.Model):
+    nome = models.CharField(max_length=150)
+    slug = models.SlugField(unique=True)
+    logo_url = models.URLField(blank=True, null=True)
+    configuracoes = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["nome"]
+        verbose_name = "Igreja"
+        verbose_name_plural = "Igrejas"
+
+    def __str__(self):
+        return self.nome
+
+
 class Ministerio(models.Model):
+    igreja = models.ForeignKey(
+        Igreja,
+        on_delete=models.SET_NULL,
+        related_name="ministerios",
+        blank=True,
+        null=True,
+    )
     nome = models.CharField(max_length=150)
     slug = models.SlugField(unique=True)
     access_code = models.CharField(max_length=20, unique=True, default=generate_access_code)
@@ -95,11 +120,7 @@ class Usuario(AbstractUser):
         return normalized
 
     def sync_access_flags(self):
-        if self.is_global_admin or self.is_superuser:
-            self.is_staff = True
-            return
-
-        self.is_staff = self.nivel_acesso == 1
+        self.is_staff = bool(self.is_global_admin or self.is_superuser)
 
     def save(self, *args, **kwargs):
         if self.is_global_admin:
@@ -112,6 +133,87 @@ class Usuario(AbstractUser):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.get_nivel_acesso_display()})"
+
+
+class VinculoIgrejaUsuario(models.Model):
+    PAPEL_INSTITUCIONAL_CHOICES = [
+        ("MEMBRO", "Membro"),
+    ]
+
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name="vinculos_igreja",
+    )
+    igreja = models.ForeignKey(
+        Igreja,
+        on_delete=models.CASCADE,
+        related_name="vinculos_usuarios",
+    )
+    papel_institucional = models.CharField(
+        max_length=30,
+        choices=PAPEL_INSTITUCIONAL_CHOICES,
+        default="MEMBRO",
+    )
+    is_active = models.BooleanField(default=True)
+    joined_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_active", "-joined_at", "-id"]
+        verbose_name = "Vinculo Igreja Usuario"
+        verbose_name_plural = "Vinculos Igreja Usuario"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["usuario", "igreja"],
+                name="unique_vinculo_igreja_usuario",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.usuario.username} -> {self.igreja.nome}"
+
+
+class VinculoMinisterioUsuario(models.Model):
+    PAPEL_MINISTERIO_CHOICES = [
+        ("MEMBRO", "Membro"),
+    ]
+
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name="vinculos_ministerio",
+    )
+    ministerio = models.ForeignKey(
+        Ministerio,
+        on_delete=models.CASCADE,
+        related_name="vinculos_usuarios",
+    )
+    papel_no_ministerio = models.CharField(
+        max_length=30,
+        choices=PAPEL_MINISTERIO_CHOICES,
+        default="MEMBRO",
+    )
+    is_primary = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    joined_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_primary", "-is_active", "-joined_at", "-id"]
+        verbose_name = "Vinculo Ministerio Usuario"
+        verbose_name_plural = "Vinculos Ministerio Usuario"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["usuario", "ministerio"],
+                name="unique_vinculo_ministerio_usuario",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.usuario.username} -> {self.ministerio.nome}"
 
 
 class Musica(models.Model):

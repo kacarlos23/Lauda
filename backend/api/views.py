@@ -2,7 +2,7 @@ from django.db import transaction
 from urllib.parse import quote, urlsplit
 
 from django.utils.timezone import localtime, now
-from rest_framework import permissions, serializers, status, viewsets
+from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -16,6 +16,7 @@ from .models import (
     ConviteMinisterio,
     Culto,
     Escala,
+    Igreja,
     ItemSetlist,
     LogAuditoria,
     Ministerio,
@@ -32,6 +33,7 @@ from .serializers import (
     ConviteMinisterioPublicSerializer,
     CultoSerializer,
     EscalaSerializer,
+    IgrejaSerializer,
     ItemSetlistSerializer,
     LogAuditoriaSerializer,
     MinisterioSerializer,
@@ -40,6 +42,14 @@ from .serializers import (
     MemberLoginSerializer,
     TeamSerializer,
     UsuarioSerializer,
+)
+from .services.institutional_context import get_user_igreja
+from .services.institutional_context import (
+    get_user_igreja_membership,
+    get_user_ministerio,
+    get_user_ministerio_membership,
+    has_user_institutional_membership,
+    sync_user_memberships,
 )
 from .services.music_facade import MusicFacade
 
@@ -67,8 +77,41 @@ def registrar_log(user, acao, modelo, descricao):
         )
 
 
-def build_user_payload(user):
+def normalize_ministry_id(value):
+    if value in (None, "", "null"):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def resolve_scoped_ministry_id(user, token=None):
+    if not user or not user.is_authenticated:
+        return None
+    if user.is_global_admin or user.is_superuser:
+        token_get = getattr(token, "get", None)
+        return normalize_ministry_id(token_get("ministerio_id") if callable(token_get) else None)
+    ministerio = get_user_ministerio(user)
+    return ministerio.id if ministerio else user.ministerio_id
+
+
+def resolve_scoped_ministry(user, token=None):
+    ministry_id = resolve_scoped_ministry_id(user, token)
+    if ministry_id is None:
+        return get_user_ministerio(user)
+    if getattr(user, "ministerio_id", None) == ministry_id and getattr(user, "ministerio", None) is not None:
+        return user.ministerio
+    return Ministerio.objects.select_related("igreja").filter(id=ministry_id).first()
+
+
+def build_user_payload(user, scoped_ministry=None):
     is_global_admin = bool(user.is_global_admin or user.is_superuser)
+    igreja_membership = get_user_igreja_membership(user)
+    ministerio_membership = get_user_ministerio_membership(user)
+    effective_ministry = scoped_ministry if is_global_admin else get_user_ministerio(user)
+    effective_ministry_id = effective_ministry.id if effective_ministry else user.ministerio_id
+    igreja = get_user_igreja(user, ministerio=effective_ministry)
     return {
         "id": user.id,
         "username": user.username,
@@ -80,9 +123,21 @@ def build_user_payload(user):
         "escopo_acesso": "GLOBAL" if is_global_admin else "MINISTERIO",
         "papel_display": "Admin Global" if is_global_admin else user.get_nivel_acesso_display(),
         "is_global_admin": user.is_global_admin,
-        "ministerio_id": user.ministerio_id,
-        "ministerio_nome": user.ministerio.nome if user.ministerio_id else None,
-        "ministerio_slug": user.ministerio.slug if user.ministerio_id else None,
+        "is_impersonating": bool(is_global_admin and effective_ministry_id),
+        "ministerio_id": effective_ministry_id,
+        "ministerio_nome": effective_ministry.nome if effective_ministry else None,
+        "ministerio_slug": effective_ministry.slug if effective_ministry else None,
+        "igreja_id": igreja.id if igreja else None,
+        "igreja_nome": igreja.nome if igreja else None,
+        "igreja_slug": igreja.slug if igreja else None,
+        "igreja_membership_id": igreja_membership.id if igreja_membership else None,
+        "igreja_membership_papel": igreja_membership.papel_institucional if igreja_membership else None,
+        "ministerio_membership_id": ministerio_membership.id if ministerio_membership else None,
+        "ministerio_membership_papel": ministerio_membership.papel_no_ministerio if ministerio_membership else None,
+        "ministerio_membership_is_primary": ministerio_membership.is_primary if ministerio_membership else False,
+        "has_institutional_membership": has_user_institutional_membership(user),
+        "telefone": user.telefone or "",
+        "is_active": user.is_active,
         "funcao_principal": user.funcao_principal or "",
         "funcoes": user.get_normalized_funcoes(),
     }
@@ -106,17 +161,25 @@ def resolve_access_code(code):
     return None, None
 
 
-def build_auth_payload(user):
+def build_auth_payload(user, scoped_ministry=None):
+    effective_ministry = scoped_ministry if scoped_ministry is not None else get_user_ministerio(user)
+    igreja_membership = get_user_igreja_membership(user)
+    ministerio_membership = get_user_ministerio_membership(user)
+    igreja = get_user_igreja(user, ministerio=effective_ministry)
     refresh = RefreshToken.for_user(user)
     refresh["is_global_admin"] = user.is_global_admin
     refresh["nivel_acesso"] = user.nivel_acesso
-    refresh["ministerio_id"] = user.ministerio_id
-    refresh["ministerio_slug"] = user.ministerio.slug if user.ministerio_id else None
+    refresh["ministerio_id"] = effective_ministry.id if effective_ministry else None
+    refresh["ministerio_slug"] = effective_ministry.slug if effective_ministry else None
+    refresh["igreja_id"] = igreja.id if igreja else None
+    refresh["igreja_slug"] = igreja.slug if igreja else None
+    refresh["igreja_membership_id"] = igreja_membership.id if igreja_membership else None
+    refresh["ministerio_membership_id"] = ministerio_membership.id if ministerio_membership else None
 
     return {
         "refresh": str(refresh),
         "access": str(refresh.access_token),
-        "user": build_user_payload(user),
+        "user": build_user_payload(user, scoped_ministry=effective_ministry),
     }
 
 
@@ -160,7 +223,7 @@ class IsAdminLevel(permissions.BasePermission):
         return bool(
             request.user
             and request.user.is_authenticated
-            and (request.user.nivel_acesso == 1 or request.user.is_global_admin or request.user.is_superuser)
+            and (request.user.is_global_admin or request.user.is_superuser)
         )
 
 
@@ -180,7 +243,7 @@ class IsAuthenticatedReadOnlyOrAdminLevel(permissions.BasePermission):
             return False
         if request.method in permissions.SAFE_METHODS:
             return True
-        return bool(user.nivel_acesso == 1 or user.is_global_admin or user.is_superuser)
+        return bool(user.is_global_admin or user.is_superuser)
 
 
 class IsMusicEditor(permissions.BasePermission):
@@ -189,7 +252,7 @@ class IsMusicEditor(permissions.BasePermission):
         return bool(
             user
             and user.is_authenticated
-            and (user.is_global_admin or user.is_superuser or user.nivel_acesso in {1, 2})
+            and (user.is_global_admin or user.is_superuser)
         )
 
 
@@ -200,7 +263,7 @@ class IsAuthenticatedReadOnlyOrMusicEditor(permissions.BasePermission):
             return False
         if request.method in permissions.SAFE_METHODS:
             return True
-        return bool(user.is_global_admin or user.is_superuser or user.nivel_acesso in {1, 2})
+        return bool(user.is_global_admin or user.is_superuser)
 
 
 class MinistryScopedViewSetMixin:
@@ -210,16 +273,28 @@ class MinistryScopedViewSetMixin:
         user = self.request.user
         return bool(user and user.is_authenticated and (user.is_global_admin or user.is_superuser))
 
+    def get_request_token(self):
+        return getattr(self.request, "auth", None)
+
+    def get_effective_request_ministry(self):
+        if not hasattr(self, "_effective_request_ministry"):
+            self._effective_request_ministry = resolve_scoped_ministry(
+                self.request.user,
+                self.get_request_token(),
+            )
+        return self._effective_request_ministry
+
     def get_user_ministry_id(self):
-        user = self.request.user
-        return getattr(user, "ministerio_id", None)
+        return resolve_scoped_ministry_id(self.request.user, self.get_request_token())
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if self.is_global_admin():
-            return queryset
-
         ministry_id = self.get_user_ministry_id()
+        if self.is_global_admin():
+            if not ministry_id:
+                return queryset
+            return queryset.filter(**{f"{self.ministry_field}_id": ministry_id})
+
         if not ministry_id:
             return queryset.none()
 
@@ -233,12 +308,12 @@ class MinistryScopedViewSetMixin:
 
     def get_effective_ministry(self, payload_ministry=None):
         if self.is_global_admin():
-            return payload_ministry
+            return payload_ministry or self.get_effective_request_ministry()
         return self.request.user.ministerio
 
     def ensure_same_ministry(self, obj, field_name):
         effective_ministry = self.get_effective_ministry()
-        if self.is_global_admin() or effective_ministry is None:
+        if effective_ministry is None:
             return
 
         if getattr(obj, "ministerio_id", None) is None:
@@ -271,10 +346,18 @@ class BaseTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
+        igreja = get_user_igreja(user)
+        igreja_membership = get_user_igreja_membership(user)
+        ministerio_membership = get_user_ministerio_membership(user)
+        ministerio = get_user_ministerio(user)
         token["is_global_admin"] = user.is_global_admin
         token["nivel_acesso"] = user.nivel_acesso
-        token["ministerio_id"] = user.ministerio_id
-        token["ministerio_slug"] = user.ministerio.slug if user.ministerio_id else None
+        token["ministerio_id"] = ministerio.id if ministerio else user.ministerio_id
+        token["ministerio_slug"] = ministerio.slug if ministerio else None
+        token["igreja_id"] = igreja.id if igreja else None
+        token["igreja_slug"] = igreja.slug if igreja else None
+        token["igreja_membership_id"] = igreja_membership.id if igreja_membership else None
+        token["ministerio_membership_id"] = ministerio_membership.id if ministerio_membership else None
         return token
 
 
@@ -315,6 +398,30 @@ class MinistryTokenObtainPairView(TokenObtainPairView):
 
 class AdminTokenObtainPairView(TokenObtainPairView):
     serializer_class = AdminTokenObtainPairSerializer
+
+
+class AdminImpersonateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if not (user.is_global_admin or user.is_superuser):
+            return Response(
+                {"detail": "Acesso negado. Apenas admins globais podem assumir ministerios."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        ministry = None
+        ministry_id = normalize_ministry_id(request.data.get("ministerio_id"))
+        if ministry_id is not None:
+            ministry = Ministerio.objects.filter(id=ministry_id).first()
+            if ministry is None:
+                return Response(
+                    {"detail": "Ministerio nao encontrado."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        return Response(build_auth_payload(user, scoped_ministry=ministry))
 
 
 class MemberLoginView(APIView):
@@ -400,6 +507,7 @@ class AcceptInviteView(APIView):
             registrar_log(user, "CREATE", "ConviteMinisterio", f'Convite aceito para o ministerio "{ministry.nome}".')
         else:
             registrar_log(user, "CREATE", "Ministerio", f'Codigo fixo aceito para o ministerio "{ministry.nome}".')
+        sync_user_memberships(user)
         RegistroLogin.objects.create(usuario=user, ip_address=get_client_ip(request))
         return Response(build_auth_payload(user), status=status.HTTP_201_CREATED)
 
@@ -440,6 +548,7 @@ class BindAccessCodeView(APIView):
             )
 
         user.save()
+        sync_user_memberships(user)
         return Response(build_auth_payload(user), status=status.HTTP_200_OK)
 
 
@@ -448,18 +557,18 @@ class MinistryInviteLinkView(APIView):
 
     def get(self, request):
         user = request.user
-        if user.is_global_admin or user.is_superuser or not user.ministerio_id:
+        ministry = resolve_scoped_ministry(user, getattr(request, "auth", None))
+        if ministry is None:
             return Response(
                 {"detail": "Somente usuarios vinculados a um ministerio podem gerar links de convite."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if user.nivel_acesso not in {1, 2}:
+        if not (user.is_global_admin or user.is_superuser):
             return Response(
-                {"detail": "Apenas administradores e lideres podem gerar links de convite."},
+                {"detail": "Apenas o admin global pode gerar links de convite."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        ministry = user.ministerio
         invite_url = f"{build_frontend_base_url(request)}/invite?code={quote(ministry.access_code)}"
         return Response(
             {
@@ -471,34 +580,47 @@ class MinistryInviteLinkView(APIView):
         )
 
 
+class IgrejaViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    queryset = Igreja.objects.all()
+    serializer_class = IgrejaSerializer
+    permission_classes = [IsGlobalAdmin]
+
+
 class MinisterioViewSet(viewsets.ModelViewSet):
-    queryset = Ministerio.objects.all()
+    queryset = Ministerio.objects.select_related("igreja").all()
     serializer_class = MinisterioSerializer
     permission_classes = [IsGlobalAdmin]
 
     @action(detail=False, methods=["get", "put", "patch"], permission_classes=[IsAuthenticated])
     def current(self, request):
         user = request.user
-        if user.is_global_admin or user.is_superuser:
-            return Response({"detail": "Admin global nao possui ministerio atual."}, status=status.HTTP_400_BAD_REQUEST)
-        if not user.ministerio_id:
+        ministry = resolve_scoped_ministry(user, getattr(request, "auth", None))
+        if ministry is None:
+            if user.is_global_admin or user.is_superuser:
+                return Response({"detail": "Admin global nao possui ministerio atual."}, status=status.HTTP_400_BAD_REQUEST)
             return Response({"detail": "Usuario sem ministerio vinculado."}, status=status.HTTP_400_BAD_REQUEST)
 
         if request.method == "GET":
-            serializer = self.get_serializer(user.ministerio)
+            serializer = self.get_serializer(ministry)
             return Response(serializer.data)
 
-        if user.nivel_acesso == 3:
+        if not (user.is_global_admin or user.is_superuser):
             return Response(
-                {"detail": "Membros nao podem editar as configuracoes do ministerio."},
+                {"detail": "Apenas o admin global pode editar as configuracoes do ministerio."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        payload = {"nome": request.data.get("nome", user.ministerio.nome)}
-        serializer = self.get_serializer(user.ministerio, data=payload, partial=True)
+        payload = {"nome": request.data.get("nome", ministry.nome)}
+        serializer = self.get_serializer(ministry, data=payload, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        registrar_log(user, "UPDATE", "Ministerio", f'Configuracoes atualizadas para o ministerio "{user.ministerio.nome}".')
+        registrar_log(user, "UPDATE", "Ministerio", f'Configuracoes atualizadas para o ministerio "{ministry.nome}".')
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"], permission_classes=[IsAdminLevel], url_path="regenerate-access-code")
@@ -533,17 +655,21 @@ class ConviteMinisterioViewSet(viewsets.ModelViewSet):
 
 
 class UsuarioViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
-    queryset = Usuario.objects.select_related("ministerio").all()
+    queryset = Usuario.objects.select_related("ministerio", "ministerio__igreja").all()
     serializer_class = UsuarioSerializer
     permission_classes = [IsAdminLevel]
+
+    def build_me_response(self, user):
+        data = self.get_serializer(user).data
+        data.update(build_user_payload(user, scoped_ministry=self.get_effective_request_ministry()))
+        return data
 
     @action(detail=False, methods=["get", "put", "patch"], permission_classes=[IsAuthenticated])
     def me(self, request):
         user = request.user
 
         if request.method == "GET":
-            serializer = self.get_serializer(user)
-            return Response(serializer.data)
+            return Response(self.build_me_response(user))
 
         mutable_data = request.data.copy()
         if not self.is_global_admin():
@@ -553,8 +679,8 @@ class UsuarioViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(user, data=mutable_data, partial=True)
         serializer.is_valid(raise_exception=True)
         ministry, is_global_admin = self.resolve_user_assignment(serializer)
-        serializer.save(ministerio=ministry, is_global_admin=is_global_admin)
-        return Response(serializer.data)
+        instance = serializer.save(ministerio=ministry, is_global_admin=is_global_admin)
+        return Response(self.build_me_response(instance))
 
     def resolve_user_assignment(self, serializer):
         requested_global_admin = serializer.validated_data.get(
@@ -574,7 +700,7 @@ class UsuarioViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
                     )
                 return None, True
 
-            return self.require_ministry(requested_ministry), False
+            return self.require_ministry(requested_ministry or self.get_effective_request_ministry()), False
 
         if serializer.instance and serializer.instance.ministerio_id != self.request.user.ministerio_id:
             raise serializers.ValidationError(
@@ -584,7 +710,7 @@ class UsuarioViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
         if requested_global_admin:
             raise serializers.ValidationError({"is_global_admin": "Apenas admin global pode promover admin global."})
 
-        return self.require_ministry(self.request.user.ministerio), False
+        return self.require_ministry(self.get_effective_request_ministry()), False
 
     def perform_create(self, serializer):
         ministry, is_global_admin = self.resolve_user_assignment(serializer)
@@ -682,10 +808,9 @@ class CultoViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
         registrar_log(self.request.user, "CREATE", "Culto", f'Culto "{instance.nome}" agendado.')
 
     def perform_update(self, serializer):
-        if self.is_global_admin():
-            ministry = serializer.validated_data.get("ministerio", serializer.instance.ministerio)
-        else:
-            ministry = self.request.user.ministerio
+        ministry = self.get_effective_ministry(
+            serializer.validated_data.get("ministerio", serializer.instance.ministerio),
+        )
         instance = serializer.save(ministerio=self.require_ministry(ministry))
         registrar_log(self.request.user, "UPDATE", "Culto", f'Culto "{instance.nome}" atualizado.')
 
@@ -766,12 +891,12 @@ class LogAuditoriaViewSet(MinistryScopedViewSetMixin, viewsets.ReadOnlyModelView
     pagination_class = AuditoriaPagination
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        if not self.is_global_admin():
-            ministry_id = self.get_user_ministry_id()
-            if not ministry_id:
-                return qs.none()
+        qs = LogAuditoria.objects.all().order_by("-data_hora")
+        ministry_id = self.get_user_ministry_id()
+        if ministry_id:
             qs = qs.filter(usuario__ministerio_id=ministry_id)
+        elif not self.is_global_admin():
+            return qs.none()
 
         acao = self.request.query_params.get("acao")
         usuario_id = self.request.query_params.get("usuario")

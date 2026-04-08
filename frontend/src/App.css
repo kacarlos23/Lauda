@@ -892,6 +892,35 @@ button.lauda-nav-item {
   font-size: 0.78rem;
 }
 
+.global-scope-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.global-scope-copy {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.global-scope-copy strong {
+  color: var(--text-primary);
+}
+
+.global-scope-copy span {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+}
+
+.global-scope-actions {
+  min-width: min(320px, 100%);
+}
+
+.global-scope-select {
+  min-width: 220px;
+}
+
 @media (max-width: 768px) {
   .header-session-chip {
     display: none;
@@ -899,6 +928,17 @@ button.lauda-nav-item {
 
   .header-context-line {
     font-size: 0.78rem;
+  }
+
+  .global-scope-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .global-scope-actions,
+  .global-scope-select {
+    width: 100%;
+    min-width: 0;
   }
 }
 

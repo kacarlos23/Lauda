@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev:front": "vite",
-    "dev:back": "cd ../backend_dev && .venv\\Scripts\\python manage.py runserver 8001",
+    "dev:back": "cd ../backend && .venv\\Scripts\\python manage.py runserver 8000",
     "dev": "concurrently -c \"cyan.bold,green.bold\" -n \"DJANGO,REACT\" \"npm run dev:back\" \"npm run dev:front\"",
     "build": "vite build",
     "lint": "eslint .",

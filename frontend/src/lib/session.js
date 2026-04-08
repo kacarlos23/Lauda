@@ -1,4 +1,35 @@
-﻿const STORAGE_KEY = "lauda_session";
+const STORAGE_KEY = "lauda_session";
+
+export function normalizeSession(session) {
+  if (!session) {
+    return null;
+  }
+
+  const user = session.user
+    ? {
+        ...session.user,
+        igreja_id: session.user.igreja_id ?? null,
+        igreja_slug: session.user.igreja_slug ?? null,
+        igreja_nome: session.user.igreja_nome ?? null,
+        igreja_membership_id: session.user.igreja_membership_id ?? null,
+        igreja_membership_papel: session.user.igreja_membership_papel ?? null,
+        ministerio_membership_id: session.user.ministerio_membership_id ?? null,
+        ministerio_membership_papel: session.user.ministerio_membership_papel ?? null,
+        ministerio_membership_is_primary:
+          session.user.ministerio_membership_is_primary ?? false,
+        has_institutional_membership:
+          session.user.has_institutional_membership ?? false,
+        igreja_vinculo: session.user.igreja_vinculo ?? null,
+        ministerio_vinculo_principal:
+          session.user.ministerio_vinculo_principal ?? null,
+      }
+    : null;
+
+  return {
+    ...session,
+    user,
+  };
+}
 
 export function loadStoredSession() {
   const token = localStorage.getItem("token");
@@ -10,7 +41,7 @@ export function loadStoredSession() {
 
   try {
     const session = JSON.parse(rawSession);
-    return { ...session, access: token };
+    return normalizeSession({ ...session, access: token });
   } catch {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem("token");
@@ -20,11 +51,13 @@ export function loadStoredSession() {
 }
 
 export function persistSession(session) {
-  localStorage.setItem("token", session.access);
-  if (session.refresh) {
-    localStorage.setItem("refresh", session.refresh);
+  const normalizedSession = normalizeSession(session);
+  localStorage.setItem("token", normalizedSession.access);
+  if (normalizedSession.refresh) {
+    localStorage.setItem("refresh", normalizedSession.refresh);
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedSession));
+  return normalizedSession;
 }
 
 export function clearStoredSession() {
@@ -32,4 +65,3 @@ export function clearStoredSession() {
   localStorage.removeItem("refresh");
   localStorage.removeItem(STORAGE_KEY);
 }
-

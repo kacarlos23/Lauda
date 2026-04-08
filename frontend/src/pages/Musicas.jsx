@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { usePermissions } from "../hooks/usePermissions";
 import {
   MUSIC_CLASSIFICATION_MAP,
   MUSIC_CLASSIFICATION_OPTIONS,
@@ -99,6 +100,7 @@ const criarSnapshotEnriquecimento = (musica = {}) => ({
 
 export default function Musicas() {
   const { token, user, logout } = useAuth();
+  const permissions = usePermissions(user);
   const [musicas, setMusicas] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -113,8 +115,7 @@ export default function Musicas() {
   const [enrichmentSnapshot, setEnrichmentSnapshot] = useState(null);
 
   const isReadOnly = modalMode === "view";
-  const canManageMusic =
-    user?.is_global_admin || [1, 2].includes(Number(user?.nivel_acesso));
+  const canManageMusic = permissions.canManageMusic;
 
   const carregarMusicas = useCallback(() => {
     if (!token) {
@@ -402,7 +403,10 @@ export default function Musicas() {
       : "/api/musicas/";
     const method = editingId ? "PATCH" : "POST";
 
-    const dadosEnvio = sanitizeMusicPayload(validation.data);
+    const dadosEnvio = sanitizeMusicPayload({
+      ...formData,
+      ...validation.data,
+    });
 
     authFetch(url, token, {
       method,

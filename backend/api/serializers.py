@@ -14,6 +14,7 @@ from .models import (
     ConviteMinisterio,
     Culto,
     Escala,
+    Igreja,
     ItemSetlist,
     LogAuditoria,
     Ministerio,
@@ -21,14 +22,82 @@ from .models import (
     RegistroLogin,
     Team,
     Usuario,
+    VinculoIgrejaUsuario,
+    VinculoMinisterioUsuario,
+)
+from .services.institutional_context import (
+    get_user_igreja_membership,
+    get_user_ministerio_membership,
+    sync_user_memberships,
 )
 
 
+class IgrejaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Igreja
+        fields = [
+            "id",
+            "nome",
+            "slug",
+            "logo_url",
+            "configuracoes",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class VinculoIgrejaUsuarioSerializer(serializers.ModelSerializer):
+    igreja_id = serializers.IntegerField(source="igreja.id", read_only=True)
+    igreja_nome = serializers.CharField(source="igreja.nome", read_only=True)
+    igreja_slug = serializers.CharField(source="igreja.slug", read_only=True)
+
+    class Meta:
+        model = VinculoIgrejaUsuario
+        fields = [
+            "id",
+            "igreja_id",
+            "igreja_nome",
+            "igreja_slug",
+            "papel_institucional",
+            "is_active",
+            "joined_at",
+        ]
+
+
+class VinculoMinisterioUsuarioSerializer(serializers.ModelSerializer):
+    ministerio_id = serializers.IntegerField(source="ministerio.id", read_only=True)
+    ministerio_nome = serializers.CharField(source="ministerio.nome", read_only=True)
+    ministerio_slug = serializers.CharField(source="ministerio.slug", read_only=True)
+
+    class Meta:
+        model = VinculoMinisterioUsuario
+        fields = [
+            "id",
+            "ministerio_id",
+            "ministerio_nome",
+            "ministerio_slug",
+            "papel_no_ministerio",
+            "is_primary",
+            "is_active",
+            "joined_at",
+        ]
+
+
 class MinisterioSerializer(serializers.ModelSerializer):
+    igreja_id = serializers.IntegerField(source="igreja.id", read_only=True)
+    igreja_nome = serializers.CharField(source="igreja.nome", read_only=True)
+    igreja_slug = serializers.CharField(source="igreja.slug", read_only=True)
+
     class Meta:
         model = Ministerio
         fields = [
             "id",
+            "igreja",
+            "igreja_id",
+            "igreja_nome",
+            "igreja_slug",
             "nome",
             "slug",
             "access_code",
@@ -54,6 +123,8 @@ class UsuarioSerializer(serializers.ModelSerializer):
     nivel_acesso_label = serializers.CharField(source="get_nivel_acesso_display", read_only=True)
     escopo_acesso = serializers.SerializerMethodField()
     papel_display = serializers.SerializerMethodField()
+    igreja_vinculo = serializers.SerializerMethodField()
+    ministerio_vinculo_principal = serializers.SerializerMethodField()
     funcoes = serializers.ListField(
         child=serializers.ChoiceField(choices=USER_FUNCTION_OPTIONS),
         required=False,
@@ -72,6 +143,8 @@ class UsuarioSerializer(serializers.ModelSerializer):
             "ministerio",
             "ministerio_nome",
             "ministerio_slug",
+            "igreja_vinculo",
+            "ministerio_vinculo_principal",
             "funcao_principal",
             "funcoes",
             "nivel_acesso",
@@ -93,6 +166,18 @@ class UsuarioSerializer(serializers.ModelSerializer):
         if obj.is_global_admin or obj.is_superuser:
             return "Admin Global"
         return obj.get_nivel_acesso_display()
+
+    def get_igreja_vinculo(self, obj):
+        membership = get_user_igreja_membership(obj)
+        if membership is None:
+            return None
+        return VinculoIgrejaUsuarioSerializer(membership).data
+
+    def get_ministerio_vinculo_principal(self, obj):
+        membership = get_user_ministerio_membership(obj)
+        if membership is None:
+            return None
+        return VinculoMinisterioUsuarioSerializer(membership).data
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -132,7 +217,9 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop("password")
-        return Usuario.objects.create_user(password=password, **validated_data)
+        user = Usuario.objects.create_user(password=password, **validated_data)
+        sync_user_memberships(user)
+        return user
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password", None)
@@ -140,6 +227,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
         if password:
             user.set_password(password)
             user.save()
+        sync_user_memberships(user)
         return user
 
 

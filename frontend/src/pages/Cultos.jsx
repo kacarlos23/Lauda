@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from "react";
+﻿﻿import { useCallback, useEffect, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -18,7 +18,9 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { usePermissions } from "../hooks/usePermissions";
 import { authFetch } from "../lib/api";
+import EscalaModal from "../components/EscalaModal";
 import "./Cultos.css";
 
 const ESTADO_INICIAL_CULTO = {
@@ -32,6 +34,7 @@ const ESTADO_INICIAL_CULTO = {
 
 export default function Cultos() {
   const { token, user, logout } = useAuth();
+  const permissions = usePermissions(user);
   const location = useLocation();
   const navigate = useNavigate();
   const [cultos, setCultos] = useState([]);
@@ -45,7 +48,6 @@ export default function Cultos() {
 
   const [isEscalaModalOpen, setIsEscalaModalOpen] = useState(false);
   const [cultoSelecionado, setCultoSelecionado] = useState(null);
-  const [novoMembroId, setNovoMembroId] = useState("");
   const [isCultoModalOpen, setIsCultoModalOpen] = useState(false);
   const [editingCultoId, setEditingCultoId] = useState(null);
   const [formData, setFormData] = useState(ESTADO_INICIAL_CULTO);
@@ -54,8 +56,8 @@ export default function Cultos() {
   const [mobileActionsCultoId, setMobileActionsCultoId] = useState(null);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const [pageNotice, setPageNotice] = useState("");
-  const canManageCultos =
-    user?.is_global_admin || Number(user?.nivel_acesso) === 1;
+
+  const canManageCultos = permissions.canManageCultos;
 
   const carregarDados = useCallback(async () => {
     if (!token) {
@@ -320,16 +322,11 @@ export default function Cultos() {
   const fecharModalEscala = () => {
     setIsEscalaModalOpen(false);
     setCultoSelecionado(null);
-    setNovoMembroId("");
   };
 
-  const handleAdicionarEscala = (e) => {
-    e.preventDefault();
-    if (!canManageCultos) {
-      return;
-    }
+  const handleAdicionarEscala = (membroId) => {
+    if (!canManageCultos || !membroId || !cultoSelecionado) return;
 
-    if (!novoMembroId || !cultoSelecionado) return;
     authFetch("/api/escalas/", token, {
       method: "POST",
       headers: {
@@ -337,13 +334,12 @@ export default function Cultos() {
       },
       body: JSON.stringify({
         culto: cultoSelecionado.id,
-        membro: novoMembroId,
+        membro: membroId,
         status_confirmacao: "PENDENTE",
       }),
     })
       .then(() => {
         carregarDados();
-        setNovoMembroId("");
       })
       .catch((error) => {
         if (error.status === 401) {
@@ -487,12 +483,6 @@ export default function Cultos() {
     });
   };
 
-  const escalasDoCulto = cultoSelecionado
-    ? escalas.filter((escala) => escala.culto === cultoSelecionado.id)
-    : [];
-  const membrosDisponiveis = membros.filter(
-    (membro) => !escalasDoCulto.some((escala) => escala.membro === membro.id),
-  );
   const setlistAtual = cultoSelecionado
     ? itensSetlist
         .filter((item) => item.culto === cultoSelecionado.id)
@@ -835,113 +825,15 @@ export default function Cultos() {
 
       {/* MODAL DE ESCALA */}
       {isEscalaModalOpen && cultoSelecionado && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h3 className="modal-title">Escala: {cultoSelecionado.nome}</h3>
-              <button onClick={fecharModalEscala} className="modal-close">
-                ×
-              </button>
-            </div>
-
-            <div className="modal-body form-container">
-              {canManageCultos && (
-                <form
-                  onSubmit={handleAdicionarEscala}
-                  className="escala-toolbar"
-                >
-                  <div className="form-group escala-toolbar-select">
-                    <label className="input-label">
-                      Adicionar Membro na Equipe
-                    </label>
-                    <select
-                      value={novoMembroId}
-                      onChange={(e) => setNovoMembroId(e.target.value)}
-                      required
-                      className="input-field"
-                    >
-                      <option value="">
-                        Selecione um membro para escalar...
-                      </option>
-                      {membrosDisponiveis.map((membro) => (
-                        <option key={membro.id} value={membro.id}>
-                          {membro.first_name || membro.username} -{" "}
-                          {membro.funcao_principal}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    type="submit"
-                    className="lauda-btn lauda-btn-primary"
-                    style={{ height: "42px" }}
-                  >
-                    Adicionar
-                  </button>
-                </form>
-              )}
-
-              <div className="lauda-table-container">
-                <table className="lauda-table">
-                  <thead>
-                    <tr>
-                      <th>Membro</th>
-                      <th>Função</th>
-                      <th>Status</th>
-                      {canManageCultos && <th>Ação</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {escalasDoCulto.map((escala) => {
-                      const membro = membros.find(
-                        (item) => item.id === escala.membro,
-                      );
-                      return (
-                        <tr key={escala.id}>
-                          <td data-label="Membro" className="table-cell-muted">
-                            {membro
-                              ? membro.first_name || membro.username
-                              : "Carregando..."}
-                          </td>
-                          <td data-label="Função">
-                            {membro ? membro.funcao_principal : "-"}
-                          </td>
-                          <td data-label="Status">
-                            <span
-                              className={`badge ${escala.status_confirmacao === "CONFIRMADO" ? "badge-primary" : "badge-gray"}`}
-                            >
-                              {escala.status_confirmacao}
-                            </span>
-                          </td>
-                          {canManageCultos && (
-                            <td data-label="Ação">
-                              <button
-                                onClick={() => handleRemoverEscala(escala.id)}
-                                className="lauda-btn lauda-btn-secondary culto-remove-btn"
-                              >
-                                Remover
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                    {escalasDoCulto.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={canManageCultos ? 4 : 3}
-                          className="table-empty"
-                        >
-                          Nenhum membro escalado.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
+        <EscalaModal
+          culto={cultoSelecionado}
+          membros={membros}
+          escalas={escalas}
+          canManageCultos={canManageCultos}
+          onClose={fecharModalEscala}
+          onAddEscala={handleAdicionarEscala}
+          onRemoveEscala={handleRemoverEscala}
+        />
       )}
 
       {/* MODAL DE SETLIST */}

@@ -6,6 +6,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import {
   Building2,
@@ -87,17 +88,20 @@ function App() {
           <Route path="/app/musicas" element={<Musicas />} />
           <Route path="/app/cultos" element={<Cultos />} />
           <Route path="/app/equipes" element={<Equipes />} />
-          <Route
-            path="/app/ministerio/configuracoes"
-            element={<MinisterioConfiguracoes />}
-          />
-          <Route
-            path="/app/ministerio/classificacoes"
-            element={<ClassificacoesMusicais />}
-          />
-          <Route path="/app/membros" element={<Membros />} />
           <Route path="/app/perfil" element={<Perfil />} />
-          <Route path="/app/auditoria" element={<Auditoria />} />
+
+          <Route element={<RequireOperationalAdminRoute />}>
+            <Route
+              path="/app/ministerio/configuracoes"
+              element={<MinisterioConfiguracoes />}
+            />
+            <Route
+              path="/app/ministerio/classificacoes"
+              element={<ClassificacoesMusicais />}
+            />
+            <Route path="/app/membros" element={<Membros />} />
+            <Route path="/app/auditoria" element={<Auditoria />} />
+          </Route>
         </Route>
       </Route>
 
@@ -120,7 +124,7 @@ function resolveMemberDestination(session, search = "") {
     return buildLoginPath(getAccessCodeFromSearch(search));
   }
 
-  if (session.user?.is_global_admin) {
+  if (session.user?.is_global_admin && !session.user?.ministerio_id) {
     return "/admin";
   }
 
@@ -165,7 +169,12 @@ function AdminLoginRoute() {
   }
 
   if (session.user?.is_global_admin) {
-    return <Navigate to="/admin" replace />;
+    return (
+      <Navigate
+        to={session.user?.ministerio_id ? "/app" : "/admin"}
+        replace
+      />
+    );
   }
 
   return (
@@ -189,7 +198,7 @@ function RequireMemberRoute() {
     );
   }
 
-  if (session.user?.is_global_admin) {
+  if (session.user?.is_global_admin && !session.user?.ministerio_id) {
     return <Navigate to="/admin" replace />;
   }
 
@@ -221,7 +230,7 @@ function RequireUnboundMemberRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  if (session.user?.is_global_admin) {
+  if (session.user?.is_global_admin && !session.user?.ministerio_id) {
     return <Navigate to="/admin" replace />;
   }
 
@@ -232,14 +241,28 @@ function RequireUnboundMemberRoute() {
   return <Outlet />;
 }
 
+function RequireOperationalAdminRoute() {
+  const { session } = useAuth();
+
+  if (!session?.user?.is_global_admin) {
+    return <Navigate to="/app" replace />;
+  }
+
+  return <Outlet />;
+}
+
 function AppShell({ variant }) {
-  const { user, logout } = useAuth();
+  const { user, token, logout, impersonateMinistry } = useAuth();
   const permissions = usePermissions(user);
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsNotice, setSettingsNotice] = useState("");
+  const [scopeNotice, setScopeNotice] = useState("");
+  const [globalMinistries, setGlobalMinistries] = useState([]);
+  const [isSwitchingScope, setIsSwitchingScope] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(
     () => localStorage.getItem("theme") === "dark",
   );
@@ -250,10 +273,13 @@ function AppShell({ variant }) {
   );
 
   const isGlobalAdmin = variant === "admin";
+  const isImpersonating = Boolean(user?.is_global_admin && user?.ministerio_id);
   const ministryName = user?.ministerio_nome || "Ministerio";
   const shellTitle = isGlobalAdmin ? "Painel Global" : ministryName;
   const shellSubtitle = isGlobalAdmin
-    ? "Gestao multi-ministerio"
+    ? isImpersonating
+      ? `Atuando em ${ministryName}`
+      : "Gestao multi-ministerio"
     : "Aplicacao do ministerio";
 
   const navItems = isGlobalAdmin
@@ -268,11 +294,14 @@ function AppShell({ variant }) {
         { to: "/app/musicas", label: "Musicas", icon: Music2 },
         { to: "/app/cultos", label: "Cultos", icon: Calendar },
         { to: "/app/equipes", label: "Equipes", icon: FolderKanban },
-        ...(permissions.isMinistryAdmin
+        ...(permissions.isMinistryAdmin || user?.is_global_admin
           ? [
               { to: "/app/membros", label: "Membros", icon: Users },
               { to: "/app/auditoria", label: "Auditoria", icon: Shield },
             ]
+          : []),
+        ...(user?.is_global_admin
+          ? [{ to: "/admin", label: "Painel Global", icon: Shield }]
           : []),
         { to: "/app/perfil", label: "Meu Perfil", icon: User },
       ];
@@ -281,6 +310,40 @@ function AppShell({ variant }) {
     document.body.classList.toggle("dark-mode", isDarkMode);
     localStorage.setItem("theme", isDarkMode ? "dark" : "light");
   }, [isDarkMode]);
+
+  useEffect(() => {
+    if (!user?.is_global_admin || !token) {
+      setGlobalMinistries([]);
+      setScopeNotice("");
+      return;
+    }
+
+    let isMounted = true;
+    setScopeNotice("");
+
+    authFetch("/api/ministerios/", token)
+      .then((data) => {
+        if (isMounted) {
+          setGlobalMinistries(data);
+        }
+      })
+      .catch((error) => {
+        if (error.status === 401) {
+          logout();
+          return;
+        }
+
+        if (isMounted) {
+          setScopeNotice(
+            error.message || "Nao foi possivel carregar os ministerios.",
+          );
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [logout, token, user?.is_global_admin]);
 
   const toggleMenu = () => {
     if (window.innerWidth <= 768) {
@@ -294,6 +357,27 @@ function AppShell({ variant }) {
 
   const handleSettingsLinkClick = (label) => {
     setSettingsNotice(`${label} ainda nao esta disponivel nesta versao.`);
+  };
+
+  const handleScopeChange = async (event) => {
+    const nextMinistryId = event.target.value || null;
+    setScopeNotice("");
+    setIsSwitchingScope(true);
+
+    try {
+      await impersonateMinistry(nextMinistryId);
+      closeMenu();
+      navigate(nextMinistryId ? "/app/cultos" : "/admin", { replace: true });
+    } catch (error) {
+      if (error.status === 401) {
+        logout();
+        return;
+      }
+
+      setScopeNotice(error.message || "Nao foi possivel trocar o escopo.");
+    } finally {
+      setIsSwitchingScope(false);
+    }
   };
 
   return (
@@ -438,7 +522,13 @@ function AppShell({ variant }) {
 
             <div className="header-session-chip">
               <strong>@{user?.username}</strong>
-              <span>{isGlobalAdmin ? "Admin global" : ministryName}</span>
+              <span>
+                {isGlobalAdmin
+                  ? isImpersonating
+                    ? `Admin global · ${ministryName}`
+                    : "Admin global"
+                  : ministryName}
+              </span>
             </div>
 
             <button
@@ -452,6 +542,41 @@ function AppShell({ variant }) {
         </header>
 
         <div className="lauda-content" data-route={location.pathname}>
+          {user?.is_global_admin && (
+            <section className="lauda-card global-scope-card">
+              <div className="global-scope-copy">
+                <strong>
+                  {isImpersonating ? "Impersonate ativo" : "Visao global ativa"}
+                </strong>
+                <span>
+                  {isImpersonating
+                    ? `Operando no contexto de ${ministryName}.`
+                    : "Selecione um ministerio para abrir o painel operacional com escopo local."}
+                </span>
+              </div>
+
+              <div className="global-scope-actions">
+                <select
+                  className="input-field global-scope-select"
+                  value={user?.ministerio_id || ""}
+                  onChange={handleScopeChange}
+                  disabled={isSwitchingScope}
+                >
+                  <option value="">Visao global</option>
+                  {globalMinistries.map((ministerio) => (
+                    <option key={ministerio.id} value={ministerio.id}>
+                      {ministerio.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </section>
+          )}
+
+          {scopeNotice && (
+            <div className="status-alert status-alert--error">{scopeNotice}</div>
+          )}
+
           <Outlet />
         </div>
       </main>

@@ -48,8 +48,7 @@ export default function Membros() {
     status: "ativos",
   });
 
-  const canManageUsers =
-    isAdmin || user?.is_global_admin || Number(user?.nivel_acesso) === 1;
+  const canManageUsers = Boolean(isAdmin && user?.is_global_admin);
 
   const extrairMensagemErro = async (error, fallback) => {
     const dados = error?.data || null;

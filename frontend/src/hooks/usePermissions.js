@@ -1,18 +1,20 @@
 export function usePermissions(user) {
-  const level = Number(user?.nivel_acesso || 0);
   const isGlobalAdmin = Boolean(user?.is_global_admin);
-  const isMinistryAdmin = !isGlobalAdmin && level === 1;
-  const isLeader = !isGlobalAdmin && level === 2;
-  const isMember = !isGlobalAdmin && level === 3;
+  const isImpersonating = isGlobalAdmin && Boolean(user?.ministerio_id);
+  const isMinistryAdmin = false;
+  const isLeader = false;
+  const isMember = !isGlobalAdmin;
 
   return {
     isGlobalAdmin,
+    isImpersonating,
     isMinistryAdmin,
     isLeader,
     isMember,
-    canViewMinistrySettings: !isGlobalAdmin && Boolean(user?.ministerio_id),
-    canEditMinistrySettings: !isGlobalAdmin && level !== 3,
-    canManageMusic: isGlobalAdmin || level === 1 || level === 2,
-    canManageCultos: isGlobalAdmin || level === 1,
+    canViewMinistrySettings: Boolean(isGlobalAdmin && user?.ministerio_id),
+    canEditMinistrySettings:
+      Boolean(isGlobalAdmin && user?.ministerio_id),
+    canManageMusic: isGlobalAdmin,
+    canManageCultos: isGlobalAdmin && isImpersonating,
   };
 }

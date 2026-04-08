@@ -1,9 +1,27 @@
+import importlib
 from unittest.mock import patch
 
+from django.apps import apps as django_apps
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from api.models import ConviteMinisterio, Ministerio, Musica, Team, Usuario
+from api.models import (
+    ConviteMinisterio,
+    Culto,
+    Igreja,
+    Ministerio,
+    Musica,
+    Team,
+    Usuario,
+    VinculoIgrejaUsuario,
+    VinculoMinisterioUsuario,
+)
+from api.services.institutional_context import (
+    get_user_igreja,
+    get_user_igreja_membership,
+    get_user_ministerio,
+    get_user_ministerio_membership,
+)
 from api.services.normalization import build_query, normalize_text, score_track_title
 
 
@@ -22,11 +40,11 @@ class MusicEnrichmentEndpointTests(APITestCase):
     def setUp(self):
         self.ministerio = Ministerio.objects.create(nome="Ministerio Teste", slug="ministerio-teste")
         self.user = Usuario.objects.create_user(
-            username="tester",
+            username="tester-global",
             password="12345678",
-            funcao_principal="Voz",
-            nivel_acesso=1,
-            ministerio=self.ministerio,
+            funcao_principal="Admin",
+            is_global_admin=True,
+            is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
 
@@ -61,11 +79,11 @@ class MusicCrudWithMetadataTests(APITestCase):
     def setUp(self):
         self.ministerio = Ministerio.objects.create(nome="Ministerio Editor", slug="ministerio-editor")
         self.user = Usuario.objects.create_user(
-            username="editor",
+            username="editor-global",
             password="12345678",
-            funcao_principal="Voz",
-            nivel_acesso=1,
-            ministerio=self.ministerio,
+            funcao_principal="Admin",
+            is_global_admin=True,
+            is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
 
@@ -131,6 +149,7 @@ class MusicCrudWithMetadataTests(APITestCase):
 
     def test_create_culto_without_local_and_end_time(self):
         payload = {
+            "ministerio": self.ministerio.id,
             "nome": "Culto de Domingo",
             "data": "2026-04-06",
             "horario_inicio": "19:00:00",
@@ -145,6 +164,7 @@ class MusicCrudWithMetadataTests(APITestCase):
 
     def test_create_culto_accepts_blank_strings_for_optional_fields(self):
         payload = {
+            "ministerio": self.ministerio.id,
             "nome": "Culto com vazios",
             "data": "2026-04-06",
             "horario_inicio": "19:00:00",
@@ -225,6 +245,18 @@ class MultiMinisterioAuthTests(APITestCase):
             last_name="Vinculo",
             nivel_acesso=3,
         )
+
+    def authenticate_as_impersonated_admin(self, ministry):
+        self.client.force_authenticate(user=self.global_admin)
+        response = self.client.post(
+            "/api/auth/admin/impersonate/",
+            {"ministerio_id": ministry.id if ministry else None},
+            format="json",
+        )
+        self.client.force_authenticate(user=None)
+        if response.status_code == status.HTTP_200_OK:
+            self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {response.data["access"]}')
+        return response
 
     def test_lookup_invite_by_code(self):
         response = self.client.get(f"/api/auth/invites/{self.convite.access_code}/")
@@ -315,6 +347,48 @@ class MultiMinisterioAuthTests(APITestCase):
         self.assertEqual(response.data["user"]["escopo_acesso"], "GLOBAL")
         self.assertEqual(response.data["user"]["papel_display"], "Admin Global")
 
+    def test_global_admin_can_impersonate_ministry_and_me_reflects_scope(self):
+        response = self.authenticate_as_impersonated_admin(self.ministerio)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["user"]["is_global_admin"])
+        self.assertTrue(response.data["user"]["is_impersonating"])
+        self.assertEqual(response.data["user"]["ministerio_id"], self.ministerio.id)
+        self.assertEqual(response.data["user"]["ministerio_slug"], self.ministerio.slug)
+
+        me_response = self.client.get("/api/usuarios/me/")
+
+        self.assertEqual(me_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(me_response.data["is_global_admin"])
+        self.assertTrue(me_response.data["is_impersonating"])
+        self.assertEqual(me_response.data["ministerio_id"], self.ministerio.id)
+        self.assertEqual(me_response.data["ministerio_nome"], self.ministerio.nome)
+
+    def test_global_admin_can_exit_impersonation(self):
+        self.client.force_authenticate(user=self.global_admin)
+
+        response = self.client.post(
+            "/api/auth/admin/impersonate/",
+            {"ministerio_id": None},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["user"]["is_global_admin"])
+        self.assertFalse(response.data["user"]["is_impersonating"])
+        self.assertIsNone(response.data["user"]["ministerio_id"])
+
+    def test_non_global_admin_cannot_impersonate_ministry(self):
+        self.client.force_authenticate(user=self.unbound_user)
+
+        response = self.client.post(
+            "/api/auth/admin/impersonate/",
+            {"ministerio_id": self.ministerio.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_authenticated_user_can_bind_by_fixed_access_code(self):
         self.client.force_authenticate(user=self.unbound_user)
 
@@ -387,6 +461,33 @@ class MultiMinisterioIsolationTests(APITestCase):
             artista="Artista B",
             tom_original="D",
         )
+        self.culto_a = Culto.objects.create(
+            ministerio=self.ministerio_a,
+            nome="Culto A",
+            data="2026-04-01",
+            horario_inicio="19:00:00",
+            horario_termino="21:00:00",
+            local="Templo A",
+        )
+        self.culto_b = Culto.objects.create(
+            ministerio=self.ministerio_b,
+            nome="Culto B",
+            data="2026-04-02",
+            horario_inicio="20:00:00",
+            horario_termino="22:00:00",
+            local="Templo B",
+        )
+
+    def authenticate_as_impersonated_admin(self, ministry):
+        self.client.force_authenticate(user=self.global_admin)
+        response = self.client.post(
+            "/api/auth/admin/impersonate/",
+            {"ministerio_id": ministry.id},
+            format="json",
+        )
+        self.client.force_authenticate(user=None)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {response.data["access"]}')
+        return response
 
     def test_ministry_admin_lists_global_music_catalog(self):
         self.client.force_authenticate(user=self.admin_a)
@@ -411,8 +512,7 @@ class MultiMinisterioIsolationTests(APITestCase):
             },
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIsNone(response.data["ministerio"])
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_ministry_admin_cannot_create_scale_with_foreign_member(self):
         membro_b = Usuario.objects.create_user(
@@ -434,13 +534,41 @@ class MultiMinisterioIsolationTests(APITestCase):
             {"culto": culto_a.id, "membro": membro_b.id, "status_confirmacao": "PENDENTE"},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_global_admin_lists_all_music(self):
         self.client.force_authenticate(user=self.global_admin)
         response = self.client.get("/api/musicas/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
+
+    def test_impersonated_global_admin_scopes_cultos_to_selected_ministry(self):
+        response = self.authenticate_as_impersonated_admin(self.ministerio_a)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        cultos_response = self.client.get("/api/cultos/")
+
+        self.assertEqual(cultos_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(cultos_response.data), 1)
+        self.assertEqual(cultos_response.data[0]["id"], self.culto_a.id)
+
+    def test_impersonated_global_admin_can_create_culto_without_explicit_ministry(self):
+        response = self.authenticate_as_impersonated_admin(self.ministerio_a)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        create_response = self.client.post(
+            "/api/cultos/",
+            {
+                "nome": "Culto Impersonado",
+                "data": "2026-04-03",
+                "horario_inicio": "18:30:00",
+                "status": "AGENDADO",
+            },
+            format="json",
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_response.data["ministerio"], self.ministerio_a.id)
 
 
 class UserAccessLevelSyncTests(APITestCase):
@@ -460,9 +588,16 @@ class UserAccessLevelSyncTests(APITestCase):
             nivel_acesso=3,
             ministerio=self.ministerio,
         )
+        self.global_admin = Usuario.objects.create_user(
+            username="global-admin-sync",
+            password="12345678",
+            funcao_principal="Admin",
+            is_global_admin=True,
+            is_superuser=True,
+        )
         self.client.force_authenticate(user=self.admin)
 
-    def test_admin_level_grants_staff_access_on_create(self):
+    def test_ministry_admin_cannot_create_users(self):
         response = self.client.post(
             "/api/usuarios/",
             {
@@ -476,30 +611,32 @@ class UserAccessLevelSyncTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        created_user = Usuario.objects.get(username="novo-admin")
-        self.assertTrue(created_user.is_staff)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(Usuario.objects.filter(username="novo-admin").exists())
 
-    def test_updating_access_level_promotes_and_demotes_staff_flag(self):
+    def test_ministry_admin_cannot_update_other_users(self):
         promote_response = self.client.patch(
             f"/api/usuarios/{self.member.id}/",
             {"nivel_acesso": 1},
             format="json",
         )
-        self.assertEqual(promote_response.status_code, status.HTTP_200_OK)
-        self.member.refresh_from_db()
-        self.assertEqual(self.member.nivel_acesso, 1)
-        self.assertTrue(self.member.is_staff)
-
-        demote_response = self.client.patch(
-            f"/api/usuarios/{self.member.id}/",
-            {"nivel_acesso": 3},
-            format="json",
-        )
-        self.assertEqual(demote_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(promote_response.status_code, status.HTTP_403_FORBIDDEN)
         self.member.refresh_from_db()
         self.assertEqual(self.member.nivel_acesso, 3)
         self.assertFalse(self.member.is_staff)
+
+    def test_django_admin_rejects_ministry_admin_and_accepts_global_admin(self):
+        self.client.force_authenticate(user=None)
+
+        self.assertTrue(self.client.login(username="admin-sync", password="12345678"))
+        ministry_response = self.client.get("/admin/")
+        self.assertEqual(ministry_response.status_code, status.HTTP_302_FOUND)
+        self.assertIn("/admin/login/?next=/admin/", ministry_response["Location"])
+
+        self.client.logout()
+        self.assertTrue(self.client.login(username="global-admin-sync", password="12345678"))
+        global_response = self.client.get("/admin/")
+        self.assertEqual(global_response.status_code, status.HTTP_200_OK)
 
     def test_me_endpoint_returns_ministry_slug(self):
         response = self.client.get("/api/usuarios/me/")
@@ -579,6 +716,17 @@ class TenantHardeningTests(APITestCase):
             nivel_acesso=3,
         )
 
+    def authenticate_as_impersonated_admin(self, ministry):
+        self.client.force_authenticate(user=self.global_admin)
+        response = self.client.post(
+            "/api/auth/admin/impersonate/",
+            {"ministerio_id": ministry.id},
+            format="json",
+        )
+        self.client.force_authenticate(user=None)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {response.data["access"]}')
+        return response
+
     def test_invite_lookup_hides_sensitive_fields(self):
         response = self.client.get(f"/api/auth/invites/{self.convite.access_code}/")
 
@@ -605,7 +753,7 @@ class TenantHardeningTests(APITestCase):
         )
         self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_leader_can_create_global_music(self):
+    def test_leader_cannot_create_global_music(self):
         leader = Usuario.objects.create_user(
             username="leader-hardening",
             password="12345678",
@@ -621,8 +769,7 @@ class TenantHardeningTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIsNone(response.data["ministerio"])
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_member_cannot_create_setlist_item(self):
         self.client.force_authenticate(user=self.member_a)
@@ -683,6 +830,36 @@ class TenantHardeningTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("ministerio", response.data)
 
+    def test_impersonated_global_admin_can_fetch_current_ministry(self):
+        response = self.authenticate_as_impersonated_admin(self.ministerio_a)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        current_response = self.client.get("/api/ministerios/current/")
+
+        self.assertEqual(current_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(current_response.data["id"], self.ministerio_a.id)
+        self.assertEqual(current_response.data["access_code"], self.ministerio_a.access_code)
+
+    def test_impersonated_global_admin_can_create_local_user_without_explicit_ministry(self):
+        response = self.authenticate_as_impersonated_admin(self.ministerio_a)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        create_response = self.client.post(
+            "/api/usuarios/",
+            {
+                "username": "local-com-impersonate",
+                "password": "12345678",
+                "first_name": "Local",
+                "funcao_principal": "Teclado",
+                "nivel_acesso": 2,
+                "is_global_admin": False,
+            },
+            format="json",
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_response.data["ministerio"], self.ministerio_a.id)
+
     def test_ministry_admin_can_fetch_current_ministry_with_access_code(self):
         self.client.force_authenticate(user=self.admin_a)
 
@@ -700,7 +877,7 @@ class TenantHardeningTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["access_code"], self.ministerio_a.access_code)
 
-    def test_leader_can_update_current_ministry_name(self):
+    def test_leader_cannot_update_current_ministry_name(self):
         leader = Usuario.objects.create_user(
             username="leader-config",
             password="12345678",
@@ -716,9 +893,9 @@ class TenantHardeningTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.ministerio_a.refresh_from_db()
-        self.assertEqual(self.ministerio_a.nome, "Ministerio Atualizado")
+        self.assertEqual(self.ministerio_a.nome, "Ministerio A")
 
     def test_member_cannot_update_current_ministry_name(self):
         self.client.force_authenticate(user=self.member_a)
@@ -731,7 +908,7 @@ class TenantHardeningTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_leader_can_generate_ministry_invite_link(self):
+    def test_leader_cannot_generate_ministry_invite_link(self):
         leader = Usuario.objects.create_user(
             username="leader-link",
             password="12345678",
@@ -744,9 +921,7 @@ class TenantHardeningTests(APITestCase):
 
         response = self.client.get("/api/auth/ministry-invite-link/")
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("/invite?code=", response.data["invite_url"])
-        self.assertEqual(response.data["access_code"], self.ministerio_a.access_code)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_member_cannot_generate_ministry_invite_link(self):
         self.client.force_authenticate(user=self.member_a)
@@ -778,3 +953,261 @@ class TeamEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "Louvor Principal")
+
+
+class FundacaoInstitucionalTests(APITestCase):
+    def setUp(self):
+        self.igreja = Igreja.objects.create(nome="Igreja Base", slug="igreja-base")
+        self.ministerio = Ministerio.objects.create(
+            nome="Ministerio Base",
+            slug="ministerio-base",
+            igreja=self.igreja,
+        )
+        self.user = Usuario.objects.create_user(
+            username="membro-base",
+            password="12345678",
+            first_name="Membro",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        self.global_admin = Usuario.objects.create_user(
+            username="admin-igreja",
+            password="12345678",
+            funcao_principal="Admin",
+            is_global_admin=True,
+            is_superuser=True,
+        )
+
+    def test_can_create_igreja(self):
+        igreja = Igreja.objects.create(nome="Igreja Centro", slug="igreja-centro")
+        self.assertEqual(str(igreja), "Igreja Centro")
+
+    def test_can_create_ministerio_linked_to_igreja(self):
+        self.assertEqual(self.ministerio.igreja_id, self.igreja.id)
+
+    def test_backfill_links_legacy_ministerios_to_default_igreja(self):
+        legacy_ministerio = Ministerio.objects.create(
+            nome="Ministerio Legado",
+            slug="ministerio-legado",
+            igreja=None,
+        )
+        migration_module = importlib.import_module("api.migrations.0013_backfill_ministerios_igreja")
+
+        migration_module.backfill_ministerios_igreja(django_apps, None)
+
+        legacy_ministerio.refresh_from_db()
+        self.assertIsNotNone(legacy_ministerio.igreja_id)
+        self.assertEqual(legacy_ministerio.igreja.nome, "Igreja Principal")
+
+    def test_get_user_igreja_resolves_from_ministerio(self):
+        igreja = get_user_igreja(self.user)
+        self.assertIsNotNone(igreja)
+        self.assertEqual(igreja.id, self.igreja.id)
+
+    def test_auth_payload_returns_igreja_fields(self):
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "membro-base", "password": "12345678"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["user"]["igreja_id"], self.igreja.id)
+        self.assertEqual(response.data["user"]["igreja_slug"], self.igreja.slug)
+        self.assertEqual(response.data["user"]["igreja_nome"], self.igreja.nome)
+        self.assertEqual(response.data["user"]["ministerio_id"], self.ministerio.id)
+
+    def test_ministerio_serializer_exposes_igreja_fields(self):
+        self.client.force_authenticate(user=self.global_admin)
+        response = self.client.get(f"/api/ministerios/{self.ministerio.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["igreja_id"], self.igreja.id)
+        self.assertEqual(response.data["igreja_slug"], self.igreja.slug)
+        self.assertEqual(response.data["igreja_nome"], self.igreja.nome)
+
+    def test_igreja_endpoints_allow_basic_admin_management(self):
+        self.client.force_authenticate(user=self.global_admin)
+
+        create_response = self.client.post(
+            "/api/igrejas/",
+            {"nome": "Igreja Nova", "slug": "igreja-nova"},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        igreja_id = create_response.data["id"]
+        retrieve_response = self.client.get(f"/api/igrejas/{igreja_id}/")
+        self.assertEqual(retrieve_response.status_code, status.HTTP_200_OK)
+
+        update_response = self.client.patch(
+            f"/api/igrejas/{igreja_id}/",
+            {"nome": "Igreja Nova Atualizada"},
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(update_response.data["nome"], "Igreja Nova Atualizada")
+
+    def test_music_module_continues_working_with_ministerio_igreja_relation(self):
+        self.client.force_authenticate(user=self.global_admin)
+        response = self.client.post(
+            "/api/musicas/",
+            {
+                "titulo": "Musica Compatibilidade",
+                "artista": "Autor",
+                "tom_original": "C",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["titulo"], "Musica Compatibilidade")
+
+
+class FundacaoAcessoTests(APITestCase):
+    def setUp(self):
+        self.igreja = Igreja.objects.create(nome="Igreja Acesso", slug="igreja-acesso")
+        self.ministerio = Ministerio.objects.create(
+            nome="Ministerio Acesso",
+            slug="ministerio-acesso",
+            igreja=self.igreja,
+        )
+        self.user = Usuario.objects.create_user(
+            username="usuario-acesso",
+            password="12345678",
+            first_name="Usuario",
+            ministerio=self.ministerio,
+            nivel_acesso=3,
+        )
+        self.global_admin = Usuario.objects.create_user(
+            username="admin-acesso",
+            password="12345678",
+            is_global_admin=True,
+            is_superuser=True,
+        )
+
+    def test_can_create_user_church_membership(self):
+        membership = VinculoIgrejaUsuario.objects.create(
+            usuario=self.user,
+            igreja=self.igreja,
+            papel_institucional="MEMBRO",
+        )
+
+        self.assertEqual(membership.usuario_id, self.user.id)
+        self.assertEqual(membership.igreja_id, self.igreja.id)
+
+    def test_can_create_user_ministry_membership(self):
+        membership = VinculoMinisterioUsuario.objects.create(
+            usuario=self.user,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MEMBRO",
+            is_primary=True,
+        )
+
+        self.assertEqual(membership.usuario_id, self.user.id)
+        self.assertEqual(membership.ministerio_id, self.ministerio.id)
+        self.assertTrue(membership.is_primary)
+
+    def test_backfill_creates_church_membership_from_legacy_user_ministry(self):
+        migration_module = importlib.import_module("api.migrations.0015_backfill_vinculos_igreja_usuario")
+
+        migration_module.backfill_vinculos_igreja_usuario(django_apps, None)
+
+        membership = VinculoIgrejaUsuario.objects.get(usuario=self.user, igreja=self.igreja)
+        self.assertTrue(membership.is_active)
+
+    def test_backfill_creates_ministry_membership_from_legacy_user_ministry(self):
+        migration_module = importlib.import_module("api.migrations.0016_backfill_vinculos_ministerio_usuario")
+
+        migration_module.backfill_vinculos_ministerio_usuario(django_apps, None)
+
+        membership = VinculoMinisterioUsuario.objects.get(usuario=self.user, ministerio=self.ministerio)
+        self.assertTrue(membership.is_active)
+        self.assertTrue(membership.is_primary)
+
+    def test_helpers_resolve_memberships_and_context(self):
+        igreja_membership = VinculoIgrejaUsuario.objects.create(
+            usuario=self.user,
+            igreja=self.igreja,
+            papel_institucional="MEMBRO",
+        )
+        ministerio_membership = VinculoMinisterioUsuario.objects.create(
+            usuario=self.user,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MEMBRO",
+            is_primary=True,
+        )
+
+        self.assertEqual(get_user_igreja_membership(self.user).id, igreja_membership.id)
+        self.assertEqual(get_user_ministerio_membership(self.user).id, ministerio_membership.id)
+        self.assertEqual(get_user_igreja(self.user).id, self.igreja.id)
+        self.assertEqual(get_user_ministerio(self.user).id, self.ministerio.id)
+
+    def test_helpers_fallback_to_usuario_ministerio_when_memberships_do_not_exist(self):
+        self.assertIsNone(get_user_igreja_membership(self.user))
+        self.assertIsNone(get_user_ministerio_membership(self.user))
+        self.assertEqual(get_user_igreja(self.user).id, self.igreja.id)
+        self.assertEqual(get_user_ministerio(self.user).id, self.ministerio.id)
+
+    def test_auth_payload_remains_compatible_and_exposes_membership_fields(self):
+        VinculoIgrejaUsuario.objects.create(
+            usuario=self.user,
+            igreja=self.igreja,
+            papel_institucional="MEMBRO",
+        )
+        ministerio_membership = VinculoMinisterioUsuario.objects.create(
+            usuario=self.user,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MEMBRO",
+            is_primary=True,
+        )
+
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "usuario-acesso", "password": "12345678"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["user"]["ministerio_id"], self.ministerio.id)
+        self.assertEqual(response.data["user"]["igreja_id"], self.igreja.id)
+        self.assertEqual(response.data["user"]["ministerio_membership_id"], ministerio_membership.id)
+        self.assertTrue(response.data["user"]["has_institutional_membership"])
+
+    def test_usuario_me_exposes_membership_summaries(self):
+        VinculoIgrejaUsuario.objects.create(
+            usuario=self.user,
+            igreja=self.igreja,
+            papel_institucional="MEMBRO",
+        )
+        VinculoMinisterioUsuario.objects.create(
+            usuario=self.user,
+            ministerio=self.ministerio,
+            papel_no_ministerio="MEMBRO",
+            is_primary=True,
+        )
+        self.client.force_authenticate(user=self.global_admin)
+
+        response = self.client.get(f"/api/usuarios/{self.user.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["igreja_vinculo"]["igreja_id"], self.igreja.id)
+        self.assertEqual(
+            response.data["ministerio_vinculo_principal"]["ministerio_id"],
+            self.ministerio.id,
+        )
+
+    def test_legacy_music_flow_remains_operational(self):
+        self.client.force_authenticate(user=self.global_admin)
+        response = self.client.post(
+            "/api/musicas/",
+            {
+                "titulo": "Musica Legada",
+                "artista": "Autor Legado",
+                "tom_original": "D",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["titulo"], "Musica Legada")
