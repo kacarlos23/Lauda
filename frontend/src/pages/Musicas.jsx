@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Edit2,
   ExternalLink,
@@ -463,7 +463,7 @@ export default function Musicas() {
         {canManageMusic && (
           <button
             type="button"
-            className="lauda-btn lauda-btn-primary"
+            className="lauda-btn lauda-btn-primary musicas-header-btn"
             onClick={handleNovaMusica}
           >
             <Plus size={18} aria-hidden="true" /> Nova Música
@@ -471,15 +471,15 @@ export default function Musicas() {
         )}
       </div>
 
-      <section className="lauda-card musicas-filtros-card">
-        <div className="musicas-filtros-header">
+      <section className="lauda-card musicas-toolbar-card">
+        <div className="musicas-toolbar-top">
           <div>
-            <h3>Consulta do repertório</h3>
-            <p className="text-muted">
+            <h3 className="text-lg font-semibold leading-none tracking-tight">Consulta do repertório</h3>
+            <p className="text-sm text-muted-foreground mt-1.5">
               Pesquise em tempo real por nome e refine por artista, tom e tag.
             </p>
           </div>
-          <span className="badge badge-gray">
+          <span className="badge badge-gray musicas-result-count">
             {isLoadingMusicas
               ? "Carregando..."
               : `${musicasFiltradas.length} resultado(s)`}
@@ -563,8 +563,51 @@ export default function Musicas() {
         </div>
       </section>
 
-      <div className="lauda-table-container musicas-table-container">
-        <table className="lauda-table musicas-table">
+      <div className="musicas-results-shell">
+        {/* FALLBACK MOBILE CARDS */}
+        <div className="musicas-mobile-list">
+           {musicasFiltradas.map((musica) => {
+              const classificacao = musica.classificacao_meta || MUSIC_CLASSIFICATION_MAP[musica.classificacao];
+              return (
+                 <div key={musica.id} className="lauda-card musica-mobile-card">
+                    <div className="flex justify-between items-start">
+                       <div>
+                         <h4 className="font-semibold text-lg">{musica.titulo}</h4>
+                         <p className="text-sm text-muted-foreground">{musica.artista || "Sem artista"}</p>
+                       </div>
+                       {classificacao && (
+                         <span className="badge badge-gray">{classificacao.label}</span>
+                       )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                       <span className="border px-2 py-0.5 rounded-md font-medium text-foreground bg-secondary">Tom: {musica.tom_original || "-"}</span>
+                       <span>BPM: {musica.bpm || "-"}</span>
+                       <span>C: {musica.compasso || "-"}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                       {musica.link_youtube && <a href={musica.link_youtube} target="_blank" rel="noreferrer" className="musica-link-pill musica-link-pill-danger"><Play size={14} aria-hidden="true" /> Vídeo</a>}
+                       {musica.link_cifra && <a href={musica.link_cifra} target="_blank" rel="noreferrer" className="musica-link-pill musica-link-pill-primary"><Guitar size={14} aria-hidden="true" /> Cifra</a>}
+                    </div>
+                    <div className="flex gap-2 justify-end mt-2 pt-3 border-t">
+                       <button type="button" className="lauda-btn lauda-btn-secondary musica-table-btn musica-table-icon-btn" onClick={() => handleVerMusica(musica)}><Eye size={16} aria-hidden="true" /></button>
+                       {canManageMusic && (
+                         <>
+                           <button type="button" className="lauda-btn lauda-btn-secondary musica-table-btn musica-table-icon-btn" onClick={() => handleEditarMusica(musica)}><Edit2 size={16} aria-hidden="true" /></button>
+                           <button type="button" className="lauda-btn lauda-btn-secondary musica-table-btn musica-table-icon-btn musica-delete-btn" onClick={() => handleExcluirMusica(musica.id)}><Trash2 size={16} aria-hidden="true" /></button>
+                         </>
+                       )}
+                    </div>
+                 </div>
+              );
+           })}
+           {musicasFiltradas.length === 0 && (
+             <div className="p-8 text-center text-muted-foreground border border-dashed rounded-lg">Nenhuma música encontrada com os filtros informados.</div>
+           )}
+        </div>
+
+        {/* DESKTOP TABLE */}
+        <div className="lauda-card musicas-results-card musicas-table-container">
+          <table className="musicas-table">
           <thead>
             <tr>
               <th>Música e Artista</th>
@@ -710,6 +753,7 @@ export default function Musicas() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
       {isModalOpen && (
         <div className="modal-overlay" role="presentation">

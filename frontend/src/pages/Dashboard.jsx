@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import ptBrLocale from "@fullcalendar/core/locales/pt-br";
-import { Calendar } from "lucide-react";
+import { Calendar, ClipboardList, Music2, Users } from "lucide-react";
+
 import { useAuth } from "../context/AuthContext";
 import { authFetch } from "../lib/api";
 import "./Dashboard.css";
@@ -68,8 +69,6 @@ export default function Dashboard() {
           musicasResult.status === "fulfilled" ? musicasResult.value : [];
         const membros =
           membrosResult.status === "fulfilled" ? membrosResult.value : [];
-        const cultos =
-          cultosResult.status === "fulfilled" ? cultosResult.value : [];
         const eventos =
           eventosResult.status === "fulfilled" ? eventosResult.value : [];
 
@@ -137,6 +136,8 @@ export default function Dashboard() {
     return <div className="dashboard-loading">Carregando painel...</div>;
   }
 
+  const nextEvento = proximosEventos[0] || null;
+
   const eventosAgenda = proximosEventos.map((evento) => ({
     id: String(evento.id),
     title: evento.nome,
@@ -163,26 +164,70 @@ export default function Dashboard() {
 
   return (
     <div className="stack-lg">
-      {dashboardNotice && (
+      {dashboardNotice ? (
         <div className="status-alert status-alert--error">
           {dashboardNotice}
         </div>
-      )}
+      ) : null}
+
+      <section className="dashboard-hero">
+        <div className="dashboard-hero__copy">
+          <span className="badge badge-primary">Painel institucional</span>
+          <div className="page-title-group">
+            <h2 className="dashboard-hero__title">
+              Bem-vinda, @{user?.username || "usuario"}
+            </h2>
+            <p className="text-muted dashboard-hero__subtitle">
+              Visao rapida da agenda, repertorio e atividade do ministerio atual.
+            </p>
+          </div>
+        </div>
+
+        <div className="dashboard-hero__spotlight">
+          <span className="dashboard-hero__spotlight-label">Proximo compromisso</span>
+          {nextEvento ? (
+            <>
+              <strong>{nextEvento.nome}</strong>
+              <span>
+                {dashboardDateFormatter.format(new Date(nextEvento.data))}
+              </span>
+              <small>{nextEvento.local || "Local a confirmar"}</small>
+            </>
+          ) : (
+            <>
+              <strong>Nenhum evento futuro</strong>
+              <span>Cadastre um evento ou culto para alimentar a agenda.</span>
+            </>
+          )}
+        </div>
+      </section>
 
       <div className="dashboard-grid">
         <div className="lauda-card stat-card">
+          <span className="stat-card__icon">
+            <ClipboardList size={18} aria-hidden="true" />
+          </span>
           <h3>{stats.eventos}</h3>
           <p>Eventos na Agenda</p>
         </div>
         <div className="lauda-card stat-card">
+          <span className="stat-card__icon">
+            <Music2 size={18} aria-hidden="true" />
+          </span>
           <h3>{stats.musicas}</h3>
-          <p>Músicas</p>
+          <p>Musicas</p>
         </div>
         <div className="lauda-card stat-card">
+          <span className="stat-card__icon">
+            <Users size={18} aria-hidden="true" />
+          </span>
           <h3>{stats.membros}</h3>
           <p>Membros Ativos</p>
         </div>
         <div className="lauda-card stat-card">
+          <span className="stat-card__icon">
+            <Calendar size={18} aria-hidden="true" />
+          </span>
           <h3>{stats.minhasEscalas}</h3>
           <p>Minhas Escalas</p>
         </div>
@@ -196,7 +241,7 @@ export default function Dashboard() {
           {proximosEventos.length > 0 ? (
             <>
               <div className="dashboard-calendar-highlight">
-                <span className="badge badge-primary">Próximo evento</span>
+                <span className="badge badge-primary">Proximo evento</span>
                 <strong>{proximosEventos[0]?.nome}</strong>
                 <span>
                   {new Date(proximosEventos[0]?.data).toLocaleDateString(
@@ -250,7 +295,7 @@ export default function Dashboard() {
                 eventMouseLeave={() => setCalendarTooltip(null)}
               />
 
-              {calendarTooltip && (
+              {calendarTooltip ? (
                 <div
                   className="dashboard-calendar-tooltip"
                   style={{
@@ -260,20 +305,20 @@ export default function Dashboard() {
                 >
                   <strong>{calendarTooltip.title}</strong>
                   <span>{calendarTooltip.status}</span>
-                  <span>{calendarTooltip.local || "Local não informado"}</span>
+                  <span>{calendarTooltip.local || "Local nao informado"}</span>
                 </div>
-              )}
+              ) : null}
             </>
           ) : (
             <div className="empty-state">
               <h3>Nenhum evento agendado</h3>
-              <p>Cadastre um novo evento ou culto para começar a montar sua agenda.</p>
+              <p>Cadastre um novo evento ou culto para comecar a montar sua agenda.</p>
             </div>
           )}
         </div>
       </section>
 
-      {selectedEvento && (
+      {selectedEvento ? (
         <div className="modal-overlay" role="presentation">
           <div
             className="modal modal-compact dashboard-culto-modal"
@@ -298,11 +343,11 @@ export default function Dashboard() {
             <div className="modal-body dashboard-culto-modal-body">
               <div className="dashboard-culto-modal-row">
                 <span className="badge badge-primary">
-                  {selectedEvento.is_music_culto ? "Culto Musical" : "Evento Base"}
+                  {selectedEvento.is_music_culto
+                    ? "Culto Musical"
+                    : "Evento Base"}
                 </span>
-                <span className="badge badge-gray">
-                  {selectedEvento.status}
-                </span>
+                <span className="badge badge-gray">{selectedEvento.status}</span>
                 <span className="dashboard-culto-modal-date">
                   {dashboardDateFormatter.format(new Date(selectedEvento.data))}
                 </span>
@@ -310,20 +355,22 @@ export default function Dashboard() {
               <div className="dashboard-culto-modal-grid">
                 <div>
                   <strong>Local</strong>
-                  <span>{selectedEvento.local || "Não informado"}</span>
+                  <span>{selectedEvento.local || "Nao informado"}</span>
                 </div>
                 <div>
-                  <strong>Ministério</strong>
-                  <span>{selectedEvento.ministerio_nome || "Agenda da igreja"}</span>
+                  <strong>Ministerio</strong>
+                  <span>
+                    {selectedEvento.ministerio_nome || "Agenda da igreja"}
+                  </span>
                 </div>
                 <div>
-                  <strong>Início</strong>
+                  <strong>Inicio</strong>
                   <span>
                     {selectedEvento.horario_inicio?.substring(0, 5) || "--:--"}
                   </span>
                 </div>
                 <div>
-                  <strong>Término</strong>
+                  <strong>Termino</strong>
                   <span>
                     {selectedEvento.horario_termino?.substring(0, 5) || "--:--"}
                   </span>
@@ -342,7 +389,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
