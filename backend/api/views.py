@@ -30,10 +30,7 @@ from .models import (
 )
 from .permissions import (
     AuthenticatedReadOnlyOrManageAgenda,
-    AuthenticatedReadOnlyOrManageCultos,
     AuthenticatedReadOnlyOrManageEscalas,
-    AuthenticatedReadOnlyOrManageMusic,
-    AuthenticatedReadOnlyOrManageSetlists,
     HasChurchCapability,
 )
 from .serializers import (
@@ -73,12 +70,13 @@ from .services.institutional_context import (
     get_user_ministerio_membership,
     sync_user_memberships,
 )
-from .services.governance import derive_audit_context, get_governance_snapshot
+from .services.governance import get_governance_snapshot
 from .services.module_blueprint import build_module_expansion_blueprint
-from .services.music_module import apply_music_enrichment
 from .services.session_payload import build_auth_payload, build_user_payload
-from .services.music_facade import MusicFacade
 from .view_mixins import MinistryScopedViewSetMixin
+from institutions.services import generate_unique_access_code
+from system.permissions import CanManageCulto, CanManageMusic
+from system.services import registrar_log
 
 
 class AuditoriaPagination(PageNumberPagination):
@@ -92,28 +90,6 @@ def get_client_ip(request):
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
     return request.META.get("REMOTE_ADDR")
-
-
-def registrar_log(user, acao, modelo, descricao, instance=None, modulo=None, igreja=None, ministerio=None):
-    if user and user.is_authenticated:
-        context = derive_audit_context(
-            user=user,
-            instance=instance,
-            modulo=modulo,
-            igreja=igreja,
-            ministerio=ministerio,
-            modelo=modelo,
-        )
-        LogAuditoria.objects.create(
-            usuario=user,
-            igreja=context["igreja"],
-            ministerio=context["ministerio"],
-            escopo=context["escopo"],
-            modulo=context["modulo"],
-            acao=acao,
-            modelo_afetado=modelo,
-            descricao=descricao,
-        )
 
 
 def resolve_access_code(code):
@@ -275,30 +251,6 @@ class MinistryTokenObtainPairView(TokenObtainPairView):
 
 class AdminTokenObtainPairView(TokenObtainPairView):
     serializer_class = AdminTokenObtainPairSerializer
-
-
-class AdminImpersonateView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        user = request.user
-        if not (user.is_global_admin or user.is_superuser):
-            return Response(
-                {"detail": "Acesso negado. Apenas admins globais podem assumir ministerios."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        ministry = None
-        ministry_id = normalize_ministry_id(request.data.get("ministerio_id"))
-        if ministry_id is not None:
-            ministry = Ministerio.objects.filter(id=ministry_id).first()
-            if ministry is None:
-                return Response(
-                    {"detail": "Ministerio nao encontrado."},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-        return Response(build_auth_payload(user, scoped_ministry=ministry))
 
 
 class MemberLoginView(APIView):
@@ -579,28 +531,22 @@ class MinisterioViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], permission_classes=[IsAdminLevel], url_path="regenerate-access-code")
     def regenerate_access_code(self, request, pk=None):
         ministry = self.get_object()
-        user = request.user
-        if not (user.is_global_admin or user.is_superuser) and user.ministerio_id != ministry.id:
-            return Response({"detail": "Voce nao pode regenerar o codigo de outro ministerio."}, status=status.HTTP_403_FORBIDDEN)
-
-        for _ in range(5):
-            ministry.access_code = Ministerio._meta.get_field("access_code").default()
-            try:
-                ministry.save(update_fields=["access_code", "updated_at"])
-                break
-            except Exception:  # pragma: no cover
-                continue
-        else:  # pragma: no cover
-            return Response({"detail": "Nao foi possivel regenerar o codigo agora."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        with transaction.atomic():
+            new_code = generate_unique_access_code()
+            ministry.access_code = new_code
+            ministry.save(update_fields=["access_code", "updated_at"])
 
         registrar_log(
-            user,
+            request.user,
             "UPDATE",
             "Ministerio",
-            f'Codigo de acesso regenerado para o ministerio "{ministry.nome}".',
+            f'Codigo de acesso do ministerio "{ministry.nome}" regenerado.',
             instance=ministry,
         )
-        return Response(self.get_serializer(ministry).data)
+        return Response(
+            {"access_code": new_code, "message": "Codigo regenerado com sucesso."},
+            status=status.HTTP_200_OK,
+        )
 
 
 class ConviteMinisterioViewSet(viewsets.ModelViewSet):
@@ -620,9 +566,35 @@ class ConviteMinisterioViewSet(viewsets.ModelViewSet):
 
 
 class UsuarioViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
-    queryset = Usuario.objects.select_related("ministerio", "ministerio__igreja").all()
+    queryset = Usuario.objects.all()
     serializer_class = UsuarioSerializer
     permission_classes = [IsAdminLevel]
+
+    def get_queryset(self):
+        queryset = Usuario.objects.prefetch_related(
+            "vinculos_ministerio",
+            "vinculos_ministerio__ministerio",
+            "vinculos_igreja",
+            "vinculos_igreja__igreja",
+            "permission_grants",
+        ).all()
+
+        effective_ministry = self.get_effective_request_ministry()
+        if self.is_global_admin():
+            if effective_ministry is None:
+                return queryset
+            return queryset.filter(
+                vinculos_ministerio__ministerio=effective_ministry,
+                vinculos_ministerio__is_active=True,
+            ).distinct()
+
+        if effective_ministry is None:
+            return queryset.none()
+
+        return queryset.filter(
+            vinculos_ministerio__ministerio=effective_ministry,
+            vinculos_ministerio__is_active=True,
+        ).distinct()
 
     def build_me_response(self, user):
         data = self.get_serializer(user).data
@@ -700,7 +672,14 @@ class EventoViewSet(viewsets.ModelViewSet):
     permission_classes = [AuthenticatedReadOnlyOrManageAgenda]
 
     def get_queryset(self):
-        queryset = get_visible_eventos_queryset(self.request.user, getattr(self.request, "auth", None))
+        queryset = get_visible_eventos_queryset(self.request.user, getattr(self.request, "auth", None)).select_related(
+            "igreja",
+            "ministerio",
+        ).prefetch_related(
+            "culto_musical",
+            "culto_musical__setlists",
+            "culto_musical__escalas",
+        )
         status_param = self.request.query_params.get("status")
         source_module = self.request.query_params.get("source_module")
         ministerio_id = normalize_ministry_id(self.request.query_params.get("ministerio"))
@@ -752,111 +731,23 @@ class EventoViewSet(viewsets.ModelViewSet):
         registrar_log(self.request.user, "DELETE", "Evento", f'Evento "{nome}" excluido.', instance=evento)
 
 
-class MusicaViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
-    queryset = Musica.objects.all()
-    serializer_class = MusicaSerializer
-    permission_classes = [AuthenticatedReadOnlyOrManageMusic]
-    authorization_module = MODULE_KEY_MUSIC
-
-    def get_queryset(self):
-        return Musica.objects.all()
-
-    def perform_create(self, serializer):
-        instance = serializer.save(ministerio=None)
-        registrar_log(
-            self.request.user,
-            "CREATE",
-            "Musica",
-            f'Musica "{instance.titulo}" criada.',
-            instance=instance,
-            modulo=MODULE_KEY_MUSIC,
-        )
-
-    def perform_update(self, serializer):
-        is_active_before = serializer.instance.is_active
-        instance = serializer.save(ministerio=None)
-        if is_active_before and not instance.is_active:
-            registrar_log(
-                self.request.user,
-                "DELETE",
-                "Musica",
-                f'Musica "{instance.titulo}" movida para lixeira.',
-                instance=instance,
-                modulo=MODULE_KEY_MUSIC,
-            )
-        else:
-            registrar_log(
-                self.request.user,
-                "UPDATE",
-                "Musica",
-                f'Musica "{instance.titulo}" atualizada.',
-                instance=instance,
-                modulo=MODULE_KEY_MUSIC,
-            )
-
-    def perform_destroy(self, instance):
-        titulo = instance.titulo
-        musica = instance
-        instance.delete()
-        registrar_log(
-            self.request.user,
-            "DELETE",
-            "Musica",
-            f'Musica "{titulo}" deletada definitivamente.',
-            instance=musica,
-            modulo=MODULE_KEY_MUSIC,
-        )
-
-    @action(detail=False, methods=["post"], permission_classes=[AuthenticatedReadOnlyOrManageMusic], url_path="enriquecer")
-    def enriquecer(self, request):
-        serializer = MusicEnrichmentRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        facade = MusicFacade()
-
-        try:
-            data = facade.find_complete_music_data(**serializer.validated_data)
-        except ValueError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        except LookupError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
-        except RuntimeError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        except Exception as exc:  # pragma: no cover
-            return Response(
-                {"detail": f"Falha ao consultar provedores externos: {exc}"},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
-
-        return Response(data)
-
-    @action(detail=True, methods=["post"], permission_classes=[AuthenticatedReadOnlyOrManageMusic], url_path="sincronizar-metadados")
-    def sincronizar_metadados(self, request, pk=None):
-        musica = self.get_object()
-        facade = MusicFacade()
-
-        try:
-            enrichment = facade.find_complete_music_data(title=musica.titulo, artist=musica.artista)
-        except Exception as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        apply_music_enrichment(musica, enrichment)
-        musica.save()
-        registrar_log(
-            self.request.user,
-            "UPDATE",
-            "Musica",
-            f'Metadados externos de "{musica.titulo}" sincronizados.',
-            instance=musica,
-            modulo=MODULE_KEY_MUSIC,
-        )
-        return Response(self.get_serializer(musica).data)
-
-
 class CultoViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
     queryset = Culto.objects.all()
     serializer_class = CultoSerializer
-    permission_classes = [AuthenticatedReadOnlyOrManageCultos]
+    permission_classes = [CanManageCulto]
     authorization_module = MODULE_KEY_MUSIC
+
+    def get_queryset(self):
+        queryset = Culto.objects.select_related(
+            "ministerio",
+            "evento",
+            "evento__igreja",
+            "evento__ministerio",
+        ).prefetch_related(
+            "setlists",
+            "escalas",
+        )
+        return self.apply_ministry_scope(queryset)
 
     def perform_create(self, serializer):
         ministry = self.require_ministry(self.get_effective_ministry(serializer.validated_data.get("ministerio")))
@@ -948,7 +839,7 @@ class EscalaViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
 class ItemSetlistViewSet(MinistryScopedViewSetMixin, viewsets.ModelViewSet):
     queryset = ItemSetlist.objects.all()
     serializer_class = ItemSetlistSerializer
-    permission_classes = [AuthenticatedReadOnlyOrManageSetlists]
+    permission_classes = [CanManageMusic]
     authorization_module = MODULE_KEY_MUSIC
 
     def validate_related_objects(self, serializer):

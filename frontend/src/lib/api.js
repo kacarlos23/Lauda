@@ -35,6 +35,20 @@ export async function parseApiResponse(response) {
   const fallbackText = isJson ? "" : (await response.text()).trim();
 
   if (response.ok) {
+    if (
+      data &&
+      typeof data === "object" &&
+      Array.isArray(data.results) &&
+      Object.prototype.hasOwnProperty.call(data, "count")
+    ) {
+      return Object.assign([...data.results], {
+        results: data.results,
+        count: data.count,
+        next: data.next,
+        previous: data.previous,
+      });
+    }
+
     return data;
   }
 

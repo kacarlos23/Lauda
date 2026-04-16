@@ -1,12 +1,15 @@
 ﻿﻿import { useCallback, useEffect, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
+import { useRef } from "react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import timeGridPlugin from "@fullcalendar/timegrid";
 import ptBrLocale from "@fullcalendar/core/locales/pt-br";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
   MapPin,
   Tag,
   Users,
@@ -30,6 +33,76 @@ const ESTADO_INICIAL_CULTO = {
   horario_termino: "",
   local: "",
   status: "AGENDADO",
+};
+
+const CALENDAR_WEEKDAY_LABELS = [
+  "dom.",
+  "seg.",
+  "ter.",
+  "qua.",
+  "qui.",
+  "sex.",
+  "sab.",
+];
+
+const monthLabelFormatter = new Intl.DateTimeFormat("pt-BR", {
+  month: "long",
+  year: "numeric",
+});
+
+const selectedDateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  weekday: "long",
+  day: "2-digit",
+  month: "long",
+});
+
+const getDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatMonthLabel = (date) => {
+  const baseLabel = monthLabelFormatter.format(date);
+  return baseLabel.charAt(0).toUpperCase() + baseLabel.slice(1);
+};
+
+const formatSelectedDateLabel = (dateKey) => {
+  if (!dateKey) {
+    return "";
+  }
+
+  const label = selectedDateFormatter.format(new Date(`${dateKey}T00:00:00`));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
+
+const getRelativeDateLabel = (dateKey) => {
+  if (!dateKey) {
+    return "";
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const target = new Date(`${dateKey}T00:00:00`);
+  target.setHours(0, 0, 0, 0);
+
+  const diffInDays = Math.round((target - today) / 86400000);
+
+  if (diffInDays === 0) {
+    return "Hoje";
+  }
+
+  if (diffInDays === 1) {
+    return "Amanha";
+  }
+
+  if (diffInDays === -1) {
+    return "Ontem";
+  }
+
+  return diffInDays > 1 ? `Em ${diffInDays} dias` : `${Math.abs(diffInDays)} dias atras`;
 };
 
 export default function Cultos() {
@@ -56,6 +129,9 @@ export default function Cultos() {
   const [mobileActionsCultoId, setMobileActionsCultoId] = useState(null);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const [pageNotice, setPageNotice] = useState("");
+  const [calendarTitle, setCalendarTitle] = useState("");
+  const [selectedDateKey, setSelectedDateKey] = useState("");
+  const calendarRef = useRef(null);
 
   const canManageCultos = permissions.canManageCultos;
   const canManageEscalas = permissions.canManageEscalas;
@@ -202,6 +278,30 @@ export default function Cultos() {
       })),
     [cultosFiltrados],
   );
+
+  const cultosFiltradosOrdenados = [...cultosFiltrados].sort((a, b) => {
+    const dateA = `${a.data || ""}T${a.horario_inicio || "00:00:00"}`;
+    const dateB = `${b.data || ""}T${b.horario_inicio || "00:00:00"}`;
+    return new Date(dateA) - new Date(dateB);
+  });
+
+  const cultosPorData = cultosFiltradosOrdenados.reduce((acc, culto) => {
+    if (!culto.data) {
+      return acc;
+    }
+
+    if (!acc[culto.data]) {
+      acc[culto.data] = [];
+    }
+
+    acc[culto.data].push(culto);
+    return acc;
+  }, {});
+
+  const cultosSelecionados = selectedDateKey
+    ? cultosPorData[selectedDateKey] || []
+    : [];
+  const hasSelectedDate = Boolean(selectedDateKey);
 
   const handleChangeCulto = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -514,6 +614,25 @@ export default function Cultos() {
       !setlistAtual.some((item) => item.musica === musica.id),
   );
 
+  const handleCalendarNavigate = (direction) => {
+    const api = calendarRef.current?.getApi();
+    if (!api) {
+      return;
+    }
+
+    if (direction === "prev") {
+      api.prev();
+      return;
+    }
+
+    if (direction === "next") {
+      api.next();
+      return;
+    }
+
+    api.today();
+  };
+
   return (
     <div className="cultos-page">
       {pageNotice && (
@@ -692,44 +811,166 @@ export default function Cultos() {
         </div>
       ) : (
         <div className="calendar-wrapper">
-          <FullCalendar
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            headerToolbar={{
-              left: "title",
-              center: "",
-              right: "prev,next today",
-            }}
-            events={transformarCultosParaCalendar()}
-            eventClick={(info) => {
-              const culto = cultos.find(
-                (item) => String(item.id) === info.event.id,
-              );
-              if (culto) abrirModalSetlist(culto);
-            }}
-            eventContent={(eventInfo) => (
-              <div className="fc-event-content">
-                <span className="fc-event-title">{eventInfo.event.title}</span>
-                <span className="fc-event-time">
-                  {eventInfo.event.extendedProps.horario_inicio}
-                </span>
+          <div className="calendar-shell">
+            <div className="calendar-shell__header">
+              <div className="calendar-shell__heading">
+                <span className="calendar-shell__eyebrow">Agenda de cultos</span>
+                <strong>{calendarTitle || formatMonthLabel(new Date())}</strong>
               </div>
-            )}
-            locale={ptBrLocale}
-            height="auto"
-            contentHeight="auto"
-            expandRows={true}
-            fixedWeekCount={false}
-            editable={false}
-            droppable={false}
-            selectable={false}
-            buttonText={{
-              today: "Hoje",
-              month: "Mês",
-              week: "Semana",
-              day: "Dia",
-            }}
-          />
+
+              <button
+                type="button"
+                className="lauda-btn lauda-btn-secondary calendar-shell__today-btn"
+                onClick={() => handleCalendarNavigate("today")}
+              >
+                Hoje
+              </button>
+
+              <div className="calendar-shell__actions">
+                <button
+                  type="button"
+                  className="lauda-btn lauda-btn-secondary calendar-shell__nav-btn"
+                  onClick={() => handleCalendarNavigate("prev")}
+                  aria-label="Mes anterior"
+                >
+                  <ChevronLeft
+                    className="calendar-shell__nav-icon"
+                    size={18}
+                    strokeWidth={2.35}
+                    absoluteStrokeWidth
+                    aria-hidden="true"
+                    focusable="false"
+                  />
+                </button>
+                <button
+                  type="button"
+                  className="lauda-btn lauda-btn-secondary calendar-shell__nav-btn"
+                  onClick={() => handleCalendarNavigate("next")}
+                  aria-label="Proximo mes"
+                >
+                  <ChevronRight
+                    className="calendar-shell__nav-icon"
+                    size={18}
+                    strokeWidth={2.35}
+                    absoluteStrokeWidth
+                    aria-hidden="true"
+                    focusable="false"
+                  />
+                </button>
+              </div>
+            </div>
+
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[dayGridPlugin, interactionPlugin]}
+              initialView="dayGridMonth"
+              headerToolbar={false}
+              events={transformarCultosParaCalendar()}
+              eventClick={(info) => {
+                const culto = cultos.find(
+                  (item) => String(item.id) === info.event.id,
+                );
+                if (culto) abrirModalSetlist(culto);
+              }}
+              eventContent={() => <span className="cultos-calendar-dot" aria-hidden="true" />}
+              eventClassNames={(arg) => [
+                "cultos-calendar-event",
+                `cultos-calendar-event--${String(
+                  arg.event.extendedProps.status || "AGENDADO",
+                ).toLowerCase()}`,
+              ]}
+              dayHeaderContent={(arg) => CALENDAR_WEEKDAY_LABELS[arg.date.getDay()]}
+              dayCellClassNames={(arg) => {
+                const dateKey = getDateKey(arg.date);
+                return [
+                  "cultos-calendar-day",
+                  selectedDateKey === dateKey ? "cultos-calendar-day--selected" : "",
+                  arg.isToday ? "cultos-calendar-day--today" : "",
+                ];
+              }}
+              dateClick={(info) => setSelectedDateKey(info.dateStr)}
+              datesSet={(info) => setCalendarTitle(formatMonthLabel(info.view.currentStart))}
+              locale={ptBrLocale}
+              height="auto"
+              contentHeight="auto"
+              expandRows={true}
+              fixedWeekCount={false}
+              editable={false}
+              droppable={false}
+              selectable={false}
+              dayMaxEventRows={4}
+              eventOrder="start"
+            />
+          </div>
+
+          {hasSelectedDate ? (
+            <div className="calendar-agenda">
+              <div className="calendar-agenda__header">
+                <h3>{formatSelectedDateLabel(selectedDateKey)}</h3>
+                <span>{getRelativeDateLabel(selectedDateKey)}</span>
+              </div>
+
+              {cultosSelecionados.length > 0 ? (
+                <div className="calendar-agenda__list">
+                  {cultosSelecionados.map((culto) => (
+                    <article key={culto.id} className="calendar-agenda__item">
+                      <div className="calendar-agenda__item-main">
+                        <strong>{culto.nome}</strong>
+                        <span>
+                          <Clock3 size={15} aria-hidden="true" />
+                          {culto.horario_inicio?.substring(0, 5) || "--:--"}
+                          {culto.horario_termino
+                            ? ` - ${culto.horario_termino.substring(0, 5)}`
+                            : ""}
+                        </span>
+                        <span>
+                          <MapPin size={15} aria-hidden="true" />
+                          {culto.local || "Local a confirmar"}
+                        </span>
+                      </div>
+
+                      <div className="calendar-agenda__item-meta">
+                        <span
+                          className={`badge ${
+                            culto.status === "AGENDADO" ? "badge-primary" : "badge-gray"
+                          }`}
+                        >
+                          {culto.status}
+                        </span>
+
+                        <div className="calendar-agenda__item-actions">
+                          <button
+                            type="button"
+                            className="lauda-btn lauda-btn-primary culto-action-btn"
+                            onClick={() => abrirModalSetlist(culto)}
+                          >
+                            <Music size={16} /> Setlist
+                          </button>
+                          {canManageEscalas ? (
+                            <button
+                              type="button"
+                              className="lauda-btn lauda-btn-secondary culto-action-btn"
+                              onClick={() => abrirModalEscala(culto)}
+                            >
+                              <Users size={16} /> Escala
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="calendar-agenda__empty-notice" role="status">
+                  <div className="calendar-agenda__empty-illustration" aria-hidden="true" />
+                  <strong>Lista vazia.</strong>
+                  <p>Nenhum culto cadastrado para o dia selecionado.</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="calendar-agenda calendar-agenda--idle" aria-hidden="true" />
+          )}
         </div>
       )}
 

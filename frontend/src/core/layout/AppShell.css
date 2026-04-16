@@ -1,0 +1,452 @@
+.lauda-shell {
+  display: grid;
+  min-height: 100svh;
+  grid-template-columns: auto minmax(0, 1fr);
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 28%),
+    var(--bg-page);
+}
+
+.lauda-shell__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  border: 0;
+  background: rgba(15, 23, 42, 0.56);
+  backdrop-filter: blur(4px);
+}
+
+.lauda-shell__sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  height: 100svh;
+  width: 288px;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border-default);
+  background:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.08), transparent 20%),
+    var(--bg-surface);
+  transition:
+    width var(--transition-base),
+    transform var(--transition-base);
+}
+
+.lauda-shell__sidebar.is-collapsed {
+  width: 94px;
+}
+
+.lauda-shell__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.5rem 1.25rem 1.25rem;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.lauda-shell__brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--interactive-primary), var(--interactive-primary-hover));
+  color: var(--text-inverse);
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.22);
+  flex-shrink: 0;
+}
+
+.lauda-shell__brand-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.lauda-shell__brand-copy strong {
+  font-size: 1rem;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.lauda-shell__brand-copy span:last-child,
+.lauda-shell__subtitle,
+.lauda-shell__profile-meta {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.lauda-shell__eyebrow,
+.lauda-shell__nav-title {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lauda-shell__nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 0.9rem;
+}
+
+.lauda-shell__nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.lauda-shell__nav-section + .lauda-shell__nav-section {
+  margin-top: 1.2rem;
+}
+
+.lauda-shell__nav-title {
+  padding: 0 0.75rem;
+}
+
+.lauda-shell__nav-items {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.lauda-shell__nav-link,
+.lauda-shell__utility-button,
+.lauda-shell__settings-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.lauda-shell__nav-link:hover,
+.lauda-shell__utility-button:hover,
+.lauda-shell__settings-link:hover {
+  background: var(--bg-surface-subtle);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.lauda-shell__nav-link.is-active {
+  border-color: rgba(37, 99, 235, 0.18);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0.04));
+  color: var(--interactive-primary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.lauda-shell__nav-link.is-icon-only,
+.lauda-shell__utility-button.is-icon-only {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.lauda-shell__nav-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.lauda-shell__nav-label {
+  font-weight: 600;
+}
+
+.lauda-shell__sidebar-footer {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem 0.9rem 1.15rem;
+  border-top: 1px solid var(--border-default);
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(248, 250, 252, 1));
+  box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.06);
+}
+
+body.dark-mode .lauda-shell__sidebar-footer {
+  background:
+    linear-gradient(180deg, rgba(22, 32, 51, 0.92), rgba(22, 32, 51, 1));
+  box-shadow: 0 -12px 28px rgba(2, 6, 23, 0.28);
+}
+
+.lauda-shell__utility-button {
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.lauda-shell__utility-button.is-danger {
+  color: var(--status-danger-text);
+}
+
+.lauda-shell__utility-button.is-danger:hover {
+  background: var(--status-danger-bg);
+  border-color: var(--status-danger-border);
+  color: var(--status-danger-text);
+}
+
+.lauda-shell__main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.lauda-shell__topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.1rem 1.5rem;
+  border-bottom: 1px solid var(--border-default);
+  background: rgba(248, 250, 252, 0.82);
+  backdrop-filter: blur(18px);
+}
+
+body.dark-mode .lauda-shell__topbar {
+  background: rgba(15, 23, 42, 0.82);
+}
+
+.lauda-shell__topbar-left,
+.lauda-shell__topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.lauda-shell__title-group {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.lauda-shell__title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--text-primary);
+}
+
+.lauda-shell__title-row strong {
+  font-size: clamp(1.05rem, 1vw + 0.85rem, 1.35rem);
+}
+
+.lauda-shell__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.lauda-shell__icon-button:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--bg-surface-subtle);
+  transform: translateY(-1px);
+}
+
+.lauda-shell__profile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  padding: 0.25rem 0 0.25rem 1rem;
+  border-left: 1px solid var(--border-default);
+}
+
+.lauda-shell__profile-handle {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.lauda-shell__page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.lauda-shell__scope-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.3rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.06), transparent 44%),
+    var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.lauda-shell__scope-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.lauda-shell__scope-copy h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 1rem;
+}
+
+.lauda-shell__scope-copy p {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+}
+
+.lauda-shell__scope-select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.lauda-shell__settings-modal .modal-body {
+  gap: 1rem;
+}
+
+.lauda-shell__settings-notice {
+  background: var(--interactive-primary-soft);
+  color: var(--interactive-primary);
+  border-color: rgba(37, 99, 235, 0.18);
+}
+
+.lauda-shell__settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-subtle);
+}
+
+.lauda-shell__settings-row strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.92rem;
+}
+
+.lauda-shell__settings-row span {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.lauda-shell__settings-links {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.lauda-shell__settings-link {
+  justify-content: space-between;
+  background: var(--bg-surface);
+  cursor: pointer;
+  font: inherit;
+}
+
+@media (max-width: 980px) {
+  .lauda-shell__scope-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .lauda-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .lauda-shell__sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    height: 100svh;
+    width: min(86vw, 320px);
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .lauda-shell__sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .lauda-shell__sidebar.is-collapsed {
+    width: min(86vw, 320px);
+  }
+
+  .lauda-shell__topbar {
+    padding: 1rem;
+  }
+
+  .lauda-shell__profile {
+    display: none;
+  }
+
+  .lauda-shell__page {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .lauda-shell__topbar {
+    align-items: flex-start;
+  }
+
+  .lauda-shell__topbar-left {
+    min-width: 0;
+  }
+
+  .lauda-shell__title-group {
+    min-width: 0;
+  }
+
+  .lauda-shell__subtitle {
+    max-width: 100%;
+  }
+
+  .lauda-shell__settings-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

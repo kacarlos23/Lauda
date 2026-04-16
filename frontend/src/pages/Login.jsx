@@ -5,6 +5,8 @@ import { useAuth } from "../context/AuthContext";
 import { buildInvitePath, getAccessCodeFromSearch } from "../lib/accessCode";
 import { apiFetch } from "../lib/api";
 import { resolveMemberDestination } from "../core/auth/access";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import "./Login.css";
 
 export default function Login({ mode = "member" }) {
@@ -158,17 +160,17 @@ export default function Login({ mode = "member" }) {
                 </div>
               )}
 
-              <div className="form-group">
-                <label className="input-label" htmlFor="credential">
+              <div className="form-group grid gap-2">
+                <Label htmlFor="credential">
                   {config.fieldLabel}
-                </label>
+                </Label>
                 <div className="input-wrapper">
-                  <config.icon size={18} className="input-icon" aria-hidden="true" />
-                  <input
+                  <config.icon size={18} className="input-wrapper__icon" aria-hidden="true" />
+                  <Input
                     type="text"
                     name="credential"
                     id="credential"
-                    className="login-input"
+                    className="login-input-field"
                     value={formData.credential}
                     onChange={handleChange}
                     required
@@ -179,17 +181,17 @@ export default function Login({ mode = "member" }) {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="input-label" htmlFor="password">
+              <div className="form-group grid gap-2">
+                <Label htmlFor="password">
                   Sua Senha
-                </label>
+                </Label>
                 <div className="input-wrapper">
-                  <KeyRound size={18} className="input-icon" aria-hidden="true" />
-                  <input
+                  <KeyRound size={18} className="input-wrapper__icon" aria-hidden="true" />
+                  <Input
                     type="password"
                     name="password"
                     id="password"
-                    className="login-input"
+                    className="login-input-field"
                     value={formData.password}
                     onChange={handleChange}
                     required

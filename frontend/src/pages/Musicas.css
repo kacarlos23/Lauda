@@ -56,7 +56,36 @@
 }
 
 .musicas-table {
+  width: 100%;
   min-width: 1100px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.musicas-table thead th {
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-surface-subtle);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.musicas-table tbody td {
+  padding: 1rem 1.1rem;
+  border-top: 1px solid var(--border-default);
+  vertical-align: top;
+}
+
+.musicas-table tbody tr:first-child td {
+  border-top: none;
+}
+
+.musicas-table tbody tr:hover td {
+  background: rgba(37, 99, 235, 0.04);
 }
 
 .musicas-table th:nth-child(1),
@@ -442,6 +471,22 @@ body.dark-mode .musica-link-label {
 }
 
 @media (max-width: 768px) {
+  .musicas-toolbar-top {
+    align-items: stretch;
+  }
+
+  .musicas-header-btn {
+    width: 100%;
+  }
+
+  .musicas-mobile-list {
+    display: flex;
+  }
+
+  .musicas-results-card {
+    display: none;
+  }
+
   .musicas-filtros-grid,
   .musica-preview-surface,
   .musica-enrichment-debug-grid {
@@ -495,4 +540,86 @@ body.dark-mode .musica-link-label {
   .musica-enrichment-debug-header {
     align-items: flex-start;
   }
+}
+.musicas-header-btn {
+  min-width: 168px;
+}
+
+.musicas-toolbar-card {
+  gap: 1.25rem;
+}
+
+.musicas-toolbar-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.musicas-toolbar-title {
+  color: var(--text-primary);
+  font-size: 1.15rem;
+}
+
+.musicas-toolbar-copy {
+  margin-top: 0.35rem;
+}
+
+.musicas-result-count {
+  min-height: 32px;
+  padding-inline: 0.85rem;
+}
+
+.musicas-results-shell {
+  width: 100%;
+}
+
+.musicas-mobile-list {
+  display: none;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.musica-mobile-card {
+  gap: 1rem;
+  padding: 1.1rem;
+}
+
+.musica-mobile-card__header,
+.musica-mobile-card__actions,
+.musica-mobile-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.musica-mobile-card__title {
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.musica-mobile-card__artist {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.musica-mobile-card__meta {
+  justify-content: flex-start;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.musica-mobile-card__actions {
+  justify-content: flex-end;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-default);
+}
+
+.musicas-results-card {
+  padding: 0;
+  overflow: hidden;
 }
