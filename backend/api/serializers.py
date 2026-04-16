@@ -207,6 +207,11 @@ class MinisterioInvitePublicSerializer(serializers.ModelSerializer):
 
 
 class UsuarioSerializer(serializers.ModelSerializer):
+    ministerio = serializers.PrimaryKeyRelatedField(
+        queryset=Ministerio.objects.all(),
+        required=False,
+        allow_null=True,
+    )
     ministerio_nome = serializers.CharField(source="ministerio.nome", read_only=True)
     ministerio_slug = serializers.CharField(source="ministerio.slug", read_only=True)
     nivel_acesso_label = serializers.CharField(source="get_nivel_acesso_display", read_only=True)
